@@ -1,0 +1,10 @@
+.git
+.gitignore
+*.md
+*.bak
+*.bak_*
+*.csv
+data
+work
+.agents
+.codex
