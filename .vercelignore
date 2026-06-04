@@ -1,10 +1,10 @@
-.git
-.gitignore
+﻿.git
+.vercel
+docs
+data
+archive
 *.md
+*.csv
 *.bak
 *.bak_*
-*.csv
-data
-work
-.agents
-.codex
+

@@ -1,0 +1,79 @@
+﻿<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cost Stack 口径校准</title><style>body{margin:0;background:#f6f7f9;color:#172033;font:15px/1.7 Arial,'Microsoft YaHei',sans-serif}.wrap{max-width:1000px;margin:auto;padding:28px}a{color:#2563eb}pre{white-space:pre-wrap;background:#fff;border:1px solid #d9dee8;border-radius:8px;padding:18px}</style></head><body><div class="wrap"><p><a href="../index.html">返回项目导航</a></p><pre># Wayfair Cost Stack 口径校准与建议复核
+
+更新时间：2026-06-04
+
+## 1. 问题定位
+
+之前部分文档和广告建议把 `WholesaleCost &lt; Total Cost` 误读为“平台口径负毛利”或“Cost Stack 为负”。这是错误口径。
+
+真实 Cost Stack 报表字段显示：
+
+`Total Cost = WholesaleCost + Ship Outbound Cost + Ship Other Cost + Incident And Return Cost + Rebate + Product Allowance Cost + Other Handling Cost`
+
+正确判断平台空间应使用：
+
+`平台空间 = Retail Price Net - Total Cost`
+
+不是：
+
+`WholesaleCost - Total Cost`
+
+## 2. 正确解释
+
+- `WholesaleCost &lt; Total Cost` 是正常现象，因为 `Total Cost` 本来包含 `WholesaleCost` 之外的物流、退货、补贴和处理成本。
+- `WholesaleCost - Total Cost` 只能说明平台额外成本，不代表平台亏损。
+- `Product Allowance Cost` 在当前报表中可能为负值，会抵减 Total Cost，不能简单按“所有成本项相加都是正成本”理解。
+- 是否能广告放量，要同时看卖家真实利润、平台空间、广告表现、CVR、库存、Listing、客诉和退货。
+
+## 3. 广告涉及 SKU 的 Cost Stack 复核
+
+数据源：`Pricing_export_cost_stack_report_March2026_04-28-2026_01-56-12.csv` 与 6 月 WSP Product Report。
+
+| Listing | SKU | Spend | Sales | Orders | ROAS | 平台空间均值 | 平台空间最低值 | 平台空间率均值 | 复核结论 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| DMOM1021 | LFC-2B-680, LFC-2W-680 | 51.49 | 165.99 | 1 | 3.22 | 34.39 | 32.01 | 20.9% | 仍建议保留但不加预算，理由是转化偏弱，不是平台负毛利 |
+| DMOM1020 | MFC-D2-B, MFC-D2-W | 22.37 | 905.94 | 2 | 40.50 | 32.03 | 29.53 | 20.8% | 保留，可小幅加预算，需确认库存和卖家真实利润 |
+| DMOM1022 | MFC-D3-B, MFC-D3-W | 20.50 | 0 | 0 | 0 | 25.25 | 21.09 | 18.1% | 暂停/最低预算仍成立，理由是有花费无转化 |
+| DMOM1025 | LFC-3B, LFC-3W | 20.42 | 0 | 0 | 0 | 46.19 | 39.92 | 21.3% | 暂停/最低预算仍成立，理由是有花费无转化 |
+| DMOM1000 | 货架系列 | 10.15 | 0 | 0 | 0 | 37.83 | 25.55 | 22.6% | 改为承接诊断，不再说负毛利风险 |
+| DMOM1017 | 3T-B, 3T-W | 9.21 | 0 | 0 | 0 | 9.42 | 8.58 | 10.5% | 平台空间偏低，需谨慎；仍要查卖家真实利润 |
+| DMOM1019 | VFC-3B, VFC-3W | 7.78 | 0 | 0 | 0 | 34.21 | 30.45 | 20.8% | 降预算/修 Listing，理由是广告未转化 |
+| DMOM1016 | 5T-wangge | 7.11 | 0 | 0 | 0 | 26.15 | 24.27 | 22.7% | 暂停或低预算观察，先确认 Listing/rank |
+| DMOM1029 | VF-ZH-4B, VF-ZH-4W | 6.35 | 0 | 0 | 0 | 54.55 | 45.33 | 21.0% | 暂停仍成立，理由是广告未转化 |
+| DMOM1042 | PT03-WH | 6.29 | 0 | 0 | 0 | 61.75 | 61.73 | 24.7% | 暂停并修 Listing/rank，不是平台负毛利 |
+| DMOM1023 | VFC-4B, VFC-4W | 5.36 | 0 | 0 | 0 | 42.67 | 36.67 | 21.3% | 暂停仍成立，理由是广告未转化 |
+| DMOM1027 | LFC-4B, LFC-4W | 5.31 | 0 | 0 | 0 | 58.11 | 50.18 | 21.0% | 暂停仍成立，理由是广告未转化 |
+| DMOM1018 | LFC-2B, LFC-2W | 5.10 | 193.99 | 1 | 38.04 | 39.53 | 36.38 | 20.9% | 保留小预算 |
+| DMOM1003 | 4T-Kayak | 4.05 | 194.99 | 1 | 48.15 | 37.90 | 35.35 | 20.6% | 保留小预算 |
+
+## 4. 对旧建议的处理
+
+仍成立：
+
+- 对 0 单且有花费的 SKU，暂停或降到最低预算仍可执行。
+- `DMOM1020`、`DMOM1018`、`DMOM1003` 保留仍成立。
+- 需要补充库存、Listing Health、Review、客诉/退货/扣款和最新 Cost Stack 仍成立。
+
+必须修正：
+
+- 不再用 `WholesaleCost &lt; Total Cost` 判定“平台负毛利”。
+- 不再写“Cost Stack 为负，不能直接放量”这种模糊表述。
+- `DMOM1000 / 5T-1980-1200` 不应再被描述为 Cost Stack 负毛利；它在 March 报表中平台空间为正。
+
+待重算：
+
+- 卖家真实利润仍需用 YB 成本、回款价、广告、客诉/退货/扣款核算。
+- 6 月关键词层因为当前 Keyword 报告实际为 5 月，需重新导出 6 月后再停词。
+- 促销准入必须结合最新 Cost Stack、卖家毛利、库存、客诉和折扣比例。
+
+## 5. 防错规则
+
+以后凡涉及 Cost Stack，必须按以下顺序写结论：
+
+1. 先列明数据源日期。
+2. 先算 `Retail Price Net - Total Cost`。
+3. 再拆 `Ship Outbound / Incident And Return / Product Allowance / Other Handling`。
+4. 再结合卖家真实利润。
+5. 禁止仅凭 `WholesaleCost - Total Cost` 下“亏损、停投、禁促”结论。
+
+</pre></div></body></html>
