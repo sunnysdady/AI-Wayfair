@@ -16,7 +16,7 @@ Wayfair 店铺运营接手与诊断项目。
 
 - `reports/Wayfair_项目导航_20260604.html`
 - `reports/Wayfair_6月SKU分层与促销准入清单_20260604.html`
-- `reports/Wayfair_产品定价体检表_20260604.html`
+- `reports/Wayfair_产品定价体检表_20260605.html`
 - `reports/Wayfair_Pricing_ProductCatalog_定价体检_20260604.html`
 - `reports/Wayfair_SKU价值分级_SABC_N_20260604.html`
 - `reports/Wayfair_店铺诊断_20260604.html`

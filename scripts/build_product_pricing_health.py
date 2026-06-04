@@ -11,18 +11,22 @@ DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
 RAW = ROOT / "data" / "raw"
 
-YB_TOOL = Path("/Users/pengzhang/Downloads/Wayfair YB-工具表 2026年 04月.xlsx")
-MAY_ORDERS = Path("/Users/pengzhang/Desktop/5 月订单记录.xlsx")
+YB_TOOL = Path("/Users/pengzhang/Downloads/Wayfair YB-工具表 2026年 05月.xlsx")
 PRICING_CATALOG = DATA / "Wayfair_Pricing_ProductCatalog_定价体检_20260604.csv"
 SKU_SCORE = DATA / "Wayfair_SKU价值分级_补齐版_20260604.csv"
 
-OUT_CSV = DATA / "Wayfair_产品定价体检表_20260604.csv"
-OUT_HTML = REPORTS / "Wayfair_产品定价体检表_20260604.html"
-OUT_COST = DATA / "Wayfair_YB_产品成本定价_脱敏版_20260604.csv"
-OUT_MAY = DATA / "Wayfair_5月订单利润_SKU汇总_脱敏版_20260604.csv"
+OUT_CSV = DATA / "Wayfair_产品定价体检表_20260605.csv"
+OUT_HTML = REPORTS / "Wayfair_产品定价体检表_20260605.html"
+OUT_COST = DATA / "Wayfair_YB_产品成本定价_脱敏版_20260605.csv"
+OUT_MAY = DATA / "Wayfair_5月订单利润_SKU汇总_脱敏版_20260605.csv"
+OUT_HISTORY = DATA / "Wayfair_YB_历史订单利润_SKU汇总_脱敏版_20260605.csv"
+OUT_DEDUCTIONS = DATA / "Wayfair_YB_客诉扣款_SKU汇总_脱敏版_20260605.csv"
 
 FEE_RATE = 0.06
 TARGET_MARGIN = 0.25
+REPORT_DATE = "2026-06-05"
+MAY_START = pd.Timestamp("2026-05-01")
+MAY_END = pd.Timestamp("2026-06-01")
 
 
 def n(v, default=0.0) -> float:
@@ -54,6 +58,13 @@ def clean_sku(v) -> str:
     return str(v).strip()
 
 
+def parse_excel_date(series: pd.Series) -> pd.Series:
+    numeric = pd.to_numeric(series, errors="coerce")
+    parsed = pd.to_datetime(series, errors="coerce")
+    serial = pd.to_datetime(numeric, unit="D", origin="1899-12-30", errors="coerce")
+    return parsed.mask(numeric.notna() & (numeric > 20000), serial)
+
+
 def load_yb_listing() -> pd.DataFrame:
     df = pd.read_excel(YB_TOOL, sheet_name="产品上架")
     df.columns = [str(c).strip() for c in df.columns]
@@ -82,8 +93,8 @@ def load_yb_listing() -> pd.DataFrame:
     return df.drop_duplicates("Part", keep="last")
 
 
-def load_may_orders() -> pd.DataFrame:
-    df = pd.read_excel(MAY_ORDERS)
+def load_order_lines() -> pd.DataFrame:
+    df = pd.read_excel(YB_TOOL, sheet_name="订单处理")
     df.columns = [str(c).strip() for c in df.columns]
     df = df.rename(columns={
         "SKU": "Part",
@@ -93,23 +104,80 @@ def load_may_orders() -> pd.DataFrame:
         "毛利润": "OrderGross",
         "毛利率": "OrderMargin",
     })
+    df["OrderDate"] = parse_excel_date(df["日期"])
     df["Part"] = df["Part"].map(clean_sku)
     df = df[df["Part"].ne("")]
+    df = df[df["OrderDate"].ge(pd.Timestamp("2025-01-01"))]
     for c in ["Qty", "SellerNetPrice", "OrderCost", "OrderGross", "OrderMargin"]:
         df[c] = pd.to_numeric(df[c], errors="coerce")
     df["Revenue"] = df["SellerNetPrice"].fillna(0) * df["Qty"].fillna(1)
     df["Cost"] = df["OrderCost"].fillna(0) * df["Qty"].fillna(1)
+    df["ZeroRevenueOrder"] = df["Revenue"].fillna(0).le(0)
+    keep = [
+        "OrderDate", "Part", "Qty", "SellerNetPrice", "OrderCost", "OrderGross",
+        "OrderMargin", "Revenue", "Cost", "ZeroRevenueOrder", "发货状态", "订单类型",
+    ]
+    return df[[c for c in keep if c in df.columns]].copy()
+
+
+def aggregate_orders(df: pd.DataFrame, prefix: str, month_only: bool = False) -> pd.DataFrame:
+    if month_only:
+        df = df[df["OrderDate"].ge(MAY_START) & df["OrderDate"].lt(MAY_END)].copy()
+    if df.empty:
+        return pd.DataFrame(columns=["Part"])
     agg = df.groupby("Part", dropna=False).agg(
-        MayOrders=("Part", "size"),
-        MayUnits=("Qty", "sum"),
-        MaySellerRevenue=("Revenue", "sum"),
-        MayProcurementCost=("Cost", "sum"),
-        MayGross=("OrderGross", "sum"),
-        MayAvgSellerNet=("SellerNetPrice", "mean"),
-        MayAvgCost=("OrderCost", "mean"),
+        **{
+            f"{prefix}Orders": ("Part", "size"),
+            f"{prefix}Units": ("Qty", "sum"),
+            f"{prefix}SellerRevenue": ("Revenue", "sum"),
+            f"{prefix}ProcurementCost": ("Cost", "sum"),
+            f"{prefix}Gross": ("OrderGross", "sum"),
+            f"{prefix}AvgSellerNet": ("SellerNetPrice", "mean"),
+            f"{prefix}AvgCost": ("OrderCost", "mean"),
+            f"{prefix}ZeroRevenueOrders": ("ZeroRevenueOrder", "sum"),
+            f"{prefix}FirstOrderDate": ("OrderDate", "min"),
+            f"{prefix}LastOrderDate": ("OrderDate", "max"),
+        }
     ).reset_index()
-    agg["MayMargin"] = agg["MayGross"] / agg["MaySellerRevenue"].replace(0, pd.NA)
+    agg[f"{prefix}Margin"] = agg[f"{prefix}Gross"] / agg[f"{prefix}SellerRevenue"].replace(0, pd.NA)
     return agg
+
+
+def load_order_aggregates() -> tuple[pd.DataFrame, pd.DataFrame]:
+    lines = load_order_lines()
+    may = aggregate_orders(lines, "May", month_only=True)
+    hist = aggregate_orders(lines, "YBHist", month_only=False)
+    return may, hist
+
+
+def load_deductions() -> pd.DataFrame:
+    df = pd.read_excel(YB_TOOL, sheet_name="客诉扣款")
+    df.columns = [str(c).strip() for c in df.columns]
+    if "Part number" not in df.columns:
+        return pd.DataFrame(columns=["Part"])
+    df = df.rename(columns={
+        "Part number": "Part",
+        "Quantity": "DeductionQty",
+        "Total amount扣款金额": "DeductionAmount",
+        "Deduction type": "DeductionType",
+        "Return Reason/客速": "DeductionReason",
+    })
+    df["Part"] = df["Part"].map(clean_sku)
+    df = df[df["Part"].ne("")]
+    for c in ["DeductionQty", "DeductionAmount"]:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    def joined(values: pd.Series) -> str:
+        items = [str(v).strip() for v in values.dropna().tolist() if str(v).strip()]
+        return "；".join(dict.fromkeys(items[:3]))
+
+    return df.groupby("Part", dropna=False).agg(
+        DeductionRecords=("Part", "size"),
+        DeductionQty=("DeductionQty", "sum"),
+        DeductionAmount=("DeductionAmount", "sum"),
+        DeductionTypes=("DeductionType", joined),
+        DeductionReasons=("DeductionReason", joined),
+    ).reset_index()
 
 
 def load_pricing_catalog() -> pd.DataFrame:
@@ -184,11 +252,13 @@ def recommendation(row: pd.Series) -> tuple[str, str, str]:
     incident = n(row.get("IncidentReturnPercentile"))
     promo_margin_2b = n(row.get("YBPromo2BMargin"))
     may_orders = n(row.get("MayOrders"))
-    hist_orders = n(row.get("Orders"))
+    hist_orders = n(row.get("YBHistOrders")) or n(row.get("Orders"))
     observed_orders = max(may_orders, hist_orders)
     margin_value = None
     if pd.notna(row.get("MayMargin")) and n(row.get("MayOrders")) > 0:
         margin_value = n(row.get("MayMargin"))
+    elif pd.notna(row.get("YBHistMargin")) and n(row.get("YBHistOrders")) > 0:
+        margin_value = n(row.get("YBHistMargin"))
     elif pd.notna(row.get("HistMargin")) and observed_orders > 0:
         margin_value = n(row.get("HistMargin"))
 
@@ -201,10 +271,16 @@ def recommendation(row: pd.Series) -> tuple[str, str, str]:
         issues.append("成交样本不足")
     elif may_orders <= 0 and hist_orders >= 3:
         issues.append("5月无成交，仅历史订单支撑")
+    elif may_orders > 0 and may_orders < 3:
+        issues.append("5月成交样本不足")
     if margin_value is not None and margin_value < 0.15:
         issues.append("真实订单毛利率低于15%")
     elif margin_value is not None and margin_value < 0.25:
         issues.append("真实订单毛利率一般")
+    if n(row.get("YBHistZeroRevenueOrders")) > 0:
+        issues.append("历史存在0回款/异常订单")
+    if n(row.get("DeductionRecords")) > 0:
+        issues.append("YB客诉扣款有记录")
 
     if pd.notna(estimated_margin) and n(estimated_margin) < 0.15:
         issues.append("按当前Base预估毛利偏低")
@@ -224,7 +300,7 @@ def recommendation(row: pd.Series) -> tuple[str, str, str]:
     can_raise = (
         margin_value is not None
         and margin_value < 0.25
-        and observed_orders >= 3
+        and may_orders >= 3
         and platform_pct >= 0.22
         and base_to_retail <= 0.68
         and wsc <= 0.70
@@ -234,9 +310,7 @@ def recommendation(row: pd.Series) -> tuple[str, str, str]:
 
     if can_raise:
         grade = "可尝试提Base"
-        actions.append("可向Wayfair小幅上调Base Cost 3%-5%，先挑有订单且平台空间充足SKU")
-        if may_orders <= 0 and hist_orders >= 3:
-            actions.append("这类不是本月热销款，先作为低优先级试探，不要批量上调")
+        actions.append("可向Wayfair小幅上调Base Cost 3%-5%，先挑5月有订单且平台空间充足SKU")
     elif must_hold and (margin_value is None or margin_value < 0.25):
         grade = "不建议提价"
         actions.append("不要先提Base；先降拿货/包装/发货成本，或修Listing承接")
@@ -259,6 +333,10 @@ def recommendation(row: pd.Series) -> tuple[str, str, str]:
         actions.append("回看Customer Feedback/退货原因，修说明、包装或质量")
     if promo_margin_2b and promo_margin_2b < 0.12:
         actions.append("禁止深折扣促销，当前促销利润不够")
+    if n(row.get("YBHistZeroRevenueOrders")) > 0:
+        actions.append("把0回款/TT订单从常规利润复盘中单独标记，避免误判定价")
+    if n(row.get("DeductionRecords")) > 0:
+        actions.append("先复盘客诉扣款原因，再决定是否促销或放量")
 
     if not issues:
         issues.append("价格结构暂无明显红灯")
@@ -267,15 +345,22 @@ def recommendation(row: pd.Series) -> tuple[str, str, str]:
 
 def build() -> pd.DataFrame:
     yb = load_yb_listing()
-    may = load_may_orders()
+    may, hist = load_order_aggregates()
+    deductions = load_deductions()
     pricing = load_pricing_catalog()
     score = load_sku_score()
 
     yb.to_csv(OUT_COST, index=False, encoding="utf-8-sig")
     may.to_csv(OUT_MAY, index=False, encoding="utf-8-sig")
+    hist.to_csv(OUT_HISTORY, index=False, encoding="utf-8-sig")
+    deductions.to_csv(OUT_DEDUCTIONS, index=False, encoding="utf-8-sig")
 
-    df = pricing.merge(yb, on="Part", how="left").merge(may, on="Part", how="left").merge(
-        score, on="Part", how="left", suffixes=("", "_Score")
+    df = (
+        pricing.merge(yb, on="Part", how="left")
+        .merge(may, on="Part", how="left")
+        .merge(hist, on="Part", how="left")
+        .merge(deductions, on="Part", how="left")
+        .merge(score, on="Part", how="left", suffixes=("", "_Score"))
     )
 
     df["OwnerCostSource"] = df["ProcurementCost"].notna().map({True: "YB产品上架", False: "缺成本"})
@@ -290,7 +375,13 @@ def build() -> pd.DataFrame:
     df["MaxBaseByRetail70Pct"] = df["RetailUS"] * 0.70
     df["BaseGapToTarget25Pct"] = df["RequiredBaseFor25Pct"] - df["CatalogBaseCost"]
     df["YBBaseGap"] = df["CatalogBaseCost"] - df["YBBaseCost"]
-    df["MayMargin"] = pd.to_numeric(df["MayMargin"], errors="coerce")
+    for c in [
+        "MayMargin", "YBHistMargin", "HistMargin", "MayOrders", "YBHistOrders",
+        "MayZeroRevenueOrders", "YBHistZeroRevenueOrders", "DeductionRecords",
+        "DeductionAmount",
+    ]:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
     df["HistMargin"] = pd.to_numeric(df["HistMargin"], errors="coerce")
 
     recs = df.apply(recommendation, axis=1)
@@ -303,13 +394,16 @@ def build() -> pd.DataFrame:
         "CatalogBaseCost", "CurrentB2BDiscount", "WholesaleAfterB2B", "RetailUS",
         "BaseToRetailUS", "TotalCost", "PlatformMargin", "PlatformPct", "WSCPercentile",
         "ShipCostPercentile", "IncidentReturnPercentile", "MayOrders", "MaySellerRevenue",
-        "MayGross", "MayMargin", "Orders", "Sales", "NetGross", "HistMargin",
+        "MayGross", "MayMargin", "MayZeroRevenueOrders", "YBHistOrders", "YBHistSellerRevenue",
+        "YBHistGross", "YBHistMargin", "YBHistZeroRevenueOrders", "YBHistFirstOrderDate",
+        "YBHistLastOrderDate", "DeductionRecords", "DeductionAmount", "DeductionTypes",
+        "DeductionReasons", "Orders", "Sales", "NetGross", "HistMargin",
         "EstimatedCurrentGross", "EstimatedCurrentMargin", "YBPromo2BMargin",
         "RequiredBaseFor25Pct", "MaxBaseByRetail70Pct", "BaseGapToTarget25Pct",
         "YBBaseGap", "NewGrade", "PromoReadiness", "定价分组", "主要问题", "建议动作",
     ]
     df = df[[c for c in order if c in df.columns]].copy()
-    df = df.sort_values(["定价分组", "MayOrders", "Orders"], ascending=[True, False, False])
+    df = df.sort_values(["定价分组", "MayOrders", "YBHistOrders"], ascending=[True, False, False])
     return df
 
 
@@ -337,10 +431,22 @@ def render(df: pd.DataFrame) -> None:
         "MaySellerRevenue": "5月回款额",
         "MayGross": "5月毛利",
         "MayMargin": "5月毛利率",
-        "Orders": "历史订单数",
-        "Sales": "历史销售额",
-        "NetGross": "历史净毛利",
-        "HistMargin": "历史毛利率",
+        "MayZeroRevenueOrders": "5月0回款订单数",
+        "YBHistOrders": "YB历史订单数",
+        "YBHistSellerRevenue": "YB历史回款额",
+        "YBHistGross": "YB历史毛利",
+        "YBHistMargin": "YB历史毛利率",
+        "YBHistZeroRevenueOrders": "YB历史0回款订单数",
+        "YBHistFirstOrderDate": "YB首单日期",
+        "YBHistLastOrderDate": "YB末单日期",
+        "DeductionRecords": "客诉扣款记录数",
+        "DeductionAmount": "客诉扣款金额",
+        "DeductionTypes": "客诉扣款类型",
+        "DeductionReasons": "客诉扣款原因",
+        "Orders": "平台历史订单数",
+        "Sales": "平台历史销售额",
+        "NetGross": "平台历史净毛利",
+        "HistMargin": "平台历史毛利率",
         "EstimatedCurrentGross": "当前Base预估毛利",
         "EstimatedCurrentMargin": "当前Base预估毛利率",
         "YBPromo2BMargin": "YB大促2B利润率",
@@ -355,7 +461,7 @@ def render(df: pd.DataFrame) -> None:
     out.to_csv(OUT_CSV, index=False, encoding="utf-8-sig")
 
     counts = df["定价分组"].value_counts().to_dict()
-    key_order = ["可尝试提Base", "价格健康", "维持观察", "不建议提价", "先修成本", "待确认价格", "待补成本"]
+    key_order = ["可尝试提Base", "价格健康", "维持观察", "不建议提价", "先修成本", "新品观察", "待确认价格", "待补成本"]
 
     def table_rows(rows: pd.DataFrame) -> str:
         result = []
@@ -368,7 +474,7 @@ def render(df: pd.DataFrame) -> None:
                 f"<td class='right'>{money(r.get('CatalogBaseCost'))}<div class='small'>供货收入 {money(r.get('WholesaleAfterB2B'))}</div></td>"
                 f"<td class='right'>{money(r.get('RetailUS'))}<div class='small'>Base/前台 {pct(r.get('BaseToRetailUS'))}</div></td>"
                 f"<td class='right'>{money(r.get('PlatformMargin'))}<div class='small'>{pct(r.get('PlatformPct'))}</div></td>"
-                f"<td class='right'>{pct(r.get('MayMargin'))}<div class='small'>5月单 {n(r.get('MayOrders')):.0f} / 历史 {pct(r.get('HistMargin'))}</div></td>"
+                f"<td class='right'>{pct(r.get('MayMargin'))}<div class='small'>5月单 {n(r.get('MayOrders')):.0f} / YB历史 {n(r.get('YBHistOrders')):.0f}单 {pct(r.get('YBHistMargin'))}</div></td>"
                 f"<td class='right'>{pct(r.get('EstimatedCurrentMargin'))}<div class='small'>目标Base {money(r.get('RequiredBaseFor25Pct'))}</div></td>"
                 f"<td>{esc(r.get('主要问题'))}</td>"
                 f"<td>{esc(r.get('建议动作'))}</td>"
@@ -389,14 +495,14 @@ def render(df: pd.DataFrame) -> None:
     html_text = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Wayfair 产品定价体检表</title>
 <style>
-body{{margin:0;background:#f6f7fb;color:#172033;font-family:Arial,'Microsoft YaHei',sans-serif;line-height:1.6}}header{{background:#10213d;color:#fff;padding:30px 34px}}h1{{margin:0;font-size:28px}}.meta{{color:#dbe7ff;margin-top:6px}}.wrap{{max-width:1320px;margin:auto;padding:24px 34px}}.grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}}.card,.section{{background:#fff;border:1px solid #d8e0ec;border-radius:8px;box-shadow:0 6px 18px #1018280a}}.card{{padding:14px}}.num{{font-size:25px;font-weight:800;color:#1f5cc4}}.section{{padding:20px;margin:18px 0}}h2{{margin:0 0 12px;font-size:21px}}.callout{{border-left:4px solid #1f5cc4;background:#f8fbff;padding:12px 14px;border-radius:8px;margin:12px 0}}.warn{{border-left-color:#b54708;background:#fff8ed}}.tablebox{{overflow:auto;border:1px solid #d8e0ec;border-radius:8px;max-height:720px}}table{{width:100%;border-collapse:collapse;min-width:1480px;background:#fff}}th,td{{padding:8px 10px;border-bottom:1px solid #edf1f7;text-align:left;vertical-align:top;font-size:12.5px}}th{{position:sticky;top:0;background:#eef2f6}}.right{{text-align:right;white-space:nowrap}}.small{{color:#667085;font-size:12px}}@media(max-width:900px){{.grid{{grid-template-columns:1fr 1fr}}.wrap{{padding:16px}}}}
+body{{margin:0;background:#f6f7fb;color:#172033;font-family:Arial,'Microsoft YaHei',sans-serif;line-height:1.6}}header{{background:#10213d;color:#fff;padding:30px 34px}}h1{{margin:0;font-size:28px}}.meta{{color:#dbe7ff;margin-top:6px}}.wrap{{max-width:1320px;margin:auto;padding:24px 34px}}.grid{{display:grid;grid-template-columns:repeat(8,1fr);gap:10px}}.card,.section{{background:#fff;border:1px solid #d8e0ec;border-radius:8px;box-shadow:0 6px 18px #1018280a}}.card{{padding:14px}}.num{{font-size:25px;font-weight:800;color:#1f5cc4}}.section{{padding:20px;margin:18px 0}}h2{{margin:0 0 12px;font-size:21px}}.callout{{border-left:4px solid #1f5cc4;background:#f8fbff;padding:12px 14px;border-radius:8px;margin:12px 0}}.warn{{border-left-color:#b54708;background:#fff8ed}}.tablebox{{overflow:auto;border:1px solid #d8e0ec;border-radius:8px;max-height:720px}}table{{width:100%;border-collapse:collapse;min-width:1480px;background:#fff}}th,td{{padding:8px 10px;border-bottom:1px solid #edf1f7;text-align:left;vertical-align:top;font-size:12.5px}}th{{position:sticky;top:0;background:#eef2f6}}.right{{text-align:right;white-space:nowrap}}.small{{color:#667085;font-size:12px}}@media(max-width:900px){{.grid{{grid-template-columns:1fr 1fr}}.wrap{{padding:16px}}}}
 </style></head><body>
-<header><h1>Wayfair 产品定价体检表</h1><div class="meta">生成日期：2026-06-04 ｜ 数据源：YB 产品成本、5月订单利润、Product Catalog、5月 Cost Stack、SKU 分层</div></header>
+<header><h1>Wayfair 产品定价体检表</h1><div class="meta">生成日期：{REPORT_DATE} ｜ 数据源：05月YB工具表（产品上架/订单处理/客诉扣款）、Product Catalog、5月 Cost Stack、SKU 分层</div></header>
 <div class="wrap">
 <div class="grid">{cards}</div>
 <div class="section"><h2>1. 定价结论</h2>
-<div class="callout"><b>核心判断：</b>这张表不是看 Wayfair 前台价能不能涨，而是判断你的 Base Cost 是否健康。只有在“你的毛利偏低、平台空间足够、Base/前台价不高、供货价竞争百分位不差”的 SKU，才建议尝试小幅上调 Base Cost。</div>
-<div class="callout warn"><b>执行护栏：</b>Base/前台价超过 72%、供货价竞争百分位高于 0.70、平台空间低于 16%、或大促2B利润率低于 12% 的 SKU，不建议先提价或进深折扣。</div>
+<div class="callout"><b>核心判断：</b>这张表不是看 Wayfair 前台价能不能涨，而是判断你的 Base Cost 是否健康。只有在“2026年5月有真实订单、你的毛利偏低、平台空间足够、Base/前台价不高、供货价竞争百分位不差”的 SKU，才建议尝试小幅上调 Base Cost。</div>
+<div class="callout warn"><b>执行护栏：</b>Base/前台价超过 72%、供货价竞争百分位高于 0.70、平台空间低于 16%、大促2B利润率低于 12%、或有明显客诉扣款的 SKU，不建议先提价或进深折扣。</div>
 </div>
 <div class="section"><h2>2. 优先处理清单</h2>
 <div class="tablebox"><table><thead><tr><th>SKU / Listing</th><th>定价分组</th><th>你的成本</th><th>当前Base</th><th>前台价</th><th>平台空间</th><th>真实毛利</th><th>预估毛利</th><th>主要问题</th><th>建议动作</th></tr></thead><tbody>{table_rows(top)}</tbody></table></div>
