@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Wayfair 操作护栏</title><style>
+body{margin:0;background:#f6f7f9;color:#172033;font:14px/1.6 Arial,"Microsoft YaHei",sans-serif}.wrap{max-width:1050px;margin:auto;padding:28px}h1{font-size:30px;margin:0 0 6px}.meta{color:#667085;margin-bottom:18px}h2{font-size:20px;margin:26px 0 10px;padding-left:10px;border-left:5px solid #2563eb}.card{background:#fff;border:1px solid #d9dee8;border-radius:8px;padding:15px;margin:12px 0}.bad{border-color:#fecaca;background:#fef2f2}.ok{border-color:#bbf7d0;background:#f0fdf4}code{background:#eef2f7;padding:2px 5px;border-radius:4px}
+</style></head><body><div class="wrap"><h1>Wayfair 操作护栏</h1><div class="meta">更新时间：2026-06-04 ｜ 防止口径再次跑偏</div>
+<h2>1. Cost Stack 护栏</h2><div class="card ok">正确平台空间：<br><code>Retail Price Net - Total Cost</code></div><div class="card bad"><b>禁止：</b><ul><li>禁止用 <code>WholesaleCost - Total Cost</code> 判断平台亏损。</li><li>禁止只因为 <code>WholesaleCost &lt; Total Cost</code> 就停投、禁促或判定负毛利。</li></ul></div><div class="card">每次使用 Cost Stack 必须写清：数据源日期、Retail Price Net、Total Cost、平台空间、物流/退货/Product Allowance/Other Handling 是否异常、卖家真实利润是否已核准。</div>
+<h2>2. 广告护栏</h2><div class="card"><ul><li>不能只看 ROAS。</li><li>不能用 5 月 Keyword 报告做 6 月停词最终依据。</li><li>6 月 WSP Product/Campaign 可以先做产品层暂停/降预算。</li><li>Keyword 层必须重新导出 6 月报告后再停词。</li><li>有订单的 SKU 不直接加预算，先查库存、利润、客诉。</li></ul></div>
+<h2>3. 促销护栏</h2><div class="card"><b>进入促销前必须同时满足：</b><ul><li>卖家真实毛利为正。</li><li>折扣后仍有利润。</li><li>平台空间不低。</li><li>库存充足。</li><li>客诉/退货风险可控。</li><li>Listing 承接不差。</li></ul></div><div class="card bad"><b>禁止：</b><ul><li>订单毛利率低于 20% 的 SKU 进促销。</li><li>未核算 Cost Stack 和卖家利润的 SKU 进大促。</li><li>客诉/退货异常 SKU 进促销。</li></ul></div>
+<h2>4. Listing 护栏</h2><div class="card">优先修：TAG 覆盖不足、图片不足或 Browse Hero 不合格、Review 少于 20、CTR 高但 CVR 低、广告花费 0 单但点击不低的 SKU。</div>
+<h2>5. 输出护栏</h2><div class="card">每份报告必须包含：数据源和日期范围、口径说明、动作清单、暂停/降预算/保留/修 Listing/补数据的原因、下一步。</div>
+</div></body></html>
