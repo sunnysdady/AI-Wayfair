@@ -462,6 +462,12 @@ def render(df: pd.DataFrame) -> None:
 
     counts = df["定价分组"].value_counts().to_dict()
     key_order = ["可尝试提Base", "价格健康", "维持观察", "不建议提价", "先修成本", "新品观察", "待确认价格", "待补成本"]
+    group_ids = {name: f"group-{i + 1}" for i, name in enumerate(key_order)}
+    table_header = (
+        "<table><thead><tr><th>SKU / Listing</th><th>定价分组</th><th>你的成本</th>"
+        "<th>当前Base</th><th>前台价</th><th>平台空间</th><th>真实毛利</th>"
+        "<th>预估毛利</th><th>主要问题</th><th>建议动作</th></tr></thead>"
+    )
 
     def table_rows(rows: pd.DataFrame) -> str:
         result = []
@@ -489,26 +495,44 @@ def render(df: pd.DataFrame) -> None:
         top = top.head(80)
 
     cards = "".join(
-        f"<div class='card'><div class='num'>{counts.get(k, 0)}</div><div>{k}</div></div>"
+        f"<a class='card jumpcard' href='#{group_ids[k]}'><div class='num'>{counts.get(k, 0)}</div><div>{k}</div></a>"
         for k in key_order
     )
+    quick_nav = "".join(
+        f"<a href='#{group_ids[k]}'>{esc(k)} <b>{counts.get(k, 0)}</b></a>"
+        for k in key_order
+    )
+    group_sections = []
+    for k in key_order:
+        rows = df[df["定价分组"].eq(k)].copy()
+        body = table_rows(rows) if not rows.empty else "<tr><td colspan='10'>当前没有这个分类的 SKU</td></tr>"
+        group_sections.append(
+            f"<div class='section group-section' id='{group_ids[k]}'>"
+            f"<h2>{esc(k)} <span class='small'>共 {counts.get(k, 0)} 个 SKU</span></h2>"
+            f"<div class='tablebox'>{table_header}<tbody>{body}</tbody></table></div>"
+            f"<div class='backtop'><a href='#top'>返回顶部</a></div></div>"
+        )
+    group_sections_html = "\n".join(group_sections)
     html_text = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Wayfair 产品定价体检表</title>
 <style>
-body{{margin:0;background:#f6f7fb;color:#172033;font-family:Arial,'Microsoft YaHei',sans-serif;line-height:1.6}}header{{background:#10213d;color:#fff;padding:30px 34px}}h1{{margin:0;font-size:28px}}.meta{{color:#dbe7ff;margin-top:6px}}.wrap{{max-width:1320px;margin:auto;padding:24px 34px}}.grid{{display:grid;grid-template-columns:repeat(8,1fr);gap:10px}}.card,.section{{background:#fff;border:1px solid #d8e0ec;border-radius:8px;box-shadow:0 6px 18px #1018280a}}.card{{padding:14px}}.num{{font-size:25px;font-weight:800;color:#1f5cc4}}.section{{padding:20px;margin:18px 0}}h2{{margin:0 0 12px;font-size:21px}}.callout{{border-left:4px solid #1f5cc4;background:#f8fbff;padding:12px 14px;border-radius:8px;margin:12px 0}}.warn{{border-left-color:#b54708;background:#fff8ed}}.tablebox{{overflow:auto;border:1px solid #d8e0ec;border-radius:8px;max-height:720px}}table{{width:100%;border-collapse:collapse;min-width:1480px;background:#fff}}th,td{{padding:8px 10px;border-bottom:1px solid #edf1f7;text-align:left;vertical-align:top;font-size:12.5px}}th{{position:sticky;top:0;background:#eef2f6}}.right{{text-align:right;white-space:nowrap}}.small{{color:#667085;font-size:12px}}@media(max-width:900px){{.grid{{grid-template-columns:1fr 1fr}}.wrap{{padding:16px}}}}
+html{{scroll-behavior:smooth}}body{{margin:0;background:#f6f7fb;color:#172033;font-family:Arial,'Microsoft YaHei',sans-serif;line-height:1.6}}header{{background:#10213d;color:#fff;padding:30px 34px}}h1{{margin:0;font-size:28px}}.meta{{color:#dbe7ff;margin-top:6px}}.wrap{{max-width:1320px;margin:auto;padding:24px 34px}}.grid{{display:grid;grid-template-columns:repeat(8,1fr);gap:10px}}.card,.section{{background:#fff;border:1px solid #d8e0ec;border-radius:8px;box-shadow:0 6px 18px #1018280a}}.card{{padding:14px}}.jumpcard{{display:block;color:#172033;text-decoration:none}}.jumpcard:hover{{border-color:#1f5cc4;box-shadow:0 8px 20px #1f5cc41a}}.num{{font-size:25px;font-weight:800;color:#1f5cc4}}.section{{padding:20px;margin:18px 0;scroll-margin-top:16px}}h2{{margin:0 0 12px;font-size:21px}}.callout{{border-left:4px solid #1f5cc4;background:#f8fbff;padding:12px 14px;border-radius:8px;margin:12px 0}}.warn{{border-left-color:#b54708;background:#fff8ed}}.jumpnav{{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 18px}}.jumpnav a{{background:#fff;border:1px solid #d8e0ec;border-radius:999px;color:#172033;padding:7px 11px;text-decoration:none}}.jumpnav a:hover{{border-color:#1f5cc4;color:#1f5cc4}}.tablebox{{overflow:auto;border:1px solid #d8e0ec;border-radius:8px;max-height:720px}}table{{width:100%;border-collapse:collapse;min-width:1480px;background:#fff}}th,td{{padding:8px 10px;border-bottom:1px solid #edf1f7;text-align:left;vertical-align:top;font-size:12.5px}}th{{position:sticky;top:0;background:#eef2f6}}.right{{text-align:right;white-space:nowrap}}.small{{color:#667085;font-size:12px}}.backtop{{margin-top:10px;text-align:right}}.backtop a{{color:#1f5cc4;text-decoration:none}}@media(max-width:900px){{.grid{{grid-template-columns:1fr 1fr}}.wrap{{padding:16px}}}}
 </style></head><body>
-<header><h1>Wayfair 产品定价体检表</h1><div class="meta">生成日期：{REPORT_DATE} ｜ 数据源：05月YB工具表（产品上架/订单处理/客诉扣款）、Product Catalog、5月 Cost Stack、SKU 分层</div></header>
+<header id="top"><h1>Wayfair 产品定价体检表</h1><div class="meta">生成日期：{REPORT_DATE} ｜ 数据源：05月YB工具表（产品上架/订单处理/客诉扣款）、Product Catalog、5月 Cost Stack、SKU 分层</div></header>
 <div class="wrap">
 <div class="grid">{cards}</div>
+<div class="jumpnav">{quick_nav}</div>
 <div class="section"><h2>1. 定价结论</h2>
 <div class="callout"><b>核心判断：</b>这张表不是看 Wayfair 前台价能不能涨，而是判断你的 Base Cost 是否健康。只有在“2026年5月有真实订单、你的毛利偏低、平台空间足够、Base/前台价不高、供货价竞争百分位不差”的 SKU，才建议尝试小幅上调 Base Cost。</div>
 <div class="callout warn"><b>执行护栏：</b>Base/前台价超过 72%、供货价竞争百分位高于 0.70、平台空间低于 16%、大促2B利润率低于 12%、或有明显客诉扣款的 SKU，不建议先提价或进深折扣。</div>
 </div>
 <div class="section"><h2>2. 优先处理清单</h2>
-<div class="tablebox"><table><thead><tr><th>SKU / Listing</th><th>定价分组</th><th>你的成本</th><th>当前Base</th><th>前台价</th><th>平台空间</th><th>真实毛利</th><th>预估毛利</th><th>主要问题</th><th>建议动作</th></tr></thead><tbody>{table_rows(top)}</tbody></table></div>
+<div class="tablebox">{table_header}<tbody>{table_rows(top)}</tbody></table></div>
 </div>
-<div class="section"><h2>3. 全量体检表</h2>
-<div class="tablebox"><table><thead><tr><th>SKU / Listing</th><th>定价分组</th><th>你的成本</th><th>当前Base</th><th>前台价</th><th>平台空间</th><th>真实毛利</th><th>预估毛利</th><th>主要问题</th><th>建议动作</th></tr></thead><tbody>{table_rows(df)}</tbody></table></div>
+<div class="section"><h2>3. 按定价分类查看</h2><div class="jumpnav">{quick_nav}</div></div>
+{group_sections_html}
+<div class="section"><h2>4. 全量体检表</h2>
+<div class="tablebox">{table_header}<tbody>{table_rows(df)}</tbody></table></div>
 </div>
 </div></body></html>"""
     OUT_HTML.write_text(html_text, encoding="utf-8")
