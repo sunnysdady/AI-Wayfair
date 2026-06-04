@@ -4,5 +4,6 @@
 *.tmp
 .DS_Store
 Thumbs.db
+data/raw/*.pdf
 
 .vercel
