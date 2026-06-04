@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wayfair 店铺诊断报告 2026-06-04</title>
+  <style>
+    :root{--bg:#f5f6f8;--ink:#172033;--muted:#667085;--line:#d9dee8;--blue:#2563eb;--green:#16803c;--amber:#a15c07;--red:#b42318;--card:#fff}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 Arial,"Microsoft YaHei",sans-serif}.wrap{max-width:1180px;margin:auto;padding:28px}h1{font-size:30px;margin:0 0 6px}h2{font-size:20px;margin:28px 0 10px;padding-left:10px;border-left:5px solid var(--blue)}h3{font-size:16px;margin:16px 0 8px}.meta{color:var(--muted);margin-bottom:18px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:15px}.kpi b{display:block;font-size:24px;margin-top:4px}.kpi span{color:var(--muted)}table{width:100%;border-collapse:collapse;background:#fff;margin:10px 0 18px}th,td{border:1px solid var(--line);padding:8px 9px;text-align:left;vertical-align:top}th{background:#eef2f7}.num{text-align:right;white-space:nowrap}.tag{display:inline-block;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:700}.red{background:#fee4e2;color:var(--red)}.amber{background:#fef0c7;color:var(--amber)}.green{background:#dcfae6;color:var(--green)}.blue{background:#dbeafe;color:#1d4ed8}.note{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:13px 15px}.ok{background:#f0fdf4;border-color:#bbf7d0}.risk{background:#fff1f3;border-color:#fecdd3}@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}.wrap{padding:18px}}@media(max-width:520px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Wayfair 店铺诊断报告</h1>
+  <div class="meta">更新时间：2026-06-04 ｜ 口径：已完成 Cost Stack 校准，平台空间看 <b>Retail Price Net - Total Cost</b></div>
+
+  <div class="note">
+    <b>总判断：</b>店铺不是没有产品，而是 SKU 分层、广告准入、促销准入和 Listing 承接没有形成闭环。5 月下滑主要来自 CVR 和 AOV 下降；6 月先把 WSP 低效花费止住，再补齐库存、Cost Stack、Listing Health、Review 和客诉数据。
+  </div>
+
+  <h2>1. 店铺核心体征</h2>
+  <div class="grid">
+    <div class="card kpi"><span>5月 Total Revenue</span><b>$6,699.31</b></div>
+    <div class="card kpi"><span>5月 Sessions</span><b>2,852</b></div>
+    <div class="card kpi"><span>5月 CVR</span><b>1.5%</b></div>
+    <div class="card kpi"><span>5月 AOV</span><b>$124.06</b></div>
+    <div class="card kpi"><span>4月 CVR</span><b>2.5%</b></div>
+    <div class="card kpi"><span>4月 AOV</span><b>$140</b></div>
+    <div class="card kpi"><span>5月广告花费</span><b>$1,353.58</b></div>
+    <div class="card kpi"><span>已知经营利润率</span><b>9.2%</b></div>
+  </div>
+
+  <h2>2. 诊断结论</h2>
+  <table>
+    <tr><th>模块</th><th>状态</th><th>证据</th><th>诊断</th><th>动作</th></tr>
+    <tr><td>流量</td><td><span class="tag amber">轻微压力</span></td><td>Sessions 2,852</td><td>不是主要矛盾。</td><td>不要单纯靠加广告解决。</td></tr>
+    <tr><td>转化</td><td><span class="tag red">核心问题</span></td><td>CVR 从 2.5% 降到 1.5%</td><td>Listing、价格、评价、库存、SKU 承接需排查。</td><td>优先修 TAG / PDP / Review 弱项。</td></tr>
+    <tr><td>客单价</td><td><span class="tag red">下滑</span></td><td>AOV 从 $140 降到 $124.06</td><td>产品结构或低价 SKU 占比变化。</td><td>做 SKU 分层和 Collection / 套装关联。</td></tr>
+    <tr><td>广告</td><td><span class="tag amber">需止损</span></td><td>6月 WSP 近日报表 Spend $295.91，7 单</td><td>总 ROAS 被少数 SKU 拉高，多个 SKU 花费 0 单。</td><td>暂停/降到最低：0 单且花费 >= $5 的 SKU。</td></tr>
+    <tr><td>Cost Stack</td><td><span class="tag green">已校准</span></td><td>平台空间 = Retail Price Net - Total Cost</td><td>不能用 WholesaleCost - Total Cost 判定亏损。</td><td>促销前必须同时看平台空间和卖家真实利润。</td></tr>
+    <tr><td>Listing</td><td><span class="tag red">待修复</span></td><td>Required Tag Coverage 70.2%</td><td>低于 80% 合格线，更低于 95% 优秀线。</td><td>先修高花费、高潜力、旧清单中的优先 SKU。</td></tr>
+  </table>
+
+  <h2>3. 6月 WSP 广告体检</h2>
+  <div class="note ok">
+    WSS Campaign / Product 报表均为 0 行，按未投放或无数据处理。6 月当前先诊断 WSP。两个 Keyword 报告实际日期为 2026-05-01 至 2026-05-31，不能作为 6 月停词最终依据。
+  </div>
+  <table>
+    <tr><th>Listing</th><th>SKU</th><th>Spend</th><th>Sales</th><th>Orders</th><th>ROAS</th><th>平台空间均值</th><th>建议</th></tr>
+    <tr><td>DMOM1020</td><td>MFC-D2-B, MFC-D2-W</td><td class="num">$22.37</td><td class="num">$905.94</td><td class="num">2</td><td class="num">40.50</td><td class="num">$32.03</td><td><span class="tag green">保留，可小幅测试加预算</span></td></tr>
+    <tr><td>DMOM1018</td><td>LFC-2B, LFC-2W</td><td class="num">$5.10</td><td class="num">$193.99</td><td class="num">1</td><td class="num">38.04</td><td class="num">$39.53</td><td><span class="tag green">保留小预算</span></td></tr>
+    <tr><td>DMOM1003</td><td>4T-Kayak</td><td class="num">$4.05</td><td class="num">$194.99</td><td class="num">1</td><td class="num">48.15</td><td class="num">$37.90</td><td><span class="tag green">保留小预算</span></td></tr>
+    <tr><td>DMOM1021</td><td>LFC-2B-680, LFC-2W-680</td><td class="num">$51.49</td><td class="num">$165.99</td><td class="num">1</td><td class="num">3.22</td><td class="num">$34.39</td><td><span class="tag amber">保留但不加预算</span></td></tr>
+    <tr><td>DMOM1022</td><td>MFC-D3-B, MFC-D3-W</td><td class="num">$20.50</td><td class="num">$0</td><td class="num">0</td><td class="num">0</td><td class="num">$25.25</td><td><span class="tag red">暂停/最低预算</span></td></tr>
+    <tr><td>DMOM1025</td><td>LFC-3B, LFC-3W</td><td class="num">$20.42</td><td class="num">$0</td><td class="num">0</td><td class="num">0</td><td class="num">$46.19</td><td><span class="tag red">暂停/最低预算</span></td></tr>
+    <tr><td>DMOM1000</td><td>货架系列</td><td class="num">$10.15</td><td class="num">$0</td><td class="num">0</td><td class="num">0</td><td class="num">$37.83</td><td><span class="tag amber">不加预算，查承接</span></td></tr>
+    <tr><td>DMOM1017</td><td>3T-B, 3T-W</td><td class="num">$9.21</td><td class="num">$0</td><td class="num">0</td><td class="num">0</td><td class="num">$9.42</td><td><span class="tag red">暂停，平台空间偏低</span></td></tr>
+  </table>
+
+  <h2>4. SKU 分层方向</h2>
+  <table>
+    <tr><th>层级</th><th>SKU / Listing</th><th>动作</th></tr>
+    <tr><td><span class="tag green">保留观察</span></td><td>DMOM1020、DMOM1018、DMOM1003</td><td>保留小预算；补库存、卖家真实利润、客诉后再决定是否加预算。</td></tr>
+    <tr><td><span class="tag amber">保留不加预算</span></td><td>DMOM1021</td><td>先查 Listing、价格、Review 和真实利润。</td></tr>
+    <tr><td><span class="tag red">暂停/最低预算</span></td><td>DMOM1022、DMOM1025、DMOM1023、DMOM1027、DMOM1029、DMOM1042</td><td>广告 0 单，先停止消耗；修复或补证据后再开。</td></tr>
+    <tr><td><span class="tag blue">承接诊断</span></td><td>DMOM1000、DMOM1017、DMOM1019</td><td>有点击但不转化，查 PDP、价格、评价、库存、平台空间和卖家利润。</td></tr>
+  </table>
+
+  <h2>5. 下一步</h2>
+  <div class="card">
+    <ol>
+      <li>执行 WSP Product/Campaign 层暂停、降预算、保留动作。</li>
+      <li>重新导出 6 月 Keyword Optimization 和 Keyword Targeting 报告。</li>
+      <li>补最新 Cost Stack、库存、Detailed Listing Health、Review、客诉/退货/扣款。</li>
+      <li>用补齐数据生成促销准入、SKU 分层和 Listing 修复清单。</li>
+    </ol>
+  </div>
+</div>
+</body>
+</html>
