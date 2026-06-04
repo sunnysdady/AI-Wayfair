@@ -1,16 +1,51 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Wayfair 运营工作台</title><style>
-body{margin:0;background:#f6f7f9;color:#172033;font:14px/1.6 Arial,"Microsoft YaHei",sans-serif}.wrap{max-width:1050px;margin:auto;padding:28px}h1{font-size:30px;margin:0 0 6px}.meta{color:#667085;margin-bottom:18px}h2{font-size:20px;margin:26px 0 10px;padding-left:10px;border-left:5px solid #2563eb}.card{background:#fff;border:1px solid #d9dee8;border-radius:8px;padding:15px;margin:12px 0}table{width:100%;border-collapse:collapse;background:#fff;margin:10px 0 18px}th,td{border:1px solid #d9dee8;padding:8px 9px;text-align:left;vertical-align:top}th{background:#eef2f7}.tag{display:inline-block;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:700}.red{background:#fee4e2;color:#b42318}.amber{background:#fef0c7;color:#a15c07}.green{background:#dcfae6;color:#16723a}.blue{background:#dbeafe;color:#1d4ed8}a{color:#2563eb}
+body{margin:0;background:#f6f7f9;color:#172033;font:14px/1.6 Arial,"Microsoft YaHei",sans-serif}.wrap{max-width:1120px;margin:auto;padding:28px}h1{font-size:30px;margin:0 0 6px}.meta{color:#667085;margin-bottom:18px}h2{font-size:20px;margin:26px 0 10px;padding-left:10px;border-left:5px solid #2563eb}.card{background:#fff;border:1px solid #d9dee8;border-radius:8px;padding:15px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.linkcard{background:#fff;border:1px solid #d9dee8;border-radius:8px;padding:15px;text-decoration:none;color:#172033}.linkcard:hover{border-color:#2563eb;box-shadow:0 4px 14px #0001}.linkcard h3{margin:0 0 6px;font-size:17px}.linkcard p{margin:0;color:#667085}table{width:100%;border-collapse:collapse;background:#fff;margin:10px 0 18px}th,td{border:1px solid #d9dee8;padding:8px 9px;text-align:left;vertical-align:top}th{background:#eef2f7}.tag{display:inline-block;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:700}.red{background:#fee4e2;color:#b42318}.amber{background:#fef0c7;color:#a15c07}.green{background:#dcfae6;color:#16723a}.blue{background:#dbeafe;color:#1d4ed8}.gray{background:#eef2f7;color:#475467}a{color:#2563eb}@media(max-width:820px){.grid{grid-template-columns:1fr}.wrap{padding:18px}}
 </style></head><body><div class="wrap">
-<h1>Wayfair 运营工作台</h1><div class="meta">更新时间：2026-06-04 ｜ 回来后直接从这里继续</div>
-<h2>1. 当前状态</h2><div class="card"><ul><li>项目已同步到 GitHub：sunnysdady/AI-Wayfair</li><li>Cost Stack 口径已校准：平台空间看 <b>Retail Price Net - Total Cost</b></li><li>WSS 报表 0 行，按未投放/无数据处理</li><li>WSP Product / Campaign 可先执行调整</li><li>6 月 Keyword 报告仍需重新导出；当前两个 Keyword 文件实际日期是 2026-05-01 至 2026-05-31</li></ul></div>
-<h2>2. 回来后优先做</h2>
-<table><tr><th>动作</th><th>对象</th><th>说明</th></tr>
-<tr><td><span class="tag red">暂停/最低预算</span></td><td>DMOM1022、DMOM1025、DMOM1023、DMOM1027、DMOM1029、DMOM1042</td><td>6月 WSP Product 层有花费但 0 单。</td></tr>
-<tr><td><span class="tag green">保留</span></td><td>DMOM1020、DMOM1018、DMOM1003</td><td>已有归因订单，保留小预算；加预算前查库存、利润、客诉。</td></tr>
-<tr><td><span class="tag amber">保留不加预算</span></td><td>DMOM1021</td><td>有 1 单但 ROAS 不高，先保守观察。</td></tr>
-<tr><td><span class="tag blue">承接诊断</span></td><td>DMOM1000、DMOM1017、DMOM1019</td><td>有点击但不转化，查 PDP、价格、评价、库存、真实利润。</td></tr></table>
-<h2>3. 需要重新导出</h2><table><tr><th>报表</th><th>日期</th><th>用途</th></tr><tr><td>WSP Keyword Optimization Report</td><td>06/01/2026 至当前</td><td>停词、降 bid、保留词</td></tr><tr><td>WSP Keyword Targeting Report (Listing)</td><td>06/01/2026 至当前</td><td>Listing x Keyword 诊断</td></tr></table>
-<h2>4. 还要补的数据</h2><div class="card"><ul><li>最新 Cost Stack Report</li><li>库存表：SKU、可售、在途、缺货</li><li>Detailed Listing Health</li><li>Review 数量和星级</li><li>客诉、退货、扣款</li><li>当前促销/折扣 SKU 清单，含折扣比例</li></ul></div>
-<h2>5. 文件入口</h2><div class="card"><ul><li><a href="./Wayfair_店铺诊断_20260604.html">店铺诊断 HTML</a></li><li><a href="./Wayfair_店铺交接_20260604.html">店铺交接 HTML</a></li><li><a href="./Wayfair_6月待办甘特图_20260604.html">6月待办甘特图</a></li><li><a href="./Wayfair_6月WSP广告调整执行清单_CostStack校准版.html">WSP 广告调整清单</a></li></ul></div>
+<h1>Wayfair 运营工作台</h1><div class="meta">更新时间：2026-06-04 ｜ 当前线上入口：<a href="https://ai-wayfair.vercel.app">ai-wayfair.vercel.app</a></div>
+
+<h2>1. 当前状态</h2><div class="card"><ul>
+<li>✅ 项目已同步到 GitHub：sunnysdady/AI-Wayfair，并已发布到 Vercel。</li>
+<li>✅ Cost Stack 口径已校准：平台空间看 <b>Retail Price Net - Total Cost</b>。</li>
+<li>✅ WSP Keyword Optimization Report 已补齐并读取：06/01/2026 至 06/04/2026。</li>
+<li>✅ WSP Keyword Targeting Report (Listing) 已补齐并读取：06/01/2026 至 06/04/2026。</li>
+<li>✅ 当前库存表已补齐并读取：686 行，已生成库存映射对照工具。</li>
+<li>✅ 产品评分评论体检、SKU 价值分级、WSP 关键词调整清单已生成。</li>
+<li>⚠️ 6月 Cost Stack 文件已收到，但只有表头、0条数据；暂沿用上次有效 Cost Stack 口径，等6月有效报表出来后替换。</li>
+<li>WSS 报表 0 行，按未投放/无数据处理。</li>
+</ul></div>
+
+<h2>2. 已完成的数据补齐</h2><table><tr><th>状态</th><th>数据</th><th>处理结果</th></tr>
+<tr><td><span class="tag green">✅ 完成</span></td><td>WSP Keyword Optimization Report</td><td>已生成 WSP 关键词调整清单。</td></tr>
+<tr><td><span class="tag green">✅ 完成</span></td><td>WSP Keyword Targeting Report (Listing)</td><td>已用于 Listing x Keyword 诊断。</td></tr>
+<tr><td><span class="tag amber">✅ 已收 / 空表</span></td><td>6月 Cost Stack Report</td><td>文件只有表头、0条数据；暂不进入价格结论。</td></tr>
+<tr><td><span class="tag green">✅ 完成</span></td><td>当前库存表</td><td>已读取 686 行，并与 YB 工具表产品上架页生成库存映射。</td></tr></table>
+
+<h2>3. 现在优先做</h2><table><tr><th>动作</th><th>对象</th><th>说明</th></tr>
+<tr><td><span class="tag blue">库存校验</span></td><td>广告/促销候选 SKU</td><td>先用库存映射工具查高置信库存，再决定是否加预算/进促销。</td></tr>
+<tr><td><span class="tag red">暂停/最低预算</span></td><td>6月 WSP Product 层有花费但 0 单的 Listing</td><td>不等同于 SKU 淘汰，只是先停低效投放。</td></tr>
+<tr><td><span class="tag green">保留小预算</span></td><td>已有归因订单、历史价值较高 SKU</td><td>加预算前必须同时看库存、利润、客诉和评分。</td></tr>
+<tr><td><span class="tag amber">承接诊断</span></td><td>有点击但不转化的 Listing</td><td>查 PDP、价格、评价、库存、真实利润。</td></tr>
+<tr><td><span class="tag gray">人工复核</span></td><td>库存映射中/低置信和未匹配项</td><td>未复核前不要用于补货、停投或促销决策。</td></tr></table>
+
+<h2>4. 还要补的数据</h2><table><tr><th>状态</th><th>数据</th><th>用途</th></tr>
+<tr><td>待补</td><td>Detailed Listing Health</td><td>修 TAG、必填属性、推荐属性。</td></tr>
+<tr><td>待补</td><td>Option Drill Down</td><td>颜色/尺寸/选项维度转化。</td></tr>
+<tr><td>待补</td><td>Customer Feedback Report</td><td>客诉与差评原因。</td></tr>
+<tr><td>待补</td><td>Cancellations Overview</td><td>取消率和履约风险。</td></tr>
+<tr><td>待补</td><td>Promotions Performance / 当前促销折扣清单</td><td>做促销准入和禁促。</td></tr>
+<tr><td>等平台生成</td><td>有效 6月 Cost Stack</td><td>替换上次有效口径并重跑 SKU 分级/促销准入。</td></tr></table>
+
+<h2>5. 文件入口</h2><div class="grid">
+<a class="linkcard" href="../index.html"><h3>项目导航</h3><p>所有报告入口。</p></a>
+<a class="linkcard" href="./Wayfair_库存映射对照工具_20260604.html"><h3>库存映射对照工具</h3><p>仓库 SKU 对 Wayfair SKU。</p></a>
+<a class="linkcard" href="./Wayfair_数据补齐清单_20260604.html"><h3>数据补齐清单</h3><p>4项最高优先级已打勾。</p></a>
+<a class="linkcard" href="./Wayfair_SKU价值分级_SABC_N_20260604.html"><h3>SKU 价值分级</h3><p>A/B/C/N 分级。</p></a>
+<a class="linkcard" href="./Wayfair_6月WSP关键词调整清单_20260604.html"><h3>WSP 关键词调整</h3><p>关键词层调整建议。</p></a>
+<a class="linkcard" href="./Wayfair_6月WSP广告调整执行清单_CostStack校准版.html"><h3>WSP 广告调整</h3><p>Product/Campaign 动作。</p></a>
+<a class="linkcard" href="./Wayfair_店铺诊断_20260604.html"><h3>店铺诊断</h3><p>问题与机会。</p></a>
+<a class="linkcard" href="./Wayfair_6月待办甘特图_20260604.html"><h3>6月甘特图</h3><p>本月任务节奏。</p></a>
+</div>
+
+<h2>6. 下一份应生成的报告</h2><div class="card">Wayfair_6月SKU分层与促销准入清单.html<br>必须结合：历史订单、SKU 分级、库存映射、评分评论、广告表现、客诉扣款、Cost Stack 有效口径。</div>
 </div></body></html>
