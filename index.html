@@ -5,30 +5,143 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Wayfair 项目导航</title>
   <style>
-    body{margin:0;background:#f6f7f9;color:#172033;font:15px/1.6 Arial,"Microsoft YaHei",sans-serif}.wrap{max-width:1000px;margin:auto;padding:28px}h1{font-size:30px;margin:0 0 8px}.meta{color:#667085;margin-bottom:20px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.card{background:#fff;border:1px solid #d9dee8;border-radius:8px;padding:18px;text-decoration:none;color:#172033;display:block}.card:hover{border-color:#2563eb;box-shadow:0 4px 16px #0001}.card h2{font-size:18px;margin:0 0 8px}.card p{margin:0;color:#667085}.tag{display:inline-block;margin-top:10px;background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:700}.primary{border-left:5px solid #2563eb}.green{border-left:5px solid #16a34a}.amber{border-left:5px solid #d97706}.red{border-left:5px solid #dc2626}@media(max-width:760px){.grid{grid-template-columns:1fr}.wrap{padding:18px}}
+    :root{--bg:#f4f6f8;--ink:#111827;--muted:#667085;--line:#d8dee8;--panel:#fff;--blue:#2563eb;--green:#14864a;--amber:#b86b00;--red:#c2410c;--shadow:0 10px 30px #10182814}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Arial,"Microsoft YaHei",sans-serif}a{color:inherit}.wrap{max-width:1200px;margin:auto;padding:26px}.top{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:start;margin-bottom:16px}.title h1{font-size:32px;line-height:1.15;margin:0 0 8px;letter-spacing:0}.meta{color:var(--muted)}.live{display:inline-flex;align-items:center;gap:8px;background:#e9f8ef;color:#166534;border:1px solid #b7e4c7;border-radius:999px;padding:7px 11px;font-weight:800;text-decoration:none;white-space:nowrap}.live-dot{width:8px;height:8px;border-radius:50%;background:#16a34a}.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;align-items:stretch;margin-bottom:16px}.guide{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;box-shadow:var(--shadow)}.guide h2,.section h2{font-size:20px;margin:0 0 12px}.steps{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.step{border:1px solid #e3e8ef;border-radius:8px;padding:12px;background:#fbfcfe;display:grid;grid-template-columns:28px 1fr;gap:9px}.step-num{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#111827;color:#fff;font-weight:800}.step b{display:block;margin-bottom:3px}.step span{color:var(--muted);font-size:13px}.quick{background:#111827;color:#fff;border-radius:8px;padding:18px;box-shadow:var(--shadow)}.quick h2{font-size:20px;margin:0 0 12px}.quick a{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #344054;border-radius:8px;padding:11px 12px;text-decoration:none;margin-top:9px;background:#1f2937}.quick a:hover{background:#263244}.quick small{color:#cbd5e1}.status{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.status-card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}.status-card .kpi{font-size:24px;font-weight:900;line-height:1}.status-card strong{display:block;margin-top:6px}.status-card small{color:var(--muted)}.section{margin-top:22px}.group-label{display:flex;align-items:center;gap:8px;margin:18px 0 10px;font-weight:900}.group-label:before{content:"";width:5px;height:20px;border-radius:4px;background:var(--blue)}.nav-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.nav-card{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;text-decoration:none;min-height:88px}.nav-card:hover{border-color:var(--blue);box-shadow:var(--shadow);transform:translateY(-1px)}.icon{width:44px;height:44px;border-radius:8px;display:grid;place-items:center;background:#eef4ff;color:var(--blue)}.icon svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.content strong{display:block;font-size:17px;margin-bottom:4px}.content small{display:block;color:var(--muted)}.badge{border-radius:999px;padding:3px 8px;font-size:12px;font-weight:800;background:#eef2f7;color:#475467}.primary .icon{background:#eef4ff;color:var(--blue)}.green .icon{background:#e9f8ef;color:var(--green)}.amber .icon{background:#fff4df;color:var(--amber)}.red .icon{background:#fff1ed;color:var(--red)}.primary .badge{background:#dbeafe;color:#1d4ed8}.green .badge{background:#dcfce7;color:#166534}.amber .badge{background:#fef3c7;color:#92400e}.red .badge{background:#fee4e2;color:#b42318}.footnote{margin-top:18px;color:var(--muted);font-size:13px}@media(max-width:980px){.top{display:block}.live{margin-top:12px}.hero{grid-template-columns:1fr}.status{grid-template-columns:1fr 1fr}.nav-grid{grid-template-columns:1fr}.wrap{padding:18px}}@media(max-width:560px){.steps,.status{grid-template-columns:1fr}.nav-card{grid-template-columns:40px 1fr}.badge{grid-column:2;justify-self:start}.title h1{font-size:28px}}
   </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Wayfair 项目导航</h1>
-  <div class="meta">更新时间：2026-06-04 ｜ 优先打开 HTML 文件，不用翻 MD</div>
-  <div class="grid">
-    <a class="card primary" href="./reports/Wayfair_运营工作台_20260604.html"><h2>运营工作台</h2><p>回来后从这里继续：当前状态、广告动作、补数据、下一份报告。</p><span class="tag">优先看</span></a>
-    <a class="card green" href="./reports/Wayfair_6月待办甘特图_20260604.html"><h2>6月待办甘特图</h2><p>按日期看 6 月任务节奏和负责人。</p><span class="tag">时间表</span></a>
-    <a class="card primary" href="./reports/Wayfair_店铺诊断_20260604.html"><h2>店铺诊断</h2><p>当前店铺问题、广告体检、SKU 分层方向。</p><span class="tag">诊断</span></a>
-    <a class="card primary" href="./reports/Wayfair_店铺交接_20260604.html"><h2>店铺交接</h2><p>接手原则、缺口数据、6 月执行路径。</p><span class="tag">交接</span></a>
-    <a class="card amber" href="./reports/Wayfair_6月WSP广告调整执行清单_CostStack校准版.html"><h2>WSP 广告调整清单</h2><p>哪些广告停、降、保留和先修承接。</p><span class="tag">执行</span></a>
-    <a class="card primary" href="./reports/Wayfair_6月SKU分层与促销准入清单_20260604.html"><h2>SKU 分层与促销准入</h2><p>补齐 Listing Health、反馈、促销、取消和 5月 Cost Stack 后的可促/禁促清单。</p><span class="tag">新报告</span></a>
-    <a class="card primary" href="./reports/Wayfair_产品定价体检表_20260605.html"><h2>产品定价体检表</h2><p>使用 05月YB工具表的产品成本、2026年5月订单、历史订单和客诉扣款，给出 Base Cost 建议。</p><span class="tag">定价执行</span></a>
-    <a class="card amber" href="./reports/Wayfair_Pricing_ProductCatalog_定价体检_20260604.html"><h2>Product Catalog 定价体检</h2><p>对齐供货价、前台价、5月 Cost Stack 和 Wayfair 成本结构口径，标出 58 个需复核定价项。</p><span class="tag">定价</span></a>
-    <a class="card red" href="./reports/Wayfair_CostStack口径校准与建议复核_20260604.html"><h2>Cost Stack 校准</h2><p>防止再次误用 Cost Stack 口径。</p><span class="tag">护栏</span></a>
-    <a class="card" href="./reports/Wayfair_数据补齐清单_20260604.html"><h2>数据补齐清单</h2><p>下一步需要下载和提供哪些报表。</p><span class="tag">数据</span></a>
-    <a class="card amber" href="./reports/Wayfair_6月WSP关键词调整清单_20260604.html"><h2>WSP 关键词调整清单</h2><p>6月 Keyword 层保留、降 bid、暂停建议。</p><span class="tag">关键词</span></a>
-    <a class="card primary" href="./reports/Wayfair_SKU价值分级_SABC_N_20260604.html"><h2>SKU 价值分级</h2><p>结合历史订单、利润、评分评论、客诉扣款和广告表现，输出 S/A/B/C/N 分级。</p><span class="tag">分级</span></a>
-    <a class="card" href="./reports/Wayfair_产品信息评分评论体检_20260604.html"><h2>产品评分评论体检</h2><p>评分、评论数、图片、CVR 体检。</p><span class="tag">产品信息</span></a>
-    <a class="card" href="./reports/Wayfair_操作护栏_20260604.html"><h2>操作护栏</h2><p>广告、促销、Listing 和 Cost Stack 的防错规则。</p><span class="tag">规则</span></a>
-    <a class="card green" href="./reports/Wayfair_库存映射对照工具_20260604.html"><h2>库存映射对照工具</h2><p>仓库库存 SKU 与 Wayfair YB 工具表配对，标出高/中/低置信和未匹配项。</p><span class="tag">库存</span></a>
+<main class="wrap">
+  <div class="top">
+    <div class="title">
+      <h1>Wayfair 项目导航</h1>
+      <div class="meta">更新时间：2026-06-04 ｜ 给同事查看项目状态、报告入口和下一步动作</div>
+    </div>
+    <a class="live" href="https://ai-wayfair.vercel.app"><span class="live-dot"></span>线上已发布</a>
   </div>
-</div>
+
+  <section class="hero">
+    <div class="guide">
+      <h2>怎么使用</h2>
+      <div class="steps">
+        <div class="step"><span class="step-num">1</span><div><b>打开运营工作台</b><span>先看当前状态和下一步。</span></div></div>
+        <div class="step"><span class="step-num">2</span><div><b>核对数据补齐</b><span>确认哪些数据已经可用。</span></div></div>
+        <div class="step"><span class="step-num">3</span><div><b>动作前查库存</b><span>先看库存映射置信度。</span></div></div>
+        <div class="step"><span class="step-num">4</span><div><b>再执行广告/促销</b><span>结合分级、库存、利润和广告。</span></div></div>
+      </div>
+    </div>
+    <aside class="quick">
+      <h2>最短操作路径</h2>
+      <a href="./reports/Wayfair_运营工作台_20260604.html"><span>先看工作台</span><small>状态和动作</small></a>
+      <a href="./reports/Wayfair_库存映射对照工具_20260604.html"><span>再查库存映射</span><small>加预算前必看</small></a>
+      <a href="./reports/Wayfair_SKU价值分级_SABC_N_20260604.html"><span>最后看 SKU 分级</span><small>决定优先级</small></a>
+    </aside>
+  </section>
+
+  <section class="status">
+    <div class="status-card"><div class="kpi">5月</div><strong>Cost Stack</strong><small>已拉到有效 5月成本报表；6月空表先不使用。</small></div>
+    <div class="status-card"><div class="kpi">686</div><strong>库存行数</strong><small>已生成库存映射对照工具。</small></div>
+    <div class="status-card"><div class="kpi">11</div><strong>A 级 SKU</strong><small>B=10、C=16、N=198。</small></div>
+    <div class="status-card"><div class="kpi">准入</div><strong>促销判断</strong><small>新增 SKU 分层与促销准入清单。</small></div>
+  </section>
+
+  <section class="section">
+    <div class="group-label">先从这里开始</div>
+    <div class="nav-grid">
+          <a class="nav-card primary" data-group="start" href="./reports/Wayfair_运营工作台_20260604.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h10M4 19h16"/></svg></span>
+      <span class="content"><strong>运营工作台</strong><small>回来后先看这里：当前状态、下一步动作、入口总览。</small></span>
+      <span class="badge">先看</span>
+    </a>
+    <a class="nav-card green" data-group="start" href="./reports/Wayfair_6月待办甘特图_20260604.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3v4M17 3v4M4 8h16M6 12h4M6 16h4M14 12h4"/></svg></span>
+      <span class="content"><strong>6月待办甘特图</strong><small>按日期看任务节奏，确认本周该推进什么。</small></span>
+      <span class="badge">时间</span>
+    </a>
+
+    </div>
+
+    <div class="group-label">数据与库存</div>
+    <div class="nav-grid">
+          <a class="nav-card blue" data-group="data" href="./reports/Wayfair_数据补齐清单_20260604.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7c0-2 16-2 16 0s-16 2-16 0ZM4 7v5c0 2 16 2 16 0V7M4 12v5c0 2 16 2 16 0v-5"/></svg></span>
+      <span class="content"><strong>数据补齐清单</strong><small>看哪些数据已收到，哪些还缺；4项最高优先级已打勾。</small></span>
+      <span class="badge">数据</span>
+    </a>
+    <a class="nav-card green" data-group="data" href="./reports/Wayfair_库存映射对照工具_20260604.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h7v7H3zM14 7h7v7h-7zM3 17h7M14 17h7M7 14v3M18 14v3"/></svg></span>
+      <span class="content"><strong>库存映射对照工具</strong><small>仓库库存 SKU 对 Wayfair SKU，标出高/中/低置信。</small></span>
+      <span class="badge">库存</span>
+    </a>
+    <a class="nav-card amber" data-group="data" href="./reports/Wayfair_Pricing_ProductCatalog_定价体检_20260604.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10M8 4v16M16 4v10"/></svg></span>
+      <span class="content"><strong>Product Catalog 定价体检</strong><small>基于最新 Product Catalog 检查定价、成本和利润异常。</small></span>
+      <span class="badge">定价</span>
+    </a>
+    <a class="nav-card amber" data-group="data" href="./reports/Wayfair_产品定价体检表_20260605.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5h14v14H5zM8 9h8M8 13h8M8 17h5"/></svg></span>
+      <span class="content"><strong>产品定价体检表</strong><small>最新版产品定价体检明细，优先看 20260605 版。</small></span>
+      <span class="badge">最新</span>
+    </a>
+
+    </div>
+
+    <div class="group-label">决策与执行</div>
+    <div class="nav-grid">
+          <a class="nav-card primary" data-group="decision" href="./reports/Wayfair_SKU价值分级_SABC_N_20260604.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 18V6M9 18V9M14 18v-5M19 18V4M3 18h18"/></svg></span>
+      <span class="content"><strong>SKU 价值分级</strong><small>结合历史订单、利润、评分评论、客诉和广告输出 A/B/C/N。</small></span>
+      <span class="badge">分级</span>
+    </a>
+    <a class="nav-card green" data-group="decision" href="./reports/Wayfair_6月SKU分层与促销准入清单_20260604.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16v5H4zM7 11v7M17 11v7M5 18h14M9 8h6"/></svg></span>
+      <span class="content"><strong>SKU 分层与促销准入</strong><small>结合库存、历史价值、成本口径和广告表现判断能否进促销。</small></span>
+      <span class="badge">促销</span>
+    </a>
+    <a class="nav-card amber" data-group="decision" href="./reports/Wayfair_6月WSP关键词调整清单_20260604.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M7 7v10M17 7v10M6 17h12M9 11h6"/></svg></span>
+      <span class="content"><strong>WSP 关键词调整</strong><small>Keyword 层保留、降 bid、暂停建议。</small></span>
+      <span class="badge">关键词</span>
+    </a>
+    <a class="nav-card amber" data-group="decision" href="./reports/Wayfair_6月WSP广告调整执行清单_CostStack校准版.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19V5h14v14zM8 9h8M8 13h5M8 17h8"/></svg></span>
+      <span class="content"><strong>WSP 广告调整</strong><small>Product/Campaign 层动作清单，先停低效投放。</small></span>
+      <span class="badge">广告</span>
+    </a>
+
+    </div>
+
+    <div class="group-label">诊断、交接与护栏</div>
+    <div class="nav-grid">
+          <a class="nav-card red" data-group="audit" href="./reports/Wayfair_CostStack口径校准与建议复核_20260604.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4l8 4v6c0 4-3 6-8 8-5-2-8-4-8-8V8zM9 12l2 2 4-5"/></svg></span>
+      <span class="content"><strong>Cost Stack 校准</strong><small>防止再次误用成本口径；6月空表不进价格结论。</small></span>
+      <span class="badge">护栏</span>
+    </a>
+    <a class="nav-card primary" data-group="audit" href="./reports/Wayfair_店铺诊断_20260604.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg></span>
+      <span class="content"><strong>店铺诊断</strong><small>当前店铺问题、广告体检、SKU 分层方向。</small></span>
+      <span class="badge">诊断</span>
+    </a>
+    <a class="nav-card blue" data-group="audit" href="./reports/Wayfair_店铺交接_20260604.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4h10v4H7zM5 8h14v12H5zM8 12h8M8 16h6"/></svg></span>
+      <span class="content"><strong>店铺交接</strong><small>接手原则、缺口数据、6月执行路径。</small></span>
+      <span class="badge">交接</span>
+    </a>
+    <a class="nav-card green" data-group="audit" href="./reports/Wayfair_产品信息评分评论体检_20260604.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l3 6 6 .5-4.5 4 1.5 6-6-3.5-6 3.5 1.5-6-4.5-4L9 9z"/></svg></span>
+      <span class="content"><strong>产品评分评论体检</strong><small>评分、评论数、图片、CVR 体检。</small></span>
+      <span class="badge">产品</span>
+    </a>
+    <a class="nav-card red" data-group="audit" href="./reports/Wayfair_操作护栏_20260604.html">
+      <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h4"/></svg></span>
+      <span class="content"><strong>操作护栏</strong><small>广告、促销、Listing 和 Cost Stack 的防错规则。</small></span>
+      <span class="badge">规则</span>
+    </a>
+
+    </div>
+  </section>
+
+  <p class="footnote">建议顺序：运营工作台 → 数据补齐清单 → 库存映射工具 → SKU 价值分级 → 广告/关键词清单。</p>
+</main>
 </body>
 </html>
