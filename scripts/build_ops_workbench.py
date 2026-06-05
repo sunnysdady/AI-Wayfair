@@ -504,7 +504,7 @@ def tag(value: str) -> str:
     return f"<span class='{cls}'>{esc(value)}</span>"
 
 
-def page(title: str, body: str) -> str:
+def page(title: str, body: str, extra_head: str = "") -> str:
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -529,12 +529,84 @@ def page(title: str, body: str) -> str:
     a{{color:#175cd3;text-decoration:none;font-weight:800}}
     .small{{color:#667085;font-size:12px}}
   </style>
+  {extra_head}
 </head>
 <body>
 <header><h1>{esc(title)}</h1><div class="meta">生成日期：{REPORT_DATE} ｜ 目标：打开后 10 分钟知道本周先做什么</div></header>
 <div class="wrap">{body}</div>
 </body>
 </html>"""
+
+
+_TASK_EXTRA_HEAD = """<style>
+  .state-btn{cursor:pointer;border:none;background:none;padding:3px 9px;border-radius:999px;font-weight:800;font-size:12px;line-height:1.4}
+  .state-btn:hover{opacity:.75}
+  .exec-date{color:#667085;font-size:11px;margin-top:2px}
+  .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .progress-label{font-weight:800;color:#10213d;white-space:nowrap}
+  .progress-bar-wrap{flex:1;min-width:120px;max-width:260px;background:#eef2f6;border-radius:999px;height:8px;overflow:hidden}
+  .progress-bar{height:8px;background:#166534;border-radius:999px;transition:width .3s}
+  .filt-btn{cursor:pointer;border:1px solid #d8e0ec;border-radius:999px;padding:4px 14px;background:#fff;font-size:13px;white-space:nowrap}
+  .filt-btn.active{background:#10213d;color:#fff;border-color:#10213d}
+  tr[data-state="已执行"] td{opacity:.45}
+  tr[data-state="已执行"]{background:#f6fff9}
+  tr[data-state="暂缓"] td{opacity:.55}
+</style>
+<script>
+(function(){
+  var STATES=['待执行','执行中','已执行','暂缓'];
+  var CLS={'待执行':'tag amber','执行中':'tag blue','已执行':'tag green','暂缓':'tag gray'};
+  var KEY=function(id){return 'wf2:'+id;};
+  function load(id){try{return JSON.parse(localStorage.getItem(KEY(id)))||{};}catch(e){return {};}}
+  function save(id,obj){try{localStorage.setItem(KEY(id),JSON.stringify(obj));}catch(e){}}
+  function applyRow(row,st){
+    var s=st.status||'待执行';
+    var btn=row.querySelector('.state-btn');
+    btn.textContent=s; btn.className='state-btn '+(CLS[s]||'tag gray');
+    row.dataset.state=s;
+    var d=row.querySelector('.exec-date');
+    if(d) d.textContent=st.date||'';
+  }
+  function updateProgress(){
+    var rows=document.querySelectorAll('tr[data-task-id]');
+    var done=0; rows.forEach(function(r){if(r.dataset.state==='已执行')done++;});
+    var n=rows.length;
+    var dc=document.getElementById('done-count'); if(dc) dc.textContent=done;
+    var tc=document.getElementById('total-count'); if(tc) tc.textContent=n;
+    var bar=document.getElementById('progress-bar'); if(bar) bar.style.width=(n?Math.round(done/n*100):0)+'%';
+  }
+  function filterRows(f){
+    document.querySelectorAll('tr[data-task-id]').forEach(function(r){
+      var show=f==='all'||f===r.dataset.priority||
+        (f==='pending'&&r.dataset.state!=='已执行'&&r.dataset.state!=='暂缓')||
+        (f==='done'&&r.dataset.state==='已执行')||
+        (f==='defer'&&r.dataset.state==='暂缓');
+      r.style.display=show?'':'none';
+    });
+  }
+  document.addEventListener('DOMContentLoaded',function(){
+    document.querySelectorAll('tr[data-task-id]').forEach(function(row){
+      var id=row.dataset.taskId;
+      applyRow(row,load(id));
+      row.querySelector('.state-btn').addEventListener('click',function(){
+        var cur=row.dataset.state;
+        var next=STATES[(STATES.indexOf(cur)+1)%STATES.length];
+        var prev=load(id);
+        var date=next==='已执行'?new Date().toLocaleDateString('zh-CN'):(prev.date||'');
+        var obj={status:next,date:date};
+        save(id,obj); applyRow(row,obj); updateProgress();
+      });
+    });
+    updateProgress();
+    document.querySelectorAll('.filt-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        document.querySelectorAll('.filt-btn').forEach(function(b){b.classList.remove('active');});
+        btn.classList.add('active'); filterRows(btn.dataset.filter);
+      });
+    });
+  });
+})();
+</script>"""
 
 
 def task_table(tasks: pd.DataFrame, limit: int | None = None) -> str:
@@ -561,6 +633,46 @@ def task_table(tasks: pd.DataFrame, limit: int | None = None) -> str:
     )
 
 
+def interactive_task_table(tasks: pd.DataFrame) -> str:
+    body = []
+    for _, r in tasks.iterrows():
+        task_id = esc(r["任务ID"])
+        priority = esc(r["优先级"])
+        body.append(
+            f"<tr data-task-id='{task_id}' data-priority='{priority}' data-state='待执行'>"
+            f"<td>{tag(text(r['优先级']))}<div class='small'>{task_id}</div></td>"
+            f"<td><b>{esc(r['供应商SKU'])}</b><div class='small'>{esc(r['Wayfair Listing'])} / {esc(r['产品名'])}</div></td>"
+            f"<td>{esc(r['问题类型'])}</td>"
+            f"<td>{esc(r['触发原因'])}</td>"
+            f"<td><b>{esc(r['建议动作'])}</b><div class='small'>执行前：{esc(r['执行前检查'])}</div></td>"
+            f"<td>{esc(r['复盘指标'])}</td>"
+            f"<td><a href='{esc(r['证据链接'])}'>{esc(r['证据来源'])}</a></td>"
+            f"<td><button class='state-btn tag amber'>待执行</button><div class='exec-date'></div></td>"
+            "</tr>"
+        )
+    return (
+        "<div class='tablebox'><table><thead><tr>"
+        "<th>优先级</th><th>SKU / Listing</th><th>类型</th><th>触发原因</th><th>建议动作</th><th>复盘指标</th><th>证据</th><th>执行状态</th>"
+        "</tr></thead><tbody>"
+        + "\n".join(body)
+        + "</tbody></table></div>"
+    )
+
+
+def task_toolbar(total: int) -> str:
+    return f"""<div class="toolbar">
+  <span class="progress-label">已执行 <span id="done-count">0</span> / <span id="total-count">{total}</span></span>
+  <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
+  <button class="filt-btn active" data-filter="all">全部</button>
+  <button class="filt-btn" data-filter="P0">P0</button>
+  <button class="filt-btn" data-filter="P1">P1</button>
+  <button class="filt-btn" data-filter="P2">P2</button>
+  <button class="filt-btn" data-filter="pending">待执行</button>
+  <button class="filt-btn" data-filter="done">已执行</button>
+  <button class="filt-btn" data-filter="defer">暂缓</button>
+</div>"""
+
+
 def render_execution_center(tasks: pd.DataFrame) -> None:
     counts = tasks["优先级"].value_counts().to_dict()
     type_counts = tasks["问题类型"].value_counts().to_dict()
@@ -584,10 +696,12 @@ def render_execution_center(tasks: pd.DataFrame) -> None:
 
 
 def render_task_report(tasks: pd.DataFrame) -> None:
-    body = f"""
-<div class="section"><h2>1. 全量 SKU 任务清单</h2>
-<p>使用顺序：先处理 P0，再处理 P1。P2 只做观察或等数据。</p>
-{task_table(tasks)}
+    # _TASK_EXTRA_HEAD is injected into the body so apply_dashboard_shell.py preserves it
+    body = f"""{_TASK_EXTRA_HEAD}
+<div class="section"><h2>全量 SKU 任务清单</h2>
+<p>先处理 P0，再处理 P1。P2 只做观察。点击<b>执行状态</b>列的按钮标记进度，状态保存在本地浏览器，刷新不丢失。</p>
+{task_toolbar(len(tasks))}
+{interactive_task_table(tasks)}
 </div>
 """
     OUT_TASK_REPORT.write_text(page("Wayfair SKU 任务清单", body), encoding="utf-8")
