@@ -392,7 +392,9 @@ def build() -> pd.DataFrame:
     order = [
         "Part", "Listing", "Status", "ChineseName", "类目", "ProcurementCost", "YBBaseCost",
         "CatalogBaseCost", "CurrentB2BDiscount", "WholesaleAfterB2B", "RetailUS",
-        "BaseToRetailUS", "TotalCost", "PlatformMargin", "PlatformPct", "WSCPercentile",
+        "BaseToRetailUS", "CostStackRetailNet", "WholesaleCost", "TotalCost",
+        "ShipOutboundCost", "IncidentReturnCost", "ProductAllowanceCost", "OtherHandlingCost",
+        "PlatformMargin", "PlatformPct", "WSCPercentile",
         "ShipCostPercentile", "IncidentReturnPercentile", "MayOrders", "MaySellerRevenue",
         "MayGross", "MayMargin", "MayZeroRevenueOrders", "YBHistOrders", "YBHistSellerRevenue",
         "YBHistGross", "YBHistMargin", "YBHistZeroRevenueOrders", "YBHistFirstOrderDate",
@@ -421,7 +423,13 @@ def render(df: pd.DataFrame) -> None:
         "WholesaleAfterB2B": "当前供货收入",
         "RetailUS": "美国前台价",
         "BaseToRetailUS": "Base/前台价",
+        "CostStackRetailNet": "Cost Stack净零售价",
+        "WholesaleCost": "Wholesale Cost",
         "TotalCost": "Wayfair Total Cost",
+        "ShipOutboundCost": "出仓成本",
+        "IncidentReturnCost": "客诉退货成本",
+        "ProductAllowanceCost": "产品津贴成本",
+        "OtherHandlingCost": "其他操作成本",
         "PlatformMargin": "平台空间金额",
         "PlatformPct": "平台空间率",
         "WSCPercentile": "供货价竞争百分位",
@@ -469,9 +477,35 @@ def render(df: pd.DataFrame) -> None:
         "<th>预估毛利</th><th>主要问题</th><th>建议动作</th></tr></thead>"
     )
 
+    def render_cost_detail(r: pd.Series) -> str:
+        if pd.isna(r.get("TotalCost")):
+            return "<details class='costdetail'><summary>Total Cost 明细</summary><div class='small'>该 SKU 未匹配到有效 Cost Stack。</div></details>"
+        components = [
+            ("Retail Price Net", r.get("CostStackRetailNet")),
+            ("Wholesale Cost", r.get("WholesaleCost")),
+            ("出仓成本", r.get("ShipOutboundCost")),
+            ("客诉退货成本", r.get("IncidentReturnCost")),
+            ("产品津贴成本", r.get("ProductAllowanceCost")),
+            ("其他操作成本", r.get("OtherHandlingCost")),
+            ("Total Cost", r.get("TotalCost")),
+            ("平台空间", r.get("PlatformMargin")),
+        ]
+        rows_html = "".join(
+            f"<div><span>{esc(label)}</span><b>{money(value)}</b></div>"
+            for label, value in components
+        )
+        return (
+            "<details class='costdetail'>"
+            f"<summary>Total Cost 明细：{money(r.get('TotalCost'))}</summary>"
+            f"<div class='costgrid'>{rows_html}</div>"
+            "<div class='small'>平台空间 = Retail Price Net - Total Cost</div>"
+            "</details>"
+        )
+
     def table_rows(rows: pd.DataFrame) -> str:
         result = []
         for _, r in rows.iterrows():
+            cost_detail = render_cost_detail(r)
             result.append(
                 "<tr>"
                 f"<td><b>{esc(r.get('Part'))}</b><div class='small'>{esc(r.get('Listing'))} / {esc(r.get('ChineseName'))}</div></td>"
@@ -479,7 +513,7 @@ def render(df: pd.DataFrame) -> None:
                 f"<td class='right'>{money(r.get('ProcurementCost'))}<div class='small'>YB Base {money(r.get('YBBaseCost'))}</div></td>"
                 f"<td class='right'>{money(r.get('CatalogBaseCost'))}<div class='small'>供货收入 {money(r.get('WholesaleAfterB2B'))}</div></td>"
                 f"<td class='right'>{money(r.get('RetailUS'))}<div class='small'>Base/前台 {pct(r.get('BaseToRetailUS'))}</div></td>"
-                f"<td class='right'>{money(r.get('PlatformMargin'))}<div class='small'>{pct(r.get('PlatformPct'))}</div></td>"
+                f"<td class='right'>{money(r.get('PlatformMargin'))}<div class='small'>{pct(r.get('PlatformPct'))}</div>{cost_detail}</td>"
                 f"<td class='right'>{pct(r.get('MayMargin'))}<div class='small'>5月单 {n(r.get('MayOrders')):.0f} / YB历史 {n(r.get('YBHistOrders')):.0f}单 {pct(r.get('YBHistMargin'))}</div></td>"
                 f"<td class='right'>{pct(r.get('EstimatedCurrentMargin'))}<div class='small'>目标Base {money(r.get('RequiredBaseFor25Pct'))}</div></td>"
                 f"<td>{esc(r.get('主要问题'))}</td>"
@@ -516,7 +550,7 @@ def render(df: pd.DataFrame) -> None:
     html_text = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Wayfair 产品定价体检表</title>
 <style>
-html{{scroll-behavior:smooth}}body{{margin:0;background:#f6f7fb;color:#172033;font-family:Arial,'Microsoft YaHei',sans-serif;line-height:1.6}}header{{background:#10213d;color:#fff;padding:30px 34px}}h1{{margin:0;font-size:28px}}.meta{{color:#dbe7ff;margin-top:6px}}.wrap{{max-width:1320px;margin:auto;padding:24px 34px}}.grid{{display:grid;grid-template-columns:repeat(8,1fr);gap:10px}}.card,.section{{background:#fff;border:1px solid #d8e0ec;border-radius:8px;box-shadow:0 6px 18px #1018280a}}.card{{padding:14px}}.jumpcard{{display:block;color:#172033;text-decoration:none}}.jumpcard:hover{{border-color:#1f5cc4;box-shadow:0 8px 20px #1f5cc41a}}.num{{font-size:25px;font-weight:800;color:#1f5cc4}}.section{{padding:20px;margin:18px 0;scroll-margin-top:16px}}h2{{margin:0 0 12px;font-size:21px}}.callout{{border-left:4px solid #1f5cc4;background:#f8fbff;padding:12px 14px;border-radius:8px;margin:12px 0}}.warn{{border-left-color:#b54708;background:#fff8ed}}.jumpnav{{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 18px}}.jumpnav a{{background:#fff;border:1px solid #d8e0ec;border-radius:999px;color:#172033;padding:7px 11px;text-decoration:none}}.jumpnav a:hover{{border-color:#1f5cc4;color:#1f5cc4}}.tablebox{{overflow:auto;border:1px solid #d8e0ec;border-radius:8px;max-height:720px}}table{{width:100%;border-collapse:collapse;min-width:1480px;background:#fff}}th,td{{padding:8px 10px;border-bottom:1px solid #edf1f7;text-align:left;vertical-align:top;font-size:12.5px}}th{{position:sticky;top:0;background:#eef2f6}}.right{{text-align:right;white-space:nowrap}}.small{{color:#667085;font-size:12px}}.backtop{{margin-top:10px;text-align:right}}.backtop a{{color:#1f5cc4;text-decoration:none}}@media(max-width:900px){{.grid{{grid-template-columns:1fr 1fr}}.wrap{{padding:16px}}}}
+html{{scroll-behavior:smooth}}body{{margin:0;background:#f6f7fb;color:#172033;font-family:Arial,'Microsoft YaHei',sans-serif;line-height:1.6}}header{{background:#10213d;color:#fff;padding:30px 34px}}h1{{margin:0;font-size:28px}}.meta{{color:#dbe7ff;margin-top:6px}}.wrap{{max-width:1320px;margin:auto;padding:24px 34px}}.grid{{display:grid;grid-template-columns:repeat(8,1fr);gap:10px}}.card,.section{{background:#fff;border:1px solid #d8e0ec;border-radius:8px;box-shadow:0 6px 18px #1018280a}}.card{{padding:14px}}.jumpcard{{display:block;color:#172033;text-decoration:none}}.jumpcard:hover{{border-color:#1f5cc4;box-shadow:0 8px 20px #1f5cc41a}}.num{{font-size:25px;font-weight:800;color:#1f5cc4}}.section{{padding:20px;margin:18px 0;scroll-margin-top:16px}}h2{{margin:0 0 12px;font-size:21px}}.callout{{border-left:4px solid #1f5cc4;background:#f8fbff;padding:12px 14px;border-radius:8px;margin:12px 0}}.warn{{border-left-color:#b54708;background:#fff8ed}}.jumpnav{{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 18px}}.jumpnav a{{background:#fff;border:1px solid #d8e0ec;border-radius:999px;color:#172033;padding:7px 11px;text-decoration:none}}.jumpnav a:hover{{border-color:#1f5cc4;color:#1f5cc4}}.tablebox{{overflow:auto;border:1px solid #d8e0ec;border-radius:8px;max-height:720px}}table{{width:100%;border-collapse:collapse;min-width:1480px;background:#fff}}th,td{{padding:8px 10px;border-bottom:1px solid #edf1f7;text-align:left;vertical-align:top;font-size:12.5px}}th{{position:sticky;top:0;background:#eef2f6}}.right{{text-align:right;white-space:nowrap}}.small{{color:#667085;font-size:12px}}.costdetail{{margin-top:6px;text-align:left;white-space:normal}}.costdetail summary{{cursor:pointer;color:#1f5cc4;font-weight:700}}.costgrid{{margin:6px 0;padding:8px;background:#f8fafc;border:1px solid #d8e0ec;border-radius:6px;min-width:210px}}.costgrid div{{display:flex;justify-content:space-between;gap:12px;padding:2px 0}}.costgrid span{{color:#667085}}.backtop{{margin-top:10px;text-align:right}}.backtop a{{color:#1f5cc4;text-decoration:none}}@media(max-width:900px){{.grid{{grid-template-columns:1fr 1fr}}.wrap{{padding:16px}}}}
 </style></head><body>
 <header id="top"><h1>Wayfair 产品定价体检表</h1><div class="meta">生成日期：{REPORT_DATE} ｜ 数据源：05月YB工具表（产品上架/订单处理/客诉扣款）、Product Catalog、5月 Cost Stack、SKU 分层</div></header>
 <div class="wrap">
