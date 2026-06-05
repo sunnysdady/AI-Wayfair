@@ -96,6 +96,9 @@ def extract_body(src: str) -> str:
 
 def context(title: str) -> tuple[str, str]:
     rules = [
+        ("运营执行中心", ("Execution center", "本周必须先处理的 SKU、原因和动作。")),
+        ("SKU任务清单", ("Task list", "按优先级聚合所有 SKU 运营动作。")),
+        ("SKU经营档案", ("SKU profile", "单 SKU 的成本、库存、广告、促销和 Listing 证据。")),
         ("运营工作台", ("Start here", "当前状态、风险和下一步动作都在这里。")),
         ("库存映射", ("Inventory check", "加预算、促销、补货前先确认库存和映射置信度。")),
         ("促销准入", ("Promotion gate", "决定哪些 SKU 可以促销、哪些要先修复。")),
@@ -116,6 +119,8 @@ def context(title: str) -> tuple[str, str]:
 def nav(current_name: str) -> str:
     items = [
         ("../index.html", "Dashboard"),
+        (first_matching("运营执行中心"), "执行中心"),
+        (first_matching("SKU任务清单"), "任务清单"),
         (first_matching("运营工作台"), "工作台"),
         (first_matching("库存映射"), "库存映射"),
         (first_matching("促销准入"), "促销准入"),
