@@ -52,6 +52,15 @@ def pct(v) -> str:
     return f"{n(v) * 100:.1f}%"
 
 
+def split_items(v) -> list[str]:
+    if v is None or pd.isna(v):
+        return []
+    text = str(v).strip()
+    if not text:
+        return []
+    return [item.strip() for item in text.replace(";", "；").split("；") if item.strip()]
+
+
 def clean_sku(v) -> str:
     if v is None or pd.isna(v):
         return ""
@@ -472,7 +481,11 @@ def render(df: pd.DataFrame) -> None:
     key_order = ["可尝试提Base", "价格健康", "维持观察", "不建议提价", "先修成本", "新品观察", "待确认价格", "待补成本"]
     group_ids = {name: f"group-{i + 1}" for i, name in enumerate(key_order)}
     table_header = (
-        "<table><thead><tr><th>SKU / Listing</th><th>定价分组</th><th>你的成本</th>"
+        "<table class='pricing-table'><colgroup>"
+        "<col class='col-sku'><col class='col-grade'><col class='col-money'><col class='col-money'>"
+        "<col class='col-money'><col class='col-platform'><col class='col-margin'><col class='col-margin'>"
+        "<col class='col-issues'><col class='col-actions'></colgroup>"
+        "<thead><tr><th>SKU / Listing</th><th>定价分组</th><th>你的成本</th>"
         "<th>当前Base</th><th>前台价</th><th>平台空间</th><th>真实毛利</th>"
         "<th>预估毛利</th><th>主要问题</th><th>建议动作</th></tr></thead>"
     )
@@ -506,18 +519,20 @@ def render(df: pd.DataFrame) -> None:
         result = []
         for _, r in rows.iterrows():
             cost_detail = render_cost_detail(r)
+            issue_items = "".join(f"<li>{esc(item)}</li>" for item in split_items(r.get("主要问题")))
+            action_items = "".join(f"<li>{esc(item)}</li>" for item in split_items(r.get("建议动作")))
             result.append(
                 "<tr>"
-                f"<td><b>{esc(r.get('Part'))}</b><div class='small'>{esc(r.get('Listing'))} / {esc(r.get('ChineseName'))}</div></td>"
+                f"<td class='sku-cell'><b>{esc(r.get('Part'))}</b><div class='small'>{esc(r.get('Listing'))} / {esc(r.get('ChineseName'))}</div>{cost_detail}</td>"
                 f"<td>{esc(r.get('定价分组'))}<div class='small'>{esc(r.get('NewGrade'))} / {esc(r.get('PromoReadiness'))}</div></td>"
                 f"<td class='right'>{money(r.get('ProcurementCost'))}<div class='small'>YB Base {money(r.get('YBBaseCost'))}</div></td>"
                 f"<td class='right'>{money(r.get('CatalogBaseCost'))}<div class='small'>供货收入 {money(r.get('WholesaleAfterB2B'))}</div></td>"
                 f"<td class='right'>{money(r.get('RetailUS'))}<div class='small'>Base/前台 {pct(r.get('BaseToRetailUS'))}</div></td>"
-                f"<td class='right'>{money(r.get('PlatformMargin'))}<div class='small'>{pct(r.get('PlatformPct'))}</div>{cost_detail}</td>"
+                f"<td class='right'>{money(r.get('PlatformMargin'))}<div class='small'>{pct(r.get('PlatformPct'))}</div></td>"
                 f"<td class='right'>{pct(r.get('MayMargin'))}<div class='small'>5月单 {n(r.get('MayOrders')):.0f} / YB历史 {n(r.get('YBHistOrders')):.0f}单 {pct(r.get('YBHistMargin'))}</div></td>"
                 f"<td class='right'>{pct(r.get('EstimatedCurrentMargin'))}<div class='small'>目标Base {money(r.get('RequiredBaseFor25Pct'))}</div></td>"
-                f"<td>{esc(r.get('主要问题'))}</td>"
-                f"<td>{esc(r.get('建议动作'))}</td>"
+                f"<td class='text-list'><ul>{issue_items}</ul></td>"
+                f"<td class='text-list action-list'><ul>{action_items}</ul></td>"
                 "</tr>"
             )
         return "\n".join(result)
@@ -549,8 +564,8 @@ def render(df: pd.DataFrame) -> None:
     group_sections_html = "\n".join(group_sections)
     html_text = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Wayfair 产品定价体检表</title>
-<style>
-html{{scroll-behavior:smooth}}body{{margin:0;background:#f6f7fb;color:#172033;font-family:Arial,'Microsoft YaHei',sans-serif;line-height:1.6}}header{{background:#10213d;color:#fff;padding:30px 34px}}h1{{margin:0;font-size:28px}}.meta{{color:#dbe7ff;margin-top:6px}}.wrap{{max-width:1320px;margin:auto;padding:24px 34px}}.grid{{display:grid;grid-template-columns:repeat(8,1fr);gap:10px}}.card,.section{{background:#fff;border:1px solid #d8e0ec;border-radius:8px;box-shadow:0 6px 18px #1018280a}}.card{{padding:14px}}.jumpcard{{display:block;color:#172033;text-decoration:none}}.jumpcard:hover{{border-color:#1f5cc4;box-shadow:0 8px 20px #1f5cc41a}}.num{{font-size:25px;font-weight:800;color:#1f5cc4}}.section{{padding:20px;margin:18px 0;scroll-margin-top:16px}}h2{{margin:0 0 12px;font-size:21px}}.callout{{border-left:4px solid #1f5cc4;background:#f8fbff;padding:12px 14px;border-radius:8px;margin:12px 0}}.warn{{border-left-color:#b54708;background:#fff8ed}}.jumpnav{{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 18px}}.jumpnav a{{background:#fff;border:1px solid #d8e0ec;border-radius:999px;color:#172033;padding:7px 11px;text-decoration:none}}.jumpnav a:hover{{border-color:#1f5cc4;color:#1f5cc4}}.tablebox{{overflow:auto;border:1px solid #d8e0ec;border-radius:8px;max-height:720px}}table{{width:100%;border-collapse:collapse;min-width:1480px;background:#fff}}th,td{{padding:8px 10px;border-bottom:1px solid #edf1f7;text-align:left;vertical-align:top;font-size:12.5px}}th{{position:sticky;top:0;background:#eef2f6}}.right{{text-align:right;white-space:nowrap}}.small{{color:#667085;font-size:12px}}.costdetail{{margin-top:6px;text-align:left;white-space:normal}}.costdetail summary{{cursor:pointer;color:#1f5cc4;font-weight:700}}.costgrid{{margin:6px 0;padding:8px;background:#f8fafc;border:1px solid #d8e0ec;border-radius:6px;min-width:210px}}.costgrid div{{display:flex;justify-content:space-between;gap:12px;padding:2px 0}}.costgrid span{{color:#667085}}.backtop{{margin-top:10px;text-align:right}}.backtop a{{color:#1f5cc4;text-decoration:none}}@media(max-width:900px){{.grid{{grid-template-columns:1fr 1fr}}.wrap{{padding:16px}}}}
+    <style>
+    html{{scroll-behavior:smooth}}body{{margin:0;background:#f6f7fb;color:#172033;font-family:Arial,'Microsoft YaHei',sans-serif;line-height:1.6}}header{{background:#10213d;color:#fff;padding:30px 34px}}h1{{margin:0;font-size:28px}}.meta{{color:#dbe7ff;margin-top:6px}}.wrap{{max-width:1440px;margin:auto;padding:24px 34px}}.grid{{display:grid;grid-template-columns:repeat(8,minmax(120px,1fr));gap:10px}}.card,.section{{background:#fff;border:1px solid #d8e0ec;border-radius:8px;box-shadow:0 6px 18px #1018280a}}.card{{padding:14px}}.jumpcard{{display:block;color:#172033;text-decoration:none}}.jumpcard:hover{{border-color:#1f5cc4;box-shadow:0 8px 20px #1f5cc41a}}.num{{font-size:25px;font-weight:800;color:#1f5cc4}}.section{{padding:20px;margin:18px 0;scroll-margin-top:16px}}h2{{margin:0 0 12px;font-size:21px}}.callout{{border-left:4px solid #1f5cc4;background:#f8fbff;padding:12px 14px;border-radius:8px;margin:12px 0}}.warn{{border-left-color:#b54708;background:#fff8ed}}.jumpnav{{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 18px}}.jumpnav a{{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #d8e0ec;border-radius:999px;color:#172033;padding:7px 11px;text-decoration:none;line-height:1.2}}.jumpnav a:hover{{border-color:#1f5cc4;color:#1f5cc4}}.tablebox{{overflow:auto;border:1px solid #d8e0ec;border-radius:8px;max-height:720px;background:#fff;max-width:100%}}.pricing-table{{width:100%;border-collapse:separate;border-spacing:0;min-width:2340px;table-layout:fixed;background:#fff}}.col-sku{{width:330px}}.col-grade{{width:150px}}.col-money{{width:145px}}.col-platform{{width:260px}}.col-margin{{width:160px}}.col-issues{{width:380px}}.col-actions{{width:470px}}th,td{{padding:10px 12px;border-bottom:1px solid #edf1f7;text-align:left;vertical-align:top;font-size:13px;line-height:1.45;overflow-wrap:normal;word-break:normal}}th{{position:sticky;top:0;background:#eef2f6;z-index:3;color:#344054}}th:first-child,td:first-child{{position:sticky;left:0;z-index:2;background:#fff;box-shadow:1px 0 0 #edf1f7}}th:first-child{{z-index:4;background:#eef2f6}}.sku-cell b{{display:block;font-size:13.5px}}.right{{text-align:right;white-space:nowrap}}.small{{color:#667085;font-size:12px;line-height:1.45;white-space:normal}}.text-list ul{{margin:0;padding-left:16px}}.text-list li{{margin:0 0 5px}}.text-list li:last-child{{margin-bottom:0}}.action-list li{{font-weight:600}}.costdetail{{margin-top:7px;text-align:left;white-space:normal}}.costdetail summary{{cursor:pointer;color:#1f5cc4;font-weight:700;white-space:normal}}.costgrid{{margin:7px 0;padding:8px;background:#f8fafc;border:1px solid #d8e0ec;border-radius:6px;min-width:220px}}.costgrid div{{display:flex;justify-content:space-between;gap:12px;padding:2px 0}}.costgrid span{{color:#667085}}.backtop{{margin-top:10px;text-align:right}}.backtop a{{color:#1f5cc4;text-decoration:none}}@media(max-width:900px){{header{{padding:22px 18px}}.grid{{grid-template-columns:1fr 1fr}}.wrap{{padding:16px}}.section{{padding:16px}}.pricing-table{{min-width:2200px}}}}
 </style></head><body>
 <header id="top"><h1>Wayfair 产品定价体检表</h1><div class="meta">生成日期：{REPORT_DATE} ｜ 数据源：05月YB工具表（产品上架/订单处理/客诉扣款）、Product Catalog、5月 Cost Stack、SKU 分层</div></header>
 <div class="wrap">

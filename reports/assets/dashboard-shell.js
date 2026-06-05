@@ -6,6 +6,10 @@ document.addEventListener("DOMContentLoaded", () => {
     wrap.className = "wf-table-wrap";
     table.parentNode.insertBefore(wrap, table);
     wrap.appendChild(table);
+    if (!table.classList.contains("pricing-table")) {
+      const columns = table.querySelector("tr")?.children.length || 0;
+      table.style.minWidth = `${Math.max(980, columns * 130)}px`;
+    }
   });
   document.querySelectorAll(".wf-content").forEach((content) => {
     const children = Array.from(content.children);
