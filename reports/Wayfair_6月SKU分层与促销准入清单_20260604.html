@@ -1,18 +1,32 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Wayfair 6月SKU分层与促销准入清单</title>
-<style>
-body{margin:0;background:#f5f7fb;color:#172033;font-family:Arial,'Microsoft YaHei',sans-serif;line-height:1.6}
-header{background:#10213d;color:#fff;padding:30px 34px}h1{margin:0;font-size:28px}.meta{color:#dbe7ff;margin-top:6px}
-.wrap{padding:24px 34px;max-width:1280px;margin:auto}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:0 0 18px}
-.card,.section{background:#fff;border:1px solid #d8e0ec;border-radius:8px;box-shadow:0 6px 18px #1018280a}.card{padding:16px}.num{font-size:26px;font-weight:800;color:#1f5cc4}
-.section{padding:20px;margin:18px 0}h2{margin:0 0 12px;font-size:21px}h3{margin:18px 0 8px;font-size:16px}small,.small{color:#667085;font-size:12px}
-.callout{border-left:4px solid #1f5cc4;background:#f8fbff;padding:12px 14px;border-radius:8px;margin:12px 0}.warn{border-left-color:#b54708;background:#fff8ed}
-.tablebox{overflow:auto;border:1px solid #d8e0ec;border-radius:8px;max-height:620px}table{width:100%;border-collapse:collapse;background:#fff;min-width:1120px}
-th,td{padding:8px 10px;border-bottom:1px solid #edf1f7;text-align:left;vertical-align:top;font-size:12.5px}th{position:sticky;top:0;background:#eef2f6;z-index:1}.right{text-align:right}
-.pill{display:inline-block;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:800}.S{background:#075f46;color:#fff}.A{background:#1d5fd1;color:#fff}.B{background:#e3a008;color:#1d2430}.C{background:#c2410c;color:#fff}.N{background:#6b7280;color:#fff}
-.ok{color:#087443;font-weight:700}.bad{color:#b42318;font-weight:700}@media(max-width:900px){.grid{grid-template-columns:1fr 1fr}.wrap{padding:16px}}@media(max-width:620px){.grid{grid-template-columns:1fr}}
-</style></head><body>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wayfair 6月SKU分层与促销准入清单</title>
+  <link rel="stylesheet" href="./assets/dashboard-shell.css">
+</head>
+<body class="wf-app-body">
+<div class="wf-page"><div class="wf-app">
+  <aside class="wf-side">
+    <div class="wf-brand"><span class="wf-mark">W</span><div>Wayfair Ops<small>AI Command Center</small></div></div>
+    <div class="wf-nav-label">Main</div><nav><a class="" href="../index.html"><span class="wf-dot"></span>Dashboard</a>
+<a class="" href="./Wayfair_运营工作台_20260604.html"><span class="wf-dot"></span>工作台</a>
+<a class="" href="./Wayfair_库存映射对照工具_20260604.html"><span class="wf-dot"></span>库存映射</a>
+<a class="active" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span class="wf-dot"></span>促销准入</a>
+<a class="" href="./Wayfair_SKU价值分级_SABC_N_20260604.html"><span class="wf-dot"></span>SKU分级</a>
+<a class="" href="./Wayfair_产品定价体检表_20260605.html"><span class="wf-dot"></span>定价体检</a></nav>
+    <div class="wf-nav-label">Anchors</div><nav><a href="#content"><span class="wf-dot"></span>正文内容</a><a href="https://ai-wayfair.vercel.app"><span class="wf-dot"></span>线上首页</a></nav>
+    <div class="wf-side-foot"><b>Dashboard 内页</b><small>统一侧栏、顶栏、摘要、面板和数据表样式。</small></div>
+  </aside>
+  <main class="wf-main">
+    <div class="wf-topbar"><div class="wf-search">搜索报告、SKU、库存、广告动作</div><div class="wf-top-actions"><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <section class="wf-hero">
+      <div class="wf-title-card"><div class="wf-eyebrow">Promotion gate</div><h1>Wayfair 6月SKU分层与促销准入清单</h1><p>决定哪些 SKU 可以促销、哪些要先修复。</p><div class="wf-actions"><a class="wf-btn primary" href="./Wayfair_运营工作台_20260604.html">工作台</a><a class="wf-btn green" href="./Wayfair_库存映射对照工具_20260604.html">查库存</a><a class="wf-btn light" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html">促销准入</a></div></div>
+      <aside class="wf-next-card"><h2>最短路径</h2><a href="./Wayfair_运营工作台_20260604.html"><span>先确认状态</span><small>工作台</small></a><a href="./Wayfair_库存映射对照工具_20260604.html"><span>再看库存</span><small>库存映射</small></a><a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span>最后执行</span><small>准入清单</small></a></aside>
+    </section>
+    <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
+    <main id="content" class="wf-content">
 <header><h1>Wayfair 6月SKU分层与促销准入清单</h1><div class="meta">生成日期：2026-06-04 ｜ 已补齐 Detailed Listing Health、Option Drill Down、Customer Feedback、Cancellation、Promotion、5月 Cost Stack</div></header>
 <div class="wrap">
 <div class="grid">
@@ -170,4 +184,11 @@ th,td{padding:8px 10px;border-bottom:1px solid #edf1f7;text-align:left;vertical-
 <tr><td><span class='pill C'>C</span></td><td><b>5T-wangge</b><div class='small'>DMOM1016</div></td><td class='right'>0</td><td class='right'>3</td><td class='right'>$0.00<div class='small'>净毛利 $-135.00 / 0.0%</div></td><td class='right'>$25.28<div class='small'>22.0%</div></td><td class='right'>75.0%<div class='small'>RED / 图 GREEN</div></td><td class='right'>0<div class='small'>0</div></td><td>禁止促销/先修复<div class='small'>卖家历史净毛利率低于15%；TAG不足80%</div></td><td>优先补必填/推荐TAG；图片不足8张：优先补图；广告降到最低或暂停</td></tr>
 </tbody></table></div>
 </div>
-</div></body></html>
+</div>
+    </main>
+    <p class="wf-footer-note">建议按：工作台 → 库存映射 → 促销准入 → 具体报告 的顺序使用。</p>
+  </main>
+</div></div>
+<script src="./assets/dashboard-shell.js"></script>
+</body>
+</html>

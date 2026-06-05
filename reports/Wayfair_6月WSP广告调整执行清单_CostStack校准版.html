@@ -1,5 +1,33 @@
-﻿<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>Wayfair 6月WSP广告调整执行清单（Cost Stack 校准版）</title><style>
-body{font-family:Arial,'Microsoft YaHei',sans-serif;margin:0;background:#f6f7f9;color:#1f2937;line-height:1.55}.wrap{max-width:1180px;margin:0 auto;padding:28px}h1{font-size:28px;margin:0 0 8px}h2{font-size:20px;margin:28px 0 10px;border-left:5px solid #2563eb;padding-left:10px}h3{font-size:16px;margin:18px 0 8px}.meta{color:#6b7280;margin-bottom:20px}.note{background:#fff7ed;border:1px solid #fed7aa;padding:12px 14px;border-radius:8px}.ok{background:#ecfdf5;border:1px solid #bbf7d0}.bad{background:#fef2f2;border:1px solid #fecaca}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:12px 0}table{border-collapse:collapse;width:100%;background:white;margin:8px 0 18px}th,td{border:1px solid #e5e7eb;padding:8px 9px;text-align:left;font-size:13px;vertical-align:top}th{background:#f3f4f6}.tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}.stop{background:#fee2e2;color:#991b1b}.reduce{background:#fef3c7;color:#92400e}.keep{background:#dcfce7;color:#166534}.repair{background:#dbeafe;color:#1d4ed8}.muted{color:#6b7280}.num{text-align:right;white-space:nowrap}ul{margin-top:6px}.small{font-size:12px;color:#6b7280}</style></head><body><div class="wrap">
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wayfair 6月 WSP 广告调整执行清单（Cost Stack 校准版）</title>
+  <link rel="stylesheet" href="./assets/dashboard-shell.css">
+</head>
+<body class="wf-app-body">
+<div class="wf-page"><div class="wf-app">
+  <aside class="wf-side">
+    <div class="wf-brand"><span class="wf-mark">W</span><div>Wayfair Ops<small>AI Command Center</small></div></div>
+    <div class="wf-nav-label">Main</div><nav><a class="" href="../index.html"><span class="wf-dot"></span>Dashboard</a>
+<a class="" href="./Wayfair_运营工作台_20260604.html"><span class="wf-dot"></span>工作台</a>
+<a class="" href="./Wayfair_库存映射对照工具_20260604.html"><span class="wf-dot"></span>库存映射</a>
+<a class="" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span class="wf-dot"></span>促销准入</a>
+<a class="" href="./Wayfair_SKU价值分级_SABC_N_20260604.html"><span class="wf-dot"></span>SKU分级</a>
+<a class="" href="./Wayfair_产品定价体检表_20260605.html"><span class="wf-dot"></span>定价体检</a></nav>
+    <div class="wf-nav-label">Anchors</div><nav><a href="#content"><span class="wf-dot"></span>正文内容</a><a href="https://ai-wayfair.vercel.app"><span class="wf-dot"></span>线上首页</a></nav>
+    <div class="wf-side-foot"><b>Dashboard 内页</b><small>统一侧栏、顶栏、摘要、面板和数据表样式。</small></div>
+  </aside>
+  <main class="wf-main">
+    <div class="wf-topbar"><div class="wf-search">搜索报告、SKU、库存、广告动作</div><div class="wf-top-actions"><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <section class="wf-hero">
+      <div class="wf-title-card"><div class="wf-eyebrow">Ads action</div><h1>Wayfair 6月 WSP 广告调整执行清单（Cost Stack 校准版）</h1><p>关键词、Campaign、Product 层调整建议。</p><div class="wf-actions"><a class="wf-btn primary" href="./Wayfair_运营工作台_20260604.html">工作台</a><a class="wf-btn green" href="./Wayfair_库存映射对照工具_20260604.html">查库存</a><a class="wf-btn light" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html">促销准入</a></div></div>
+      <aside class="wf-next-card"><h2>最短路径</h2><a href="./Wayfair_运营工作台_20260604.html"><span>先确认状态</span><small>工作台</small></a><a href="./Wayfair_库存映射对照工具_20260604.html"><span>再看库存</span><small>库存映射</small></a><a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span>最后执行</span><small>准入清单</small></a></aside>
+    </section>
+    <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
+    <main id="content" class="wf-content">
+<div class="wrap">
 <h1>Wayfair 6月 WSP 广告调整执行清单（Cost Stack 校准版）</h1>
 <div class="meta">生成时间：2026-06-04 ｜ 数据来源：WSP Campaign/Product、WSP Product Sales Rank、March Cost Stack、WSS 空报表、Keyword/Search Term 参考表</div>
 <div class="note"><strong>重要口径：</strong>WSP Campaign/Product 报表日期为 2026-05-31 至 2026-06-03；Product Sales Rank 为 6月单日排名数据；两个 Keyword 报告实际日期为 2026-05-01 至 2026-05-31，虽然文件名写 06，但不能作为 6月关键词停词最终依据。WSS 两个报表 0 行，按未投放/无数据处理。Cost Stack 已校准：不能用 WholesaleCost - Total Cost 判定平台负毛利；平台空间看 Retail Price Net - Total Cost。</div>
@@ -55,5 +83,11 @@ body{font-family:Arial,'Microsoft YaHei',sans-serif;margin:0;background:#f6f7f9;
 <li>导出 6月 Keyword Optimization 和 Keyword Targeting 报告，再做关键词层停词。</li>
 <li>补充最新 Cost Stack、库存、Detailed Listing Health、Review 和客诉/退货/扣款后，再按 `Retail Price Net - Total Cost` 与卖家真实利润做促销准入清单。</li>
 </ol></div>
-</div></body></html>
-
+</div>
+    </main>
+    <p class="wf-footer-note">建议按：工作台 → 库存映射 → 促销准入 → 具体报告 的顺序使用。</p>
+  </main>
+</div></div>
+<script src="./assets/dashboard-shell.js"></script>
+</body>
+</html>

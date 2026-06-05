@@ -1,5 +1,33 @@
-﻿<!doctype html><html lang='zh-CN'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>Wayfair 产品信息评分评论体检</title><style>
-body{margin:0;background:#f6f7f9;color:#172033;font:14px/1.6 Arial,'Microsoft YaHei',sans-serif}.wrap{max-width:1200px;margin:auto;padding:28px}h1{font-size:30px;margin:0 0 6px}.meta{color:#667085;margin-bottom:18px}h2{font-size:20px;margin:26px 0 10px;padding-left:10px;border-left:5px solid #2563eb}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.card{background:#fff;border:1px solid #d9dee8;border-radius:8px;padding:15px}.kpi b{display:block;font-size:24px}.kpi span{color:#667085}table{width:100%;border-collapse:collapse;background:#fff;margin:10px 0 18px}th,td{border:1px solid #d9dee8;padding:8px 9px;text-align:left;vertical-align:top}th{background:#eef2f7}.num{text-align:right;white-space:nowrap}.note{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:13px 15px}.bad{color:#b42318;font-weight:700}@media(max-width:900px){.grid{grid-template-columns:1fr 1fr}.wrap{padding:18px}}</style></head><body><div class='wrap'>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wayfair 产品信息评分评论体检</title>
+  <link rel="stylesheet" href="./assets/dashboard-shell.css">
+</head>
+<body class="wf-app-body">
+<div class="wf-page"><div class="wf-app">
+  <aside class="wf-side">
+    <div class="wf-brand"><span class="wf-mark">W</span><div>Wayfair Ops<small>AI Command Center</small></div></div>
+    <div class="wf-nav-label">Main</div><nav><a class="" href="../index.html"><span class="wf-dot"></span>Dashboard</a>
+<a class="" href="./Wayfair_运营工作台_20260604.html"><span class="wf-dot"></span>工作台</a>
+<a class="" href="./Wayfair_库存映射对照工具_20260604.html"><span class="wf-dot"></span>库存映射</a>
+<a class="" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span class="wf-dot"></span>促销准入</a>
+<a class="" href="./Wayfair_SKU价值分级_SABC_N_20260604.html"><span class="wf-dot"></span>SKU分级</a>
+<a class="" href="./Wayfair_产品定价体检表_20260605.html"><span class="wf-dot"></span>定价体检</a></nav>
+    <div class="wf-nav-label">Anchors</div><nav><a href="#content"><span class="wf-dot"></span>正文内容</a><a href="https://ai-wayfair.vercel.app"><span class="wf-dot"></span>线上首页</a></nav>
+    <div class="wf-side-foot"><b>Dashboard 内页</b><small>统一侧栏、顶栏、摘要、面板和数据表样式。</small></div>
+  </aside>
+  <main class="wf-main">
+    <div class="wf-topbar"><div class="wf-search">搜索报告、SKU、库存、广告动作</div><div class="wf-top-actions"><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <section class="wf-hero">
+      <div class="wf-title-card"><div class="wf-eyebrow">Report</div><h1>Wayfair 产品信息评分评论体检</h1><p>关键数据和执行建议已经按 Dashboard 内页重新整理。</p><div class="wf-actions"><a class="wf-btn primary" href="./Wayfair_运营工作台_20260604.html">工作台</a><a class="wf-btn green" href="./Wayfair_库存映射对照工具_20260604.html">查库存</a><a class="wf-btn light" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html">促销准入</a></div></div>
+      <aside class="wf-next-card"><h2>最短路径</h2><a href="./Wayfair_运营工作台_20260604.html"><span>先确认状态</span><small>工作台</small></a><a href="./Wayfair_库存映射对照工具_20260604.html"><span>再看库存</span><small>库存映射</small></a><a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span>最后执行</span><small>准入清单</small></a></aside>
+    </section>
+    <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
+    <main id="content" class="wf-content">
+<div class='wrap'>
 <h1>Wayfair 产品信息评分评论体检</h1><div class='meta'>数据源：C:\Users\Administrator\Desktop\产品信息数据.xls ｜ Sheet1：95 行 ｜ 更新时间：2026-06-04</div>
 <div class='note'>读取字段包含 Part Number、SKU、Status、Revenue、Conversion Rate、Images、Avg Review Rating、Review Count、Units Sold、Unique Visits、Total Impressions。Sheet2 / Sheet3 基本为空。</div>
 <h2>1. 总览</h2><div class='grid'><div class='card kpi'><span>产品行数</span><b>95</b></div><div class='card kpi'><span>Live 行数</span><b>80</b></div><div class='card kpi'><span>评论&lt;20</span><b>95</b></div><div class='card kpi'><span>评分&lt;4.0</span><b>6</b></div><div class='card kpi'><span>图片&lt;8</span><b>54</b></div></div>
@@ -96,4 +124,11 @@ body{margin:0;background:#f6f7f9;color:#172033;font:14px/1.6 Arial,'Microsoft Ya
 <tr><td>5T-Niudun</td><td>DMOM1005</td><td>Live</td><td class='num'>55.83</td><td class='num'>0.9%</td><td class='num'>6</td><td class='num'>0</td><td class='num'>0</td><td class='num'>1</td><td class='num'>111</td><td>评论不足 / 图片不足 / 转化偏低</td></tr>
 <tr><td>LFC-4W</td><td>DMOM1027</td><td>Live</td><td class='num'>169.2</td><td class='num'>1%</td><td class='num'>6</td><td class='num'>3</td><td class='num'>4</td><td class='num'>1</td><td class='num'>101</td><td>评论不足 / 评分风险 / 图片不足 / 转化偏低</td></tr></table>
 <h2>6. 下一步</h2><div class='card'><ol><li>把本报告中的“广告相关 SKU”并入 WSP 广告调整清单。</li><li>优先处理广告花费 0 单且 Review&lt;20 / CVR&lt;2% 的 SKU。</li><li>对保留广告的 SKU，先确认 Review、Rating、Images 是否达到承接标准，再决定是否加预算。</li></ol></div>
-</div></body></html>
+</div>
+    </main>
+    <p class="wf-footer-note">建议按：工作台 → 库存映射 → 促销准入 → 具体报告 的顺序使用。</p>
+  </main>
+</div></div>
+<script src="./assets/dashboard-shell.js"></script>
+</body>
+</html>

@@ -3,13 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Wayfair 店铺交接包 2026-06-04</title>
-  <style>
-    :root{--bg:#f7f8fa;--card:#fff;--ink:#1f2937;--muted:#667085;--line:#d7dde8;--blue:#2563eb;--green:#16723a;--amber:#a15c07;--red:#b42318}
-    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 Arial,"Microsoft YaHei",sans-serif}.wrap{max-width:1200px;margin:auto;padding:28px}h1{font-size:30px;margin:0 0 6px}h2{font-size:20px;margin:26px 0 10px;padding-left:10px;border-left:5px solid var(--blue)}h3{font-size:16px;margin:14px 0 8px}.meta,.muted{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:15px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}table{width:100%;border-collapse:collapse;background:#fff;margin:10px 0 18px}th,td{border:1px solid var(--line);padding:8px 9px;text-align:left;vertical-align:top}th{background:#eef2f7}.tag{display:inline-block;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:700}.red{background:#fee4e2;color:var(--red)}.amber{background:#fef0c7;color:var(--amber)}.green{background:#dcfae6;color:var(--green)}.blue{background:#dbeafe;color:#1d4ed8}.barrow{display:grid;grid-template-columns:160px 1fr 110px;gap:10px;align-items:center;margin:8px 0}.lane{height:22px;background:#e9edf5;border-radius:4px;position:relative}.bar{position:absolute;height:22px;border-radius:4px;background:#2563eb}.bar.green{background:#16a34a}.bar.amber{background:#d97706}.bar.red{background:#dc2626}.bar.purple{background:#7c3aed}.days{display:grid;grid-template-columns:repeat(27,1fr);font-size:10px;color:#667085;margin-left:170px;margin-right:120px}.days span{text-align:center}.small{font-size:12px}@media(max-width:800px){.grid{grid-template-columns:1fr}.barrow{grid-template-columns:1fr}.days{display:none}}
-  </style>
+  <title>Wayfair 店铺交接包</title>
+  <link rel="stylesheet" href="./assets/dashboard-shell.css">
 </head>
-<body>
+<body class="wf-app-body">
+<div class="wf-page"><div class="wf-app">
+  <aside class="wf-side">
+    <div class="wf-brand"><span class="wf-mark">W</span><div>Wayfair Ops<small>AI Command Center</small></div></div>
+    <div class="wf-nav-label">Main</div><nav><a class="" href="../index.html"><span class="wf-dot"></span>Dashboard</a>
+<a class="" href="./Wayfair_运营工作台_20260604.html"><span class="wf-dot"></span>工作台</a>
+<a class="" href="./Wayfair_库存映射对照工具_20260604.html"><span class="wf-dot"></span>库存映射</a>
+<a class="" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span class="wf-dot"></span>促销准入</a>
+<a class="" href="./Wayfair_SKU价值分级_SABC_N_20260604.html"><span class="wf-dot"></span>SKU分级</a>
+<a class="" href="./Wayfair_产品定价体检表_20260605.html"><span class="wf-dot"></span>定价体检</a></nav>
+    <div class="wf-nav-label">Anchors</div><nav><a href="#content"><span class="wf-dot"></span>正文内容</a><a href="https://ai-wayfair.vercel.app"><span class="wf-dot"></span>线上首页</a></nav>
+    <div class="wf-side-foot"><b>Dashboard 内页</b><small>统一侧栏、顶栏、摘要、面板和数据表样式。</small></div>
+  </aside>
+  <main class="wf-main">
+    <div class="wf-topbar"><div class="wf-search">搜索报告、SKU、库存、广告动作</div><div class="wf-top-actions"><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <section class="wf-hero">
+      <div class="wf-title-card"><div class="wf-eyebrow">Handoff</div><h1>Wayfair 店铺交接包</h1><p>接手流程和运营原则。</p><div class="wf-actions"><a class="wf-btn primary" href="./Wayfair_运营工作台_20260604.html">工作台</a><a class="wf-btn green" href="./Wayfair_库存映射对照工具_20260604.html">查库存</a><a class="wf-btn light" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html">促销准入</a></div></div>
+      <aside class="wf-next-card"><h2>最短路径</h2><a href="./Wayfair_运营工作台_20260604.html"><span>先确认状态</span><small>工作台</small></a><a href="./Wayfair_库存映射对照工具_20260604.html"><span>再看库存</span><small>库存映射</small></a><a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span>最后执行</span><small>准入清单</small></a></aside>
+    </section>
+    <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
+    <main id="content" class="wf-content">
 <div class="wrap">
   <h1>Wayfair 店铺交接包</h1>
   <div class="meta">更新时间：2026-06-04 ｜ 角色：用户负责提供数据和执行，Codex 负责分析和动作清单</div>
@@ -76,5 +93,10 @@
     </ol>
   </div>
 </div>
+    </main>
+    <p class="wf-footer-note">建议按：工作台 → 库存映射 → 促销准入 → 具体报告 的顺序使用。</p>
+  </main>
+</div></div>
+<script src="./assets/dashboard-shell.js"></script>
 </body>
 </html>

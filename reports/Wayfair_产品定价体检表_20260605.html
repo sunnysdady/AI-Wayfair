@@ -1,8 +1,32 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Wayfair 产品定价体检表</title>
-<style>
-html{scroll-behavior:smooth}body{margin:0;background:#f6f7fb;color:#172033;font-family:Arial,'Microsoft YaHei',sans-serif;line-height:1.6}header{background:#10213d;color:#fff;padding:30px 34px}h1{margin:0;font-size:28px}.meta{color:#dbe7ff;margin-top:6px}.wrap{max-width:1320px;margin:auto;padding:24px 34px}.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:10px}.card,.section{background:#fff;border:1px solid #d8e0ec;border-radius:8px;box-shadow:0 6px 18px #1018280a}.card{padding:14px}.jumpcard{display:block;color:#172033;text-decoration:none}.jumpcard:hover{border-color:#1f5cc4;box-shadow:0 8px 20px #1f5cc41a}.num{font-size:25px;font-weight:800;color:#1f5cc4}.section{padding:20px;margin:18px 0;scroll-margin-top:16px}h2{margin:0 0 12px;font-size:21px}.callout{border-left:4px solid #1f5cc4;background:#f8fbff;padding:12px 14px;border-radius:8px;margin:12px 0}.warn{border-left-color:#b54708;background:#fff8ed}.jumpnav{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 18px}.jumpnav a{background:#fff;border:1px solid #d8e0ec;border-radius:999px;color:#172033;padding:7px 11px;text-decoration:none}.jumpnav a:hover{border-color:#1f5cc4;color:#1f5cc4}.tablebox{overflow:auto;border:1px solid #d8e0ec;border-radius:8px;max-height:720px}table{width:100%;border-collapse:collapse;min-width:1480px;background:#fff}th,td{padding:8px 10px;border-bottom:1px solid #edf1f7;text-align:left;vertical-align:top;font-size:12.5px}th{position:sticky;top:0;background:#eef2f6}.right{text-align:right;white-space:nowrap}.small{color:#667085;font-size:12px}.costdetail{margin-top:6px;text-align:left;white-space:normal}.costdetail summary{cursor:pointer;color:#1f5cc4;font-weight:700}.costgrid{margin:6px 0;padding:8px;background:#f8fafc;border:1px solid #d8e0ec;border-radius:6px;min-width:210px}.costgrid div{display:flex;justify-content:space-between;gap:12px;padding:2px 0}.costgrid span{color:#667085}.backtop{margin-top:10px;text-align:right}.backtop a{color:#1f5cc4;text-decoration:none}@media(max-width:900px){.grid{grid-template-columns:1fr 1fr}.wrap{padding:16px}}
-</style></head><body>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wayfair 产品定价体检表</title>
+  <link rel="stylesheet" href="./assets/dashboard-shell.css">
+</head>
+<body class="wf-app-body">
+<div class="wf-page"><div class="wf-app">
+  <aside class="wf-side">
+    <div class="wf-brand"><span class="wf-mark">W</span><div>Wayfair Ops<small>AI Command Center</small></div></div>
+    <div class="wf-nav-label">Main</div><nav><a class="" href="../index.html"><span class="wf-dot"></span>Dashboard</a>
+<a class="" href="./Wayfair_运营工作台_20260604.html"><span class="wf-dot"></span>工作台</a>
+<a class="" href="./Wayfair_库存映射对照工具_20260604.html"><span class="wf-dot"></span>库存映射</a>
+<a class="" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span class="wf-dot"></span>促销准入</a>
+<a class="" href="./Wayfair_SKU价值分级_SABC_N_20260604.html"><span class="wf-dot"></span>SKU分级</a>
+<a class="active" href="./Wayfair_产品定价体检表_20260605.html"><span class="wf-dot"></span>定价体检</a></nav>
+    <div class="wf-nav-label">Anchors</div><nav><a href="#content"><span class="wf-dot"></span>正文内容</a><a href="https://ai-wayfair.vercel.app"><span class="wf-dot"></span>线上首页</a></nav>
+    <div class="wf-side-foot"><b>Dashboard 内页</b><small>统一侧栏、顶栏、摘要、面板和数据表样式。</small></div>
+  </aside>
+  <main class="wf-main">
+    <div class="wf-topbar"><div class="wf-search">搜索报告、SKU、库存、广告动作</div><div class="wf-top-actions"><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <section class="wf-hero">
+      <div class="wf-title-card"><div class="wf-eyebrow">Pricing health</div><h1>Wayfair 产品定价体检表</h1><p>检查成本、售价、平台空间和提价风险。</p><div class="wf-actions"><a class="wf-btn primary" href="./Wayfair_运营工作台_20260604.html">工作台</a><a class="wf-btn green" href="./Wayfair_库存映射对照工具_20260604.html">查库存</a><a class="wf-btn light" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html">促销准入</a></div></div>
+      <aside class="wf-next-card"><h2>最短路径</h2><a href="./Wayfair_运营工作台_20260604.html"><span>先确认状态</span><small>工作台</small></a><a href="./Wayfair_库存映射对照工具_20260604.html"><span>再看库存</span><small>库存映射</small></a><a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span>最后执行</span><small>准入清单</small></a></aside>
+    </section>
+    <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
+    <main id="content" class="wf-content">
 <header id="top"><h1>Wayfair 产品定价体检表</h1><div class="meta">生成日期：2026-06-05 ｜ 数据源：05月YB工具表（产品上架/订单处理/客诉扣款）、Product Catalog、5月 Cost Stack、SKU 分层</div></header>
 <div class="wrap">
 <div class="grid"><a class='card jumpcard' href='#group-1'><div class='num'>0</div><div>可尝试提Base</div></a><a class='card jumpcard' href='#group-2'><div class='num'>1</div><div>价格健康</div></a><a class='card jumpcard' href='#group-3'><div class='num'>18</div><div>维持观察</div></a><a class='card jumpcard' href='#group-4'><div class='num'>29</div><div>不建议提价</div></a><a class='card jumpcard' href='#group-5'><div class='num'>6</div><div>先修成本</div></a><a class='card jumpcard' href='#group-6'><div class='num'>18</div><div>新品观察</div></a><a class='card jumpcard' href='#group-7'><div class='num'>10</div><div>待确认价格</div></a><a class='card jumpcard' href='#group-8'><div class='num'>8</div><div>待补成本</div></a></div>
@@ -252,4 +276,11 @@ html{scroll-behavior:smooth}body{margin:0;background:#f6f7fb;color:#172033;font-
 <tr><td><b>2T-Kayak</b><div class='small'>DMOM1001 / </div></td><td>维持观察<div class='small'>C / 禁止促销/先修复</div></td><td class='right'>$50.00<div class='small'>YB Base $95.00</div></td><td class='right'>$95.00<div class='small'>供货收入 $85.50</div></td><td class='right'>$129.99<div class='small'>Base/前台 73.1%</div></td><td class='right'>$26.47<div class='small'>20.4%</div><details class='costdetail'><summary>Total Cost 明细：$103.52</summary><div class='costgrid'><div><span>Retail Price Net</span><b>$129.99</b></div><div><span>Wholesale Cost</span><b>$85.50</b></div><div><span>出仓成本</span><b>$11.14</b></div><div><span>客诉退货成本</span><b>$6.26</b></div><div><span>产品津贴成本</span><b>$-5.13</b></div><div><span>其他操作成本</span><b>$5.75</b></div><div><span>Total Cost</span><b>$103.52</b></div><div><span>平台空间</span><b>$26.47</b></div></div><div class='small'>平台空间 = Retail Price Net - Total Cost</div></details></td><td class='right'>0.0%<div class='small'>5月单 0 / YB历史 9单 33.8%</div></td><td class='right'>35.5%<div class='small'>目标Base $80.52</div></td><td>5月无成交，仅历史订单支撑；Base/前台价高于72%；供货价竞争百分位偏高；客诉退货竞争百分位偏高</td><td>维持Base Cost，促销不超过5%，先看库存和转化；回看Customer Feedback/退货原因，修说明、包装或质量</td></tr>
 <tr><td><b>VFC-5B</b><div class='small'>DMOM1028 / 窄卡5抽黑色</div></td><td>维持观察<div class='small'>C / 暂不促销</div></td><td class='right'>$105.30<div class='small'>YB Base $170.00</div></td><td class='right'>$170.00<div class='small'>供货收入 $153.00</div></td><td class='right'>$249.99<div class='small'>Base/前台 68.0%</div></td><td class='right'>$54.84<div class='small'>21.9%</div><details class='costdetail'><summary>Total Cost 明细：$195.15</summary><div class='costgrid'><div><span>Retail Price Net</span><b>$249.99</b></div><div><span>Wholesale Cost</span><b>$153.00</b></div><div><span>出仓成本</span><b>$28.12</b></div><div><span>客诉退货成本</span><b>$12.28</b></div><div><span>产品津贴成本</span><b>$-9.18</b></div><div><span>其他操作成本</span><b>$10.93</b></div><div><span>Total Cost</span><b>$195.15</b></div><div><span>平台空间</span><b>$54.84</b></div></div><div class='small'>平台空间 = Retail Price Net - Total Cost</div></details></td><td class='right'>0.0%<div class='small'>5月单 0 / YB历史 3单 25.2%</div></td><td class='right'>25.2%<div class='small'>目标Base $169.57</div></td><td>5月无成交，仅历史订单支撑；大促2B利润率低于12%；发货成本竞争百分位偏高</td><td>维持Base Cost，促销不超过5%，先看库存和转化；优先复核包裹尺寸、发货方式、仓库位置；禁止深折扣促销，当前促销利润不够</td></tr></tbody></table></div>
 </div>
-</div></body></html>
+</div>
+    </main>
+    <p class="wf-footer-note">建议按：工作台 → 库存映射 → 促销准入 → 具体报告 的顺序使用。</p>
+  </main>
+</div></div>
+<script src="./assets/dashboard-shell.js"></script>
+</body>
+</html>

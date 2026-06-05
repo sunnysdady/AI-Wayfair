@@ -1,7 +1,33 @@
-﻿<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Wayfair 数据补齐清单</title><style>
-body{margin:0;background:#f6f7f9;color:#172033;font:14px/1.6 Arial,"Microsoft YaHei",sans-serif}.wrap{max-width:1120px;margin:auto;padding:28px}h1{font-size:30px;margin:0 0 6px}.meta{color:#667085;margin-bottom:18px}h2{font-size:20px;margin:26px 0 10px;padding-left:10px;border-left:5px solid #2563eb}table{width:100%;border-collapse:collapse;background:#fff;margin:10px 0 18px}th,td{border:1px solid #d9dee8;padding:8px 9px;text-align:left;vertical-align:top}th{background:#eef2f7}.card{background:#fff;border:1px solid #d9dee8;border-radius:8px;padding:15px;margin:12px 0}.tag{display:inline-block;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:700}.ok{background:#dcfce7;color:#166534}.warn{background:#fef3c7;color:#92400e}.todo{background:#dbeafe;color:#1d4ed8}.link{color:#2563eb;font-weight:700}
-</style></head><body><div class="wrap"><h1>Wayfair 数据补齐清单</h1><div class="meta">更新时间：2026-06-04 ｜ 已补齐数据与仍待补数据分开管理</div>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wayfair 数据补齐清单</title>
+  <link rel="stylesheet" href="./assets/dashboard-shell.css">
+</head>
+<body class="wf-app-body">
+<div class="wf-page"><div class="wf-app">
+  <aside class="wf-side">
+    <div class="wf-brand"><span class="wf-mark">W</span><div>Wayfair Ops<small>AI Command Center</small></div></div>
+    <div class="wf-nav-label">Main</div><nav><a class="" href="../index.html"><span class="wf-dot"></span>Dashboard</a>
+<a class="" href="./Wayfair_运营工作台_20260604.html"><span class="wf-dot"></span>工作台</a>
+<a class="" href="./Wayfair_库存映射对照工具_20260604.html"><span class="wf-dot"></span>库存映射</a>
+<a class="" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span class="wf-dot"></span>促销准入</a>
+<a class="" href="./Wayfair_SKU价值分级_SABC_N_20260604.html"><span class="wf-dot"></span>SKU分级</a>
+<a class="" href="./Wayfair_产品定价体检表_20260605.html"><span class="wf-dot"></span>定价体检</a></nav>
+    <div class="wf-nav-label">Anchors</div><nav><a href="#content"><span class="wf-dot"></span>正文内容</a><a href="https://ai-wayfair.vercel.app"><span class="wf-dot"></span>线上首页</a></nav>
+    <div class="wf-side-foot"><b>Dashboard 内页</b><small>统一侧栏、顶栏、摘要、面板和数据表样式。</small></div>
+  </aside>
+  <main class="wf-main">
+    <div class="wf-topbar"><div class="wf-search">搜索报告、SKU、库存、广告动作</div><div class="wf-top-actions"><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <section class="wf-hero">
+      <div class="wf-title-card"><div class="wf-eyebrow">Data status</div><h1>Wayfair 数据补齐清单</h1><p>确认数据已经收到、仍缺什么。</p><div class="wf-actions"><a class="wf-btn primary" href="./Wayfair_运营工作台_20260604.html">工作台</a><a class="wf-btn green" href="./Wayfair_库存映射对照工具_20260604.html">查库存</a><a class="wf-btn light" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html">促销准入</a></div></div>
+      <aside class="wf-next-card"><h2>最短路径</h2><a href="./Wayfair_运营工作台_20260604.html"><span>先确认状态</span><small>工作台</small></a><a href="./Wayfair_库存映射对照工具_20260604.html"><span>再看库存</span><small>库存映射</small></a><a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span>最后执行</span><small>准入清单</small></a></aside>
+    </section>
+    <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
+    <main id="content" class="wf-content">
+<div class="wrap"><h1>Wayfair 数据补齐清单</h1><div class="meta">更新时间：2026-06-04 ｜ 已补齐数据与仍待补数据分开管理</div>
 <h2>1. 已补齐数据</h2><table><tr><th>状态</th><th>数据</th><th>日期范围/文件</th><th>用途</th><th>处理结果</th></tr>
 <tr><td><span class="tag ok">✅ 已完成</span></td><td>WSP Keyword Optimization Report</td><td>_Keyword Optimization Report WSP.csv<br>06/01/2026 至 06/04/2026</td><td>关键词停词、降 bid、保留词</td><td>已读取并生成 WSP 关键词调整清单</td></tr>
 <tr><td><span class="tag ok">✅ 已完成</span></td><td>WSP Keyword Targeting Report (Listing)</td><td>Keyword Targeting Report (Listing) WSP.csv<br>06/01/2026 至 06/04/2026</td><td>Listing x Keyword 诊断</td><td>已读取并用于 Listing x Keyword 诊断</td></tr>
@@ -21,4 +47,11 @@ body{margin:0;background:#f6f7f9;color:#172033;font:14px/1.6 Arial,"Microsoft Ya
 <tr><td><span class="tag todo">待补</span></td><td>当前促销/折扣清单</td><td>判断哪些 SKU 已经在折扣里，避免重复深折、误判促销准入</td><td>Partner Home 进入 Products / Promotions，导出当前 active/upcoming promotion 或 promotion offers 清单</td></tr>
 <tr><td><span class="tag warn">等平台生成</span></td><td>有效 6月 Cost Stack</td><td>替换上次有效口径并重跑 SKU 分级/促销准入</td><td>Pricing / Cost Stack Report，确认不是 0 行空表后再提供</td></tr></table>
 <h2>4. 下一步处理原则</h2><div class="card"><ol><li>库存映射高置信可用于广告/促销库存校验。</li><li>中/低置信必须人工复核后再用于补货、停投或促销决策。</li><li>6月 Cost Stack 当前为空表，不用于价格结论。</li><li>当前促销/折扣清单用于判断正在参加什么折扣，不等同于 Promotions Performance。</li><li>后续拿到有效 6月 Cost Stack 后，替换上次有效口径并重跑 SKU 分级/促销准入。</li></ol></div>
-</div></body></html>
+</div>
+    </main>
+    <p class="wf-footer-note">建议按：工作台 → 库存映射 → 促销准入 → 具体报告 的顺序使用。</p>
+  </main>
+</div></div>
+<script src="./assets/dashboard-shell.js"></script>
+</body>
+</html>

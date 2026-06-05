@@ -1,5 +1,32 @@
-﻿<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Wayfair 库存映射对照工具</title>
-<style>html{scroll-behavior:smooth}body{margin:0;background:#f6f7f9;color:#172033;font:14px/1.6 Arial,'Microsoft YaHei',sans-serif}header{background:#14213d;color:#fff;padding:28px 34px}.wrap{padding:24px 34px}h1{margin:0;font-size:28px}h2{margin:28px 0 12px;scroll-margin-top:16px}.meta{color:#8fa1bd}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:#fff;border:1px solid #d9dee8;border-radius:8px;padding:16px;text-decoration:none;color:#172033}.card:hover{border-color:#2563eb}.label{font-weight:700}.num{font-size:26px;font-weight:800}.small{font-size:12px;color:#667085}.note{background:#fff;border-left:4px solid #2563eb;padding:12px 14px;margin:14px 0}.tablebox{max-height:640px;overflow:auto;border-radius:8px}table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #d9dee8}th,td{padding:8px 9px;border-bottom:1px solid #edf0f3;text-align:left;vertical-align:top;font-size:12px}th{background:#eef2f6;position:sticky;top:0}.right{text-align:right}.pill{display:inline-block;border-radius:999px;padding:3px 8px;color:#fff;font-weight:700}.ok{background:#047857}.mid{background:#1d4ed8}.low{background:#b45309}.bad{background:#b91c1c}@media(max-width:860px){.grid{grid-template-columns:1fr 1fr}.wrap{padding:18px}}</style></head><body>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wayfair 库存映射对照工具</title>
+  <link rel="stylesheet" href="./assets/dashboard-shell.css">
+</head>
+<body class="wf-app-body">
+<div class="wf-page"><div class="wf-app">
+  <aside class="wf-side">
+    <div class="wf-brand"><span class="wf-mark">W</span><div>Wayfair Ops<small>AI Command Center</small></div></div>
+    <div class="wf-nav-label">Main</div><nav><a class="" href="../index.html"><span class="wf-dot"></span>Dashboard</a>
+<a class="" href="./Wayfair_运营工作台_20260604.html"><span class="wf-dot"></span>工作台</a>
+<a class="active" href="./Wayfair_库存映射对照工具_20260604.html"><span class="wf-dot"></span>库存映射</a>
+<a class="" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span class="wf-dot"></span>促销准入</a>
+<a class="" href="./Wayfair_SKU价值分级_SABC_N_20260604.html"><span class="wf-dot"></span>SKU分级</a>
+<a class="" href="./Wayfair_产品定价体检表_20260605.html"><span class="wf-dot"></span>定价体检</a></nav>
+    <div class="wf-nav-label">Anchors</div><nav><a href="#content"><span class="wf-dot"></span>正文内容</a><a href="https://ai-wayfair.vercel.app"><span class="wf-dot"></span>线上首页</a></nav>
+    <div class="wf-side-foot"><b>Dashboard 内页</b><small>统一侧栏、顶栏、摘要、面板和数据表样式。</small></div>
+  </aside>
+  <main class="wf-main">
+    <div class="wf-topbar"><div class="wf-search">搜索报告、SKU、库存、广告动作</div><div class="wf-top-actions"><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <section class="wf-hero">
+      <div class="wf-title-card"><div class="wf-eyebrow">Inventory check</div><h1>Wayfair 库存映射对照工具</h1><p>加预算、促销、补货前先确认库存和映射置信度。</p><div class="wf-actions"><a class="wf-btn primary" href="./Wayfair_运营工作台_20260604.html">工作台</a><a class="wf-btn green" href="./Wayfair_库存映射对照工具_20260604.html">查库存</a><a class="wf-btn light" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html">促销准入</a></div></div>
+      <aside class="wf-next-card"><h2>最短路径</h2><a href="./Wayfair_运营工作台_20260604.html"><span>先确认状态</span><small>工作台</small></a><a href="./Wayfair_库存映射对照工具_20260604.html"><span>再看库存</span><small>库存映射</small></a><a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span>最后执行</span><small>准入清单</small></a></aside>
+    </section>
+    <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
+    <main id="content" class="wf-content">
 <header><h1>Wayfair 库存映射对照工具</h1><div class="meta">生成日期：2026-06-04 ｜ 库存明细 686 行 ｜ YB 产品上架 169 行 ｜ 6月 Cost Stack 已收到但为空，暂用上次有效 Cost Stack 口径</div></header>
 <div class="wrap"><p><a href="../index.html">返回项目导航</a></p><div class="grid"><a class='card' href='#conf-高'><div class='label'>高</div><div class='num'>57</div><div class='small'>可用 13155 / 在途 11643</div></a><a class='card' href='#conf-中'><div class='label'>中</div><div class='num'>29</div><div class='small'>可用 3739 / 在途 2159</div></a><a class='card' href='#conf-低'><div class='label'>低</div><div class='num'>14</div><div class='small'>可用 2194 / 在途 3946</div></a><a class='card' href='#conf-未匹配'><div class='label'>未匹配</div><div class='num'>106</div><div class='small'>可用 13119 / 在途 19569</div></a></div>
 <div class="note">Cost Stack 状态：6月导出文件已收到，但只有表头、0条数据；本轮库存映射不依赖该空表，价格/平台空间复核暂沿用上次有效 Cost Stack，待6月有效数据出来后替换。<br><br>用途：把仓库库存 SKU 配对到 Wayfair YB 工具表中的店铺 SKU / Supplier Part。高置信可直接用于库存-Listing 对照；中/低置信建议人工复核；未匹配不要直接用于补货或广告决策。</div>
@@ -222,5 +249,11 @@
 <tr><td><span class='pill bad'>未匹配</span></td><td>B03AM-006WM<div class='small'>白色金属单开门百叶小衣柜</div></td><td class='right'>0<div class='small'>锁 0 / 在途 85</div></td><td><div class='small'></div></td><td></td><td></td><td class='right'>2</td><td>未找到可靠规则或中文名匹配</td></tr>
 </tbody></table></div>
 
-</div></body></html>
-
+</div>
+    </main>
+    <p class="wf-footer-note">建议按：工作台 → 库存映射 → 促销准入 → 具体报告 的顺序使用。</p>
+  </main>
+</div></div>
+<script src="./assets/dashboard-shell.js"></script>
+</body>
+</html>

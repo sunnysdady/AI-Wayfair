@@ -1,6 +1,32 @@
-﻿<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>Wayfair SKU价值分级 S/A/B/C/N</title><style>
-html{scroll-behavior:smooth}body{font-family:Arial,'Microsoft YaHei',sans-serif;margin:0;background:#f6f7f9;color:#17202a}header{background:#14213d;color:#fff;padding:28px 34px}h1{margin:0;font-size:28px}h2{font-size:20px;margin:30px 0 12px;scroll-margin-top:18px}.wrap{padding:24px 34px}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.card{background:#fff;border:1px solid #dde2e8;border-radius:8px;padding:16px}.jump{text-decoration:none;color:inherit;display:block}.jump:hover{border-color:#1d7fbf;box-shadow:0 4px 14px #0001}.num{font-size:26px;font-weight:700}.muted{color:#687384;font-size:13px}.pill{display:inline-block;border-radius:999px;padding:3px 9px;font-weight:700;font-size:12px}.S{background:#0b6b4f;color:#fff}.A{background:#1d7fbf;color:#fff}.B{background:#e3a008;color:#1d2430}.C{background:#c2410c;color:#fff}.N{background:#6b7280;color:#fff}table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #dde2e8}th,td{padding:8px 9px;border-bottom:1px solid #edf0f3;text-align:left;vertical-align:top;font-size:12px}th{background:#eef2f6;color:#2d3748;position:sticky;top:0}tr:hover{background:#fafafa}.right{text-align:right}.section-note{background:#fff;border-left:4px solid #1d7fbf;padding:12px 14px;margin:14px 0;color:#2d3748}.small{font-size:12px;color:#697586}.tablebox{max-height:620px;overflow:auto;border-radius:8px}.legend span{margin-right:8px}.warn{color:#b45309;font-weight:700}
-</style></head><body>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wayfair SKU价值分级 S/A/B/C/N</title>
+  <link rel="stylesheet" href="./assets/dashboard-shell.css">
+</head>
+<body class="wf-app-body">
+<div class="wf-page"><div class="wf-app">
+  <aside class="wf-side">
+    <div class="wf-brand"><span class="wf-mark">W</span><div>Wayfair Ops<small>AI Command Center</small></div></div>
+    <div class="wf-nav-label">Main</div><nav><a class="" href="../index.html"><span class="wf-dot"></span>Dashboard</a>
+<a class="" href="./Wayfair_运营工作台_20260604.html"><span class="wf-dot"></span>工作台</a>
+<a class="" href="./Wayfair_库存映射对照工具_20260604.html"><span class="wf-dot"></span>库存映射</a>
+<a class="" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span class="wf-dot"></span>促销准入</a>
+<a class="active" href="./Wayfair_SKU价值分级_SABC_N_20260604.html"><span class="wf-dot"></span>SKU分级</a>
+<a class="" href="./Wayfair_产品定价体检表_20260605.html"><span class="wf-dot"></span>定价体检</a></nav>
+    <div class="wf-nav-label">Anchors</div><nav><a href="#content"><span class="wf-dot"></span>正文内容</a><a href="https://ai-wayfair.vercel.app"><span class="wf-dot"></span>线上首页</a></nav>
+    <div class="wf-side-foot"><b>Dashboard 内页</b><small>统一侧栏、顶栏、摘要、面板和数据表样式。</small></div>
+  </aside>
+  <main class="wf-main">
+    <div class="wf-topbar"><div class="wf-search">搜索报告、SKU、库存、广告动作</div><div class="wf-top-actions"><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <section class="wf-hero">
+      <div class="wf-title-card"><div class="wf-eyebrow">SKU value</div><h1>Wayfair SKU价值分级 S/A/B/C/N</h1><p>用历史订单、利润、评分、客诉、广告判断 SKU 价值。</p><div class="wf-actions"><a class="wf-btn primary" href="./Wayfair_运营工作台_20260604.html">工作台</a><a class="wf-btn green" href="./Wayfair_库存映射对照工具_20260604.html">查库存</a><a class="wf-btn light" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html">促销准入</a></div></div>
+      <aside class="wf-next-card"><h2>最短路径</h2><a href="./Wayfair_运营工作台_20260604.html"><span>先确认状态</span><small>工作台</small></a><a href="./Wayfair_库存映射对照工具_20260604.html"><span>再看库存</span><small>库存映射</small></a><a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span>最后执行</span><small>准入清单</small></a></aside>
+    </section>
+    <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
+    <main id="content" class="wf-content">
 <header><h1>Wayfair SKU价值分级 S/A/B/C/N</h1><div class="muted">生成日期：2026-06-04 ｜ 数据源：4月工具表历史订单/上架成本/客诉扣款 + 产品评分评论 + 6月WSP广告 + Cost Stack校准口径</div></header>
 <div class="wrap">
 <div class="grid"><a class='card jump' href='#grade-S'><span class='pill S'>S</span><div class='num'>0</div><div class='muted'>SKU数量</div></a><a class='card jump' href='#grade-A'><span class='pill A'>A</span><div class='num'>11</div><div class='muted'>SKU数量</div></a><a class='card jump' href='#grade-B'><span class='pill B'>B</span><div class='num'>10</div><div class='muted'>SKU数量</div></a><a class='card jump' href='#grade-C'><span class='pill C'>C</span><div class='num'>16</div><div class='muted'>SKU数量</div></a><a class='card jump' href='#grade-N'><span class='pill N'>N</span><div class='num'>198</div><div class='muted'>SKU数量</div></a></div>
@@ -551,4 +577,11 @@ html{scroll-behavior:smooth}body{font-family:Arial,'Microsoft YaHei',sans-serif;
 <tr><td><span class='pill N'>N</span></td><td>T2398P463322<div class='small'></div></td><td>黑色深457带洞洞板五层置物架</td><td class='right'>0.00</td><td class='right'>0.00</td><td class='right'>$0.00<div class='small'>毛利率 0.0%</div></td><td class='right'>0.00<div class='small'>0.00评 / CR 0.00%</div></td><td class='right'>$0.00<div class='small'>0.00单 / ROAS 0.00</div></td><td>无历史订单/销售记录，按新品观察</td><td>小预算测款，先补图文与基础价格口径</td></tr>
 <tr><td><span class='pill N'>N</span></td><td>T2398P413029<div class='small'>Dresser-01</div></td><td>白色金属七抽斗柜</td><td class='right'>0.00</td><td class='right'>0.00</td><td class='right'>$0.00<div class='small'>毛利率 0.0%</div></td><td class='right'>0.00<div class='small'>0.00评 / CR 0.00%</div></td><td class='right'>$0.00<div class='small'>0.00单 / ROAS 0.00</div></td><td>无历史订单/销售记录，按新品观察</td><td>小预算测款，先补图文与基础价格口径</td></tr>
 </tbody></table></div>
-</div></body></html>
+</div>
+    </main>
+    <p class="wf-footer-note">建议按：工作台 → 库存映射 → 促销准入 → 具体报告 的顺序使用。</p>
+  </main>
+</div></div>
+<script src="./assets/dashboard-shell.js"></script>
+</body>
+</html>
