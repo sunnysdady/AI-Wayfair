@@ -538,8 +538,26 @@ def page(title: str, body: str, extra_head: str = "") -> str:
 </html>"""
 
 
-_TASK_EXTRA_HEAD = """<style>
-  .state-btn{cursor:pointer;border:none;background:none;padding:3px 9px;border-radius:999px;font-weight:800;font-size:12px;line-height:1.4}
+_TABLE_STYLES = """<style>
+/* ── fixed-layout task / exec tables ──────────────────── */
+.task-tbl,.exec-tbl{table-layout:fixed;width:100%;border-collapse:collapse;word-break:break-all;overflow-wrap:anywhere}
+.task-tbl td,.exec-tbl td,.task-tbl th,.exec-tbl th{padding:8px 9px;border-bottom:1px solid #edf1f7;text-align:left;vertical-align:top;font-size:13px}
+/* task-tbl (8 cols): pri sku type reason action metric evidence status */
+.task-tbl col.c0{width:88px}.task-tbl col.c1{width:130px}.task-tbl col.c2{width:65px}
+.task-tbl col.c3{width:155px}.task-tbl col.c4{width:215px}.task-tbl col.c5{width:140px}
+.task-tbl col.c6{width:72px}.task-tbl col.c7{width:88px}
+/* exec-tbl (7 cols): pri sku type reason action metric evidence */
+.exec-tbl col.c0{width:90px}.exec-tbl col.c1{width:138px}.exec-tbl col.c2{width:86px}
+.exec-tbl col.c3{width:170px}.exec-tbl col.c4{width:250px}.exec-tbl col.c5{width:155px}
+.exec-tbl col.c6{width:78px}
+/* line-clamp helpers */
+.lc3{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.lc4{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.lc2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+</style>"""
+
+_TASK_EXTRA_HEAD = _TABLE_STYLES + """<style>
+  .state-btn{cursor:pointer;border:none;background:none;padding:3px 9px;border-radius:999px;font-weight:800;font-size:12px;line-height:1.4;white-space:nowrap}
   .state-btn:hover{opacity:.75}
   .exec-date{color:#667085;font-size:11px;margin-top:2px}
   .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
@@ -609,6 +627,22 @@ _TASK_EXTRA_HEAD = """<style>
 </script>"""
 
 
+_EXEC_COLGROUP = (
+    "<colgroup>"
+    "<col class='c0'><col class='c1'><col class='c2'>"
+    "<col class='c3'><col class='c4'><col class='c5'><col class='c6'>"
+    "</colgroup>"
+)
+
+_TASK_COLGROUP = (
+    "<colgroup>"
+    "<col class='c0'><col class='c1'><col class='c2'>"
+    "<col class='c3'><col class='c4'><col class='c5'>"
+    "<col class='c6'><col class='c7'>"
+    "</colgroup>"
+)
+
+
 def task_table(tasks: pd.DataFrame, limit: int | None = None) -> str:
     rows = tasks.head(limit) if limit else tasks
     body = []
@@ -618,14 +652,16 @@ def task_table(tasks: pd.DataFrame, limit: int | None = None) -> str:
             f"<td>{tag(text(r['优先级']))}<div class='small'>{esc(r['任务ID'])}</div></td>"
             f"<td><b>{esc(r['供应商SKU'])}</b><div class='small'>{esc(r['Wayfair Listing'])} / {esc(r['产品名'])}</div></td>"
             f"<td>{esc(r['问题类型'])}<div class='small'>{tag(text(r['任务状态']))}</div></td>"
-            f"<td>{esc(r['触发原因'])}</td>"
-            f"<td><b>{esc(r['建议动作'])}</b><div class='small'>执行前：{esc(r['执行前检查'])}</div></td>"
-            f"<td>{esc(r['复盘指标'])}</td>"
+            f"<td><div class='lc4'>{esc(r['触发原因'])}</div></td>"
+            f"<td><b class='lc3'>{esc(r['建议动作'])}</b><div class='small lc2'>执行前：{esc(r['执行前检查'])}</div></td>"
+            f"<td><div class='lc3'>{esc(r['复盘指标'])}</div></td>"
             f"<td><a href='{esc(r['证据链接'])}'>{esc(r['证据来源'])}</a></td>"
             "</tr>"
         )
     return (
-        "<div class='tablebox'><table><thead><tr>"
+        "<div class='tablebox'><table class='exec-tbl'>"
+        + _EXEC_COLGROUP
+        + "<thead><tr>"
         "<th>优先级</th><th>SKU / Listing</th><th>类型 / 状态</th><th>触发原因</th><th>建议动作</th><th>复盘指标</th><th>证据</th>"
         "</tr></thead><tbody>"
         + "\n".join(body)
@@ -643,15 +679,17 @@ def interactive_task_table(tasks: pd.DataFrame) -> str:
             f"<td>{tag(text(r['优先级']))}<div class='small'>{task_id}</div></td>"
             f"<td><b>{esc(r['供应商SKU'])}</b><div class='small'>{esc(r['Wayfair Listing'])} / {esc(r['产品名'])}</div></td>"
             f"<td>{esc(r['问题类型'])}</td>"
-            f"<td>{esc(r['触发原因'])}</td>"
-            f"<td><b>{esc(r['建议动作'])}</b><div class='small'>执行前：{esc(r['执行前检查'])}</div></td>"
-            f"<td>{esc(r['复盘指标'])}</td>"
+            f"<td><div class='lc4'>{esc(r['触发原因'])}</div></td>"
+            f"<td><b class='lc3'>{esc(r['建议动作'])}</b><div class='small lc2'>执行前：{esc(r['执行前检查'])}</div></td>"
+            f"<td><div class='lc3'>{esc(r['复盘指标'])}</div></td>"
             f"<td><a href='{esc(r['证据链接'])}'>{esc(r['证据来源'])}</a></td>"
             f"<td><button class='state-btn tag amber'>待执行</button><div class='exec-date'></div></td>"
             "</tr>"
         )
     return (
-        "<div class='tablebox'><table><thead><tr>"
+        "<div class='tablebox'><table class='task-tbl'>"
+        + _TASK_COLGROUP
+        + "<thead><tr>"
         "<th>优先级</th><th>SKU / Listing</th><th>类型</th><th>触发原因</th><th>建议动作</th><th>复盘指标</th><th>证据</th><th>执行状态</th>"
         "</tr></thead><tbody>"
         + "\n".join(body)
@@ -678,7 +716,7 @@ def render_execution_center(tasks: pd.DataFrame) -> None:
     type_counts = tasks["问题类型"].value_counts().to_dict()
     p0 = tasks[tasks["优先级"].eq("P0")]
     wait_data = tasks[tasks["问题类型"].eq("数据缺口")]
-    body = f"""
+    body = f"""{_TABLE_STYLES}
 <div class="grid">
   <div class="card"><div class="num">{int(counts.get('P0', 0))}</div><b>P0 必须先处理</b><div class="small">亏损、禁促、库存、定价红灯</div></div>
   <div class="card"><div class="num">{int(counts.get('P1', 0))}</div><b>P1 本周处理</b><div class="small">影响放量和转化的任务</div></div>
