@@ -8,7 +8,7 @@ from typing import Iterable
 import pandas as pd
 
 
-ROOT = Path("/Users/pengzhang/Documents/Codex 2/AI-Wayfair")
+ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
 
@@ -87,20 +87,31 @@ TYPE_SLUG = {
 PRIORITY_SCORE = {"P0": 300, "P1": 200, "P2": 100}
 
 
+def is_missing(value: object) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, (list, tuple, dict, set)):
+        return False
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
 def esc(value: object) -> str:
-    if value is None or pd.isna(value):
+    if is_missing(value):
         return ""
     return html.escape(str(value).strip())
 
 
 def text(value: object) -> str:
-    if value is None or pd.isna(value):
+    if is_missing(value):
         return ""
     return str(value).strip()
 
 
 def num(value: object, default: float = 0.0) -> float:
-    if value is None or pd.isna(value):
+    if is_missing(value):
         return default
     if isinstance(value, str):
         value = value.replace("$", "").replace(",", "").replace("%", "").strip()
