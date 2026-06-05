@@ -29,6 +29,27 @@
     </section>
     <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
     <main id="content" class="wf-content">
+<style>
+.wrap{padding:24px 28px;max-width:100%}
+.wrap h1{font-size:18px;font-weight:700;margin-bottom:8px}
+.meta{font-size:13px;color:#6b7280;margin-bottom:14px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;font-size:13px}
+.legend span{display:flex;align-items:center;gap:5px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%}
+.dot.red{background:#ef4444}.dot.amber{background:#f59e0b}.dot.blue{background:#3b82f6}.dot.green{background:#10b981}.dot.purple{background:#8b5cf6}
+.panel{overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:20px}
+.gantt{display:grid;grid-template-columns:160px repeat(27,1fr) 64px;min-width:900px}
+.cell{padding:5px 3px;border-right:1px solid #f3f4f6;border-bottom:1px solid #f3f4f6;font-size:11px;display:flex;align-items:center;justify-content:center;min-height:30px}
+.cell.head{background:#f9fafb;font-weight:600;color:#374151;font-size:10px;text-align:center}
+.cell.task{justify-content:flex-start;padding-left:8px;font-size:12px;font-weight:500;color:#111827;background:#fafafa}
+.cell.owner{font-size:11px;color:#6b7280;background:#fafafa}
+.bar{height:16px;border-radius:3px;width:100%}
+.bar.red{background:#fca5a5}.bar.amber{background:#fcd34d}.bar.blue{background:#93c5fd}.bar.green{background:#6ee7b7}.bar.purple{background:#c4b5fd}
+.wrap table{width:100%;border-collapse:collapse;font-size:13px;margin-top:16px}
+.wrap table th{background:#f9fafb;padding:8px 12px;text-align:left;font-weight:600;border-bottom:2px solid #e5e7eb}
+.wrap table td{padding:8px 12px;border-bottom:1px solid #f3f4f6;vertical-align:top}
+.wrap table tr:hover td{background:#f9fafb}
+</style>
 <div class="wrap">
   <h1>Wayfair 6月待办甘特图</h1>
   <div class="meta">周期：2026-06-04 至 2026-06-30 ｜ 目标：先止损，再补数据，再做 SKU 分层和促销准入</div>
