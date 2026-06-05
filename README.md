@@ -2,7 +2,11 @@
 
 Wayfair 店铺运营接手与诊断项目。
 
-线上入口： https://ai-wayfair.vercel.app
+线上入口：https://ai-wayfair.vercel.app  
+版本日志：[CHANGELOG.md](CHANGELOG.md)  
+接力文档：[docs/Wayfair_接力文档_20260606.md](docs/Wayfair_接力文档_20260606.md)
+
+---
 
 ## 使用顺序
 
@@ -11,81 +15,122 @@ Wayfair 店铺运营接手与诊断项目。
 3. 需要复核单个 SKU 时，打开 `reports/Wayfair_SKU经营档案_20260605.html`。
 4. 证据层再打开定价体检、促销准入、库存映射、广告调整等报告。
 
+---
+
 ## 目录结构
 
-- `index.html`：Vercel 首页，同事优先从这里进入。
-- `reports/`：可公开给同事查看的 HTML 报告与导航页。
-- `docs/`：内部接力文档、知识库、MEMORY、操作口径等 Markdown 文档。
-- `data/`：结构化脱敏汇总，例如 SKU 分级、订单利润、定价体检 CSV。
-- `archive/`：本地备份文件，不作为主要工作入口。
+```
+AI-Wayfair/
+├── index.html                  # Vercel 首页 / Dashboard 导航
+├── CHANGELOG.md                # 版本更新日志
+├── reports/                    # 所有 HTML 报告（已套 Dashboard shell）
+│   └── assets/
+│       ├── dashboard-shell.css # 统一侧栏/顶栏/面板样式
+│       └── dashboard-shell.js  # 统一交互脚本（含表格 min-width 注入）
+├── scripts/                    # 报告生成脚本
+│   ├── build_ops_workbench.py       # 生成执行中心 / 任务清单 / SKU档案
+│   ├── apply_dashboard_shell.py     # 给 HTML 套统一 Dashboard 框架
+│   ├── build_product_pricing_health.py   # 生成定价体检表
+│   └── rebuild_sku_promo_readiness.py    # 生成促销准入清单
+├── docs/                       # 接力文档、知识库、操作口径（Markdown）
+├── data/                       # 脱敏 SKU 汇总 CSV（可提交）
+└── data/raw/                   # 原始数据（已 gitignore，禁止提交）
+```
 
-## 当前重点报告
+---
 
-- `reports/Wayfair_项目导航_20260604.html`：全部报告入口。
-- `reports/Wayfair_运营工作台_20260604.html`：当前状态、缺口数据、下一步动作。
-- `reports/Wayfair_产品定价体检表_20260605.html`：05月 YB 成本、订单、客诉扣款、Product Catalog、Cost Stack 合并后的定价体检；支持分类跳转和每个 SKU 的 Total Cost 明细展开。
-- `reports/Wayfair_6月SKU分层与促销准入清单_20260604.html`：SKU 分层、促销准入、禁促原因。
-- `reports/Wayfair_Pricing_ProductCatalog_定价体检_20260604.html`：Product Catalog 与 Cost Stack 口径校准。
-- `reports/Wayfair_SKU价值分级_SABC_N_20260604.html`：SKU 价值分级。
-- `reports/Wayfair_6月WSP广告调整执行清单_CostStack校准版.html`：广告层执行清单。
-- `reports/Wayfair_库存映射对照工具_20260604.html`：仓库库存 SKU 与 Wayfair SKU 映射。
-- `reports/Wayfair_店铺诊断_20260604.html`：店铺诊断总览。
-- `reports/Wayfair_店铺交接_20260604.html`：接手原则和交接说明。
-- `reports/Wayfair_6月待办甘特图_20260604.html`：6月任务节奏。
+## 当前报告清单（v0.3 · 2026-06-06）
+
+### 核心入口（每日必看）
+
+| 报告 | 说明 |
+|------|------|
+| `Wayfair_运营执行中心_20260605.html` | P0/P1 任务聚合，每日第一入口 |
+| `Wayfair_SKU任务清单_20260605.html` | 全量任务清单，含执行状态追踪（localStorage） |
+| `Wayfair_SKU经营档案_20260605.html` | 单 SKU 档案卡（价格/库存/广告/利润） |
+
+### 证据层报告
+
+| 报告 | 说明 |
+|------|------|
+| `Wayfair_产品定价体检表_20260605.html` | 定价体检主力版（YB + Cost Stack + Product Catalog） |
+| `Wayfair_6月SKU分层与促销准入清单_20260604.html` | SKU 分层、促销准入、禁促原因 |
+| `Wayfair_SKU价值分级_SABC_N_20260604.html` | S/A/B/C/N 价值分级 |
+| `Wayfair_库存映射对照工具_20260604.html` | 仓库库存 SKU 与 Wayfair SKU 映射 |
+| `Wayfair_Pricing_ProductCatalog_定价体检_20260604.html` | Product Catalog 与 Cost Stack 口径校准 |
+| `Wayfair_6月WSP广告调整执行清单_CostStack校准版.html` | WSP 广告层执行清单 |
+| `Wayfair_6月WSP关键词调整清单_20260604.html` | Listing × Keyword 停词/降 bid 建议 |
+| `Wayfair_产品信息评分评论体检_20260604.html` | 评分/评论/转化/图片体检 |
+
+### 诊断与规范
+
+| 报告 | 说明 |
+|------|------|
+| `Wayfair_店铺诊断_20260604.html` | 店铺整体诊断总览 |
+| `Wayfair_店铺交接_20260604.html` | 接手原则与交接说明 |
+| `Wayfair_运营工作台_20260604.html` | 当前状态、缺口数据、下一步动作 |
+| `Wayfair_操作护栏_20260604.html` | 禁止踩的错误口径和误操作清单 |
+| `Wayfair_CostStack口径校准与建议复核_20260604.html` | Cost Stack 正确用法说明 |
+| `Wayfair_数据补齐清单_20260604.html` | 已收到 / 待补数据状态 |
+| `Wayfair_6月待办甘特图_20260604.html` | 6月任务节奏（彩色进度条） |
+| `Wayfair_项目导航_20260604.html` | 全部报告入口 Dashboard |
+
+---
+
+## 重新生成报告
+
+```bash
+cd /Users/pengzhang/Documents/Helloclaude/AI-Wayfair
+
+# 1. 生成执行中心 / 任务清单 / SKU档案
+python3 scripts/build_ops_workbench.py
+
+# 2. 套 Dashboard shell（注意：会覆盖 <head>，页面专有 CSS 必须在 <body>）
+python3 scripts/apply_dashboard_shell.py
+
+# 3. 本地预览
+python3 -m http.server 8787 --directory reports
+# 访问 http://localhost:8787/
+```
+
+---
 
 ## 定价体检口径
 
-定价体检表当前使用：
+定价体检表当前数据来源：
 
-- `Wayfair YB-工具表 2026年 05月.xlsx` 的 `产品上架`、`订单处理`、`客诉扣款`。
-- Pricing Product Catalog 2026-06-04 两份导出。
-- 5月 Cost Stack Report。
-- SKU 分层与促销准入结果。
+- `Wayfair YB-工具表 2026年 05月.xlsx`（`产品上架`、`订单处理`、`客诉扣款`）
+- Pricing Product Catalog 2026-06-04 两份导出
+- 5月 Cost Stack Report
+- SKU 分层与促销准入结果
 
-定价体检表输出：
+**平台空间 = `Retail Price Net - Total Cost`**  
+**平台空间率 = `(Retail Price Net - Total Cost) / Retail Price Net`**
 
-- 顶部分类卡片可点击跳转。
-- 每个分类有独立 SKU 明细区。
-- 每个 SKU 的 `平台空间` 列可展开 `Total Cost 明细`。
-- CSV 同步输出 Cost Stack 分项：`Retail Price Net`、`Wholesale Cost`、`出仓成本`、`客诉退货成本`、`产品津贴成本`、`其他操作成本`、`Total Cost`、`平台空间`。
+> ⚠️ 禁止用 `WholesaleCost - Total Cost` 判断平台亏损或禁促——`Total Cost` 已包含 `WholesaleCost`。
 
-当前 2026-06-05 版结论：
+`Total Cost` 明细：`Wholesale Cost` + `Ship Outbound Cost` + `Incident And Return Cost` + `Product Allowance Cost` + `Other Handling Cost`
 
-- 可尝试提Base：0
-- 价格健康：1
-- 维持观察：18
-- 不建议提价：29
-- 先修成本：6
-- 新品观察：18
-- 待确认价格：10
-- 待补成本：8
+Cost Stack 帮助摘要：`docs/Wayfair_CostStack帮助文章_2865_摘要_20260604.md`
 
-## 关键口径
+当前 2026-06-05 版定价结论：
 
-Cost Stack 平台空间看：
+| 分类 | SKU数 |
+|------|-------|
+| 可尝试提 Base | 0 |
+| 价格健康 | 1 |
+| 维持观察 | 18 |
+| 不建议提价 | 29 |
+| 先修成本 | 6 |
+| 新品观察 | 18 |
+| 待确认价格 | 10 |
+| 待补成本 | 8 |
 
-`Retail Price Net - Total Cost`
-
-平台空间率：
-
-`(Retail Price Net - Total Cost) / Retail Price Net`
-
-禁止仅凭 `WholesaleCost - Total Cost` 判断平台亏损、停投或禁促，因为 `Total Cost` 已包含 `Wholesale Cost`。
-
-`Total Cost` 明细当前展示：
-
-- `Wholesale Cost`
-- `Ship Outbound Cost`
-- `Incident And Return Cost`
-- `Product Allowance Cost`
-- `Other Handling Cost`
-
-Pricing Product Catalog 用于看当前供货价、B2B 折扣、MSRP 和前台价；是否调价必须再结合 Cost Stack 平台空间、发货成本、客诉退货成本和订单利润。
-
-Wayfair Cost Stack 帮助文章摘要见：`docs/Wayfair_CostStack帮助文章_2865_摘要_20260604.md`
+---
 
 ## 数据安全
 
-不要提交原始 YB 工具表、订单明细、客户姓名、地址、电话、账号密码等敏感信息。
+**禁止提交**：原始 YB 工具表、订单明细、客户姓名/地址/电话、账号密码。
 
-当前仓库只提交脱敏后的 SKU 维度汇总和 HTML 报告。
+- 原始文件只放 `data/raw/`（已在 `.gitignore`）
+- 仓库只提交脱敏 SKU 维度汇总 CSV 和 HTML 报告
