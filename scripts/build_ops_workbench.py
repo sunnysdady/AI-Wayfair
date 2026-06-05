@@ -190,13 +190,21 @@ def task(
     }
 
 
+def first_text(row: dict | pd.Series, *keys: str) -> str:
+    for key in keys:
+        value = text(row.get(key))
+        if value:
+            return value
+    return ""
+
+
 def base_fields(row: dict | pd.Series) -> tuple[str, str, str, str, str]:
     return (
-        text(row.get("供应商SKU") or row.get("Part")),
-        text(row.get("Wayfair Listing") or row.get("Listing")),
-        text(row.get("中文名") or row.get("Name")),
-        text(row.get("SKU价值分层") or row.get("NewGrade")),
-        text(row.get("促销准入") or row.get("PromoReadiness")),
+        first_text(row, "供应商SKU", "Part", "SupplierPart"),
+        first_text(row, "Wayfair Listing", "Listing", "Wayfair店铺SKU"),
+        first_text(row, "中文名", "Name", "YB中文名"),
+        first_text(row, "SKU价值分层", "NewGrade"),
+        first_text(row, "促销准入", "PromoReadiness"),
     )
 
 
