@@ -88,7 +88,7 @@ def extract_title(src: str, fallback: str) -> str:
 
 def extract_body(src: str) -> str:
     if 'class="wf-page"' in src:
-        match = re.search(r'<main id="content" class="wf-content">\s*(.*?)\s*</main>\s*<p class="wf-footer-note"', src, re.I | re.S)
+        match = re.search(r'<main id="content" class="wf-content">\s*(.*?)\s*</main>\s*(?:<p class="wf-footer-note"|</main>)', src, re.I | re.S)
         if match:
             return match.group(1).strip()
     match = re.search(r"<body[^>]*>(.*?)</body>", src, re.I | re.S)
@@ -97,6 +97,7 @@ def extract_body(src: str) -> str:
 
 def context(title: str) -> tuple[str, str]:
     rules = [
+        ("帮助中心", ("Help", "分类帮助和关键词查询。")),
         ("运营执行中心", ("Start here", "工作第一入口：本周必须先处理的 SKU、原因和动作。")),
         ("SKU任务清单", ("Task list", "按优先级聚合所有 SKU 运营动作。")),
         ("SKU经营档案", ("SKU profile", "单 SKU 的成本、库存、广告、促销和 Listing 证据。")),
@@ -154,7 +155,12 @@ def nav(current_name: str) -> str:
         active = "active" if href != "#" and current_name in href else ""
         return f'<a class="{active}" href="{href}"><span class="wf-dot"></span>{html.escape(label)}</a>'
 
-    parts = [f'<div class="wf-nav-label">入口</div><nav>{link("../index.html", "Dashboard")}</nav>']
+    parts = [
+        '<div class="wf-nav-label">入口</div><nav>'
+        + link("../index.html", "Dashboard")
+        + link(first_matching("帮助中心"), "帮助中心")
+        + "</nav>"
+    ]
     for group_label, items in NAV_GROUPS:
         links = "\n".join(link(first_matching(*needles), label) for needles, label in items)
         parts.append(f'<div class="wf-nav-label">{html.escape(group_label)}</div><nav>{links}</nav>')
@@ -184,14 +190,13 @@ def shell(title: str, body: str, filename: str) -> str:
   <main class="wf-main">
     <div class="wf-topbar"><div class="wf-search">搜索报告、SKU、库存、广告动作</div><div class="wf-top-actions"><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
     <section class="wf-hero">
-      <div class="wf-title-card"><div class="wf-eyebrow">{html.escape(eyebrow)}</div><h1>{html.escape(title)}</h1><p>{html.escape(desc)}</p><div class="wf-actions"><a class="wf-btn primary" href="{exec_center}">执行中心</a><a class="wf-btn green" href="{inventory}">查库存</a><a class="wf-btn light" href="{promo}">促销准入</a></div></div>
+      <div class="wf-title-card"><div class="wf-eyebrow">{html.escape(eyebrow)}</div><h1>{html.escape(title)}</h1><div class="wf-actions"><a class="wf-btn primary" href="{exec_center}">执行中心</a><a class="wf-btn green" href="{inventory}">查库存</a><a class="wf-btn light" href="{promo}">促销准入</a></div></div>
       <aside class="wf-next-card"><h2>最短路径</h2><a href="{exec_center}"><span>1. 本周做什么</span><small>执行中心</small></a><a href="{inventory}"><span>2. 动手前查库存</span><small>库存映射</small></a><a href="{promo}"><span>3. 判断能不能促</span><small>促销准入</small></a></aside>
     </section>
     <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
     <main id="content" class="wf-content">
 {body}
     </main>
-    <p class="wf-footer-note">建议按：执行中心 → 库存映射 → 促销准入 → 广告/关键词清单 的顺序使用。</p>
   </main>
 </div></div>
 <script src="./assets/dashboard-shell.js"></script>
