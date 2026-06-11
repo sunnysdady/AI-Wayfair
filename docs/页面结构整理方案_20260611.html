@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wayfair Ops 页面结构整理方案</title>
+<style>
+:root{--ink:#152033;--muted:#667085;--line:#dce3ee;--blue:#2870e8;--green:#23b887;--amber:#f0a331;--red:#ef5b45;--bg:#eef2f6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 Arial,"Microsoft YaHei",sans-serif;padding:28px}
+.wrap{max-width:1100px;margin:auto}
+h1{font-size:26px;margin:0 0 6px}
+.sub{color:var(--muted);margin:0 0 24px}
+h2{font-size:19px;margin:32px 0 12px;display:flex;align-items:center;gap:8px}
+h2:before{content:"";width:5px;height:20px;border-radius:5px;background:var(--blue)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 8px 24px rgba(16,24,40,.06)}
+.problems{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.problem{background:#fff;border:1px solid var(--line);border-left:4px solid var(--red);border-radius:10px;padding:12px 14px}
+.problem b{display:block;margin-bottom:4px}
+.problem small{color:var(--muted)}
+.tree{font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.9;white-space:pre;overflow:auto}
+.tag{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11px;font-weight:900;vertical-align:1px}
+.tag.do{background:#fde8e4;color:#b42318}
+.tag.act{background:#fff3da;color:#b54708}
+.tag.ana{background:#e6efff;color:#175cd3}
+.tag.data{background:#e4f7ee;color:#067647}
+.tag.gov{background:#f0f1f3;color:#475467}
+.tag.new{background:#152033;color:#fff}
+.tag.del{background:#fee;color:#b42318;text-decoration:line-through}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}
+th,td{border-bottom:1px solid #edf1f7;padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#f1f5f9;font-weight:900}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.flow .step{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-weight:800}
+.flow .step small{display:block;font-weight:400;color:var(--muted)}
+.flow .arr{color:var(--muted);font-weight:900}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:860px){.cols{grid-template-columns:1fr}}
+.muted{color:var(--muted)}
+ol li{margin-bottom:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Wayfair Ops 页面结构整理方案</h1>
+<p class="sub">2026-06-11 ｜ 现状：20 个报告页 + 1 个首页 ｜ 目标：1 个门户 + 5 个分组 + 18 个页面，导航全站统一</p>
+
+<h2>一、现状问题（为什么乱）</h2>
+<div class="problems">
+  <div class="problem"><b>① 三个"首页"打架</b><small>index（Dashboard）、运营工作台、运营执行中心都自称入口，互相链接，同事不知道先点哪个。另有"项目导航"页是 index 的旧副本。</small></div>
+  <div class="problem"><b>② 导航不一致</b><small>首页侧栏 7 项，内页侧栏 8 项，两套菜单内容不同；剩下 12 个页面在侧栏完全找不到，只能回首页翻卡片。</small></div>
+  <div class="problem"><b>③ 冗余/过期页面混在一起</b><small>"项目导航"= index 副本；"产品定价体检表_0604"只是一个跳转占位页，和正式报告并排放着。</small></div>
+  <div class="problem"><b>④ 页面没有按用途分层</b><small>"今天做什么"（任务）、"为什么"（分析）、"查数据"（工具）、"别犯错"（规则）全部平铺，新人无法建立心智模型。</small></div>
+</div>
+
+<h2>二、新结构：按"问 → 查 → 做 → 守"分五组</h2>
+<div class="card">
+<div class="tree">Dashboard（index.html）—— 唯一门户：KPI + 当前判断 + 五组入口
+│
+├── <b>📌 今日工作</b> <span class="tag do">DO · 今天做什么</span>
+│     ├── 运营执行中心        ★ 工作第一入口：本周必须处理的 SKU
+│     ├── SKU 任务清单        P0 / P1 / P2 全量动作
+│     └── 6月待办甘特图       时间节奏
+│
+├── <b>🎯 执行清单</b> <span class="tag act">ACT · 具体怎么动手</span>
+│     ├── SKU 分层与促销准入   可促 / 禁促 / 先修复
+│     ├── WSP 广告调整清单     Campaign / Product 层动作
+│     └── WSP 关键词调整清单   保留 / 降bid / 暂停
+│
+├── <b>🔍 分析与档案</b> <span class="tag ana">ANALYZE · 为什么这么做</span>
+│     ├── SKU 经营档案        单 SKU 全证据链
+│     ├── SKU 价值分级        S/A/B/C/N
+│     ├── 产品定价体检表       最新版（0605）
+│     ├── Product Catalog 定价体检
+│     └── 评分评论体检
+│
+├── <b>📦 数据与工具</b> <span class="tag data">DATA · 查数找数</span>
+│     ├── 库存映射对照工具     686 行库存对照
+│     ├── 数据补齐清单        已收 / 待补
+│     └── 项目状态简报        ← 原"运营工作台"改名降级，只做状态汇报
+│
+└── <b>🛡️ 规则与背景</b> <span class="tag gov">GOVERN · 别踩坑</span>
+      ├── 操作护栏            防错规则
+      ├── Cost Stack 口径校准  成本口径
+      ├── 店铺诊断            背景问题与机会
+      └── 店铺交接            接手原则
+
+归档（移入 reports/archive/，不出现在导航）
+      ├── 项目导航_20260604      <span class="tag del">index 旧副本</span>
+      └── 产品定价体检表_20260604 <span class="tag del">跳转占位页</span></div>
+</div>
+
+<h2>三、关键决策（3 件事）</h2>
+<div class="cols">
+<div class="card">
+<b>1. 解决"三个首页"：各归其位</b>
+<ul>
+<li><b>Dashboard</b>：只做门户导航，不再讲"工作怎么做"。</li>
+<li><b>执行中心</b>：唯一的工作入口，"今天/本周做什么"看它。</li>
+<li><b>工作台 → 改名"项目状态简报"</b>：它的内容本质是数据补齐进度和项目状态，归入"数据与工具"组，不再和执行中心抢入口。</li>
+</ul>
+<b>2. 全站统一侧栏</b>
+<ul>
+<li>首页和所有内页用同一份分组侧栏，五组 18 页全部可达。</li>
+<li>当前页高亮，组内顺序 = 使用顺序。</li>
+</ul>
+<b>3. 清理冗余</b>
+<ul>
+<li>2 个冗余页移入 <code>reports/archive/</code>（已确认无页面链接它们，不会断链）。</li>
+</ul>
+</div>
+<div class="card">
+<b>推荐工作流（首页只讲这一条）</b>
+<div class="flow">
+<span class="step">1. 执行中心<small>本周做什么</small></span><span class="arr">→</span>
+<span class="step">2. 库存映射<small>动手前查库存</small></span><span class="arr">→</span>
+<span class="step">3. 促销准入<small>能不能促</small></span><span class="arr">→</span>
+<span class="step">4. 广告/关键词清单<small>执行</small></span>
+</div>
+<p class="muted">分析与档案组用于"对某个 SKU 有疑问时"回查证据；规则与背景组是动手前的护栏。</p>
+<b>本次不做（避免破坏性改动）</b>
+<ul class="muted">
+<li>不重命名 HTML 文件名（线上 Vercel 已有外链，改名会断链）。</li>
+<li>不改各报告的正文内容，只改导航壳和首页编排。</li>
+</ul>
+</div>
+</div>
+
+<h2>四、改动清单</h2>
+<table>
+<tr><th>#</th><th>改动</th><th>涉及文件</th></tr>
+<tr><td>1</td><td>归档 2 个冗余页面到 reports/archive/</td><td>项目导航_20260604、产品定价体检表_20260604</td></tr>
+<tr><td>2</td><td>重写导航生成脚本：分组侧栏（5 组 18 页）、当前页高亮</td><td>scripts/apply_dashboard_shell.py</td></tr>
+<tr><td>3</td><td>重跑脚本，给全部 18 个报告页换上统一导航壳</td><td>reports/*.html</td></tr>
+<tr><td>4</td><td>重排首页：Hero 指向执行中心、报告卡片按五组重排、最短路径更新为新工作流</td><td>index.html</td></tr>
+<tr><td>5</td><td>"运营工作台"页面标题与定位文案改为"项目状态简报"</td><td>Wayfair_运营工作台_20260604.html</td></tr>
+</table>
+</div>
+</body>
+</html>
