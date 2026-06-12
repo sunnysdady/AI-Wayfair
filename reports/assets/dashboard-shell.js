@@ -95,7 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function installReaderTools(content) {
-    if (content.querySelector("#sku-profile-search")) return;
+    if (content.querySelector('input[type="search"]')) return;
     const targets = () => Array.from(content.querySelectorAll(".wf-readable-section,.sku-profile,.card,.linkcard,.jumpcard"));
     const hasUsefulTargets = targets().length > 3 || content.querySelectorAll("table tr").length > 30;
     if (!hasUsefulTargets || content.querySelector(".wf-reader-tools")) return;
