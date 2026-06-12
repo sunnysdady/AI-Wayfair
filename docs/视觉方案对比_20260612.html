@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wayfair Ops · 三套视觉方案对比</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#1a1c22;color:#e7e9ee;font:14px/1.5 system-ui,"PingFang SC","Microsoft YaHei",sans-serif;padding:28px}
+  .head{max-width:1180px;margin:0 auto 22px}
+  .head h1{font-size:22px;font-weight:800;letter-spacing:.01em}
+  .head p{color:#9aa0ad;margin-top:6px;font-size:13px}
+  .wrap{max-width:1180px;margin:0 auto;display:grid;gap:26px}
+  .opt{background:#23262e;border:1px solid #32363f;border-radius:16px;overflow:hidden}
+  .opt-bar{display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid #32363f}
+  .opt-bar .no{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-weight:800;color:#fff}
+  .opt-bar h2{font-size:15px;font-weight:800}
+  .opt-bar .tag{font-size:12px;color:#9aa0ad;font-weight:600}
+  .opt-bar .pick{margin-left:auto;font-size:12px;color:#c7cbd4;border:1px solid #3b3f49;border-radius:99px;padding:4px 11px}
+  .frame{padding:18px;background:#1a1c22}
+
+  /* ===== shared mini-dashboard skeleton, themed by .mk-* ===== */
+  .mk{border-radius:12px;overflow:hidden;display:grid;grid-template-columns:172px 1fr;min-height:330px;font-size:12px}
+  .mk-side{padding:14px 12px;display:flex;flex-direction:column;gap:11px}
+  .mk-brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px}
+  .mk-logo{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-weight:900;font-size:13px}
+  .mk-grp{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.6;margin:6px 0 2px}
+  .mk-nav{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:7px;font-weight:600}
+  .mk-dot{width:5px;height:5px;border-radius:99px;background:currentColor;opacity:.6}
+  .mk-main{padding:15px 16px;display:flex;flex-direction:column;gap:13px;min-width:0}
+  .mk-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .mk-eyebrow{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+  .mk-title{font-size:19px;font-weight:800;margin-top:3px}
+  .mk-btn{padding:7px 12px;border-radius:8px;font-weight:800;font-size:11px}
+  .mk-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+  .mk-kpi{border-radius:10px;padding:11px 12px}
+  .mk-kpi .v{font-size:20px;font-weight:900;letter-spacing:-.01em}
+  .mk-kpi .l{font-size:10px;margin-top:3px;opacity:.7;font-weight:600}
+  table{width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden}
+  th,td{text-align:left;padding:8px 10px;font-size:11px}
+  th{font-weight:800}
+  .pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:800}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* ===== Option A · 极简浅色 SaaS（Linear / Vercel 气质）===== */
+  .A{background:#fbfbfd;border:1px solid #ebecf0;color:#1d2129;font-family:system-ui,"PingFang SC",sans-serif}
+  .A .mk-side{background:#fff;border-right:1px solid #ebecf0}
+  .A .mk-brand{color:#1d2129}.A .mk-logo{background:#4f46e5;color:#fff}
+  .A .mk-grp{color:#9aa0ad}
+  .A .mk-nav{color:#52586a}.A .mk-nav.on{background:#eef0fe;color:#4f46e5}
+  .A .mk-eyebrow{color:#4f46e5}.A .mk-title{color:#15171e}
+  .A .mk-btn{background:#1d2129;color:#fff}
+  .A .mk-kpi{background:#fff;border:1px solid #ebecf0}.A .mk-kpi .v{color:#15171e}
+  .A table{border:1px solid #ebecf0}.A th{background:#f6f7f9;color:#6b7180;border-bottom:1px solid #ebecf0}
+  .A td{border-bottom:1px solid #f1f2f5;color:#2c313c}
+  .A .p0{background:#fde8e6;color:#c0392b}.A .st{background:#eef0fe;color:#4f46e5}
+
+  /* ===== Option B · 柔和暖灰 Minimal（Stripe / Notion 气质）===== */
+  .B{background:#f4f3f0;border:1px solid #e6e3dc;color:#33312c;font-family:system-ui,"PingFang SC",sans-serif}
+  .B .mk-side{background:#fcfbf9;border-right:1px solid #e6e3dc}
+  .B .mk-brand{color:#33312c}.B .mk-logo{background:#0f766e;color:#fff}
+  .B .mk-grp{color:#a8a499}
+  .B .mk-nav{color:#5f5c54}.B .mk-nav.on{background:#e3f1ee;color:#0f766e}
+  .B .mk-eyebrow{color:#0f766e}.B .mk-title{color:#26241f}
+  .B .mk-btn{background:#0f766e;color:#fff}
+  .B .mk-kpi{background:#fff;border:1px solid #e6e3dc}.B .mk-kpi .v{color:#26241f}
+  .B table{border:1px solid #e6e3dc}.B th{background:#efece6;color:#807c72;border-bottom:1px solid #e6e3dc}
+  .B td{border-bottom:1px solid #efece6;color:#3f3d37}
+  .B .p0{background:#fbe7df;color:#b4541f}.B .st{background:#e3f1ee;color:#0f766e}
+
+  /* ===== Option C · 数据控制台（Retool / 高密度，最适合大表）===== */
+  .C{background:#fff;border:1px solid #d8dde6;color:#1c2330;font-family:system-ui,"PingFang SC",sans-serif}
+  .C .mk-side{background:#10141c;border-right:1px solid #10141c}
+  .C .mk-brand{color:#fff}.C .mk-logo{background:#2f6fed;color:#fff}
+  .C .mk-grp{color:#5b637a}
+  .C .mk-nav{color:#9aa3b8}.C .mk-nav.on{background:rgba(47,111,237,.18);color:#cdddff}
+  .C .mk-eyebrow{color:#2f6fed}.C .mk-title{color:#0f1626}
+  .C .mk-btn{background:#2f6fed;color:#fff}
+  .C .mk-kpi{background:#f7f9fc;border:1px solid #e1e6ee}.C .mk-kpi .v{color:#0f1626;font-family:ui-monospace,"SF Mono",monospace}
+  .C table{border:1px solid #e1e6ee}.C th{background:#eef1f6;color:#5b637a;text-transform:uppercase;letter-spacing:.05em;font-size:10px;border-bottom:1px solid #dde3ec}
+  .C td{border-bottom:1px solid #eef1f6;color:#27303f}
+  .C .num{font-family:ui-monospace,"SF Mono",monospace}
+  .C .p0{background:#fde7e4;color:#cc3322}.C .st{background:#e6efff;color:#2f6fed}
+
+  .note{max-width:1180px;margin:24px auto 0;color:#9aa0ad;font-size:13px;line-height:1.7}
+  .note b{color:#e7e9ee}
+</style>
+</head>
+<body>
+<div class="head">
+  <h1>三套视觉方案 · 挑一套我铺全站</h1>
+  <p>都是干净专业方向（没有上次的纸纹/衬线/紫色）。下面每块是真实迷你运营台，回我「要 A / B / C」即可，也可以说「A 的配色 + C 的表格」这种组合。</p>
+</div>
+
+<div class="wrap">
+
+  <!-- A -->
+  <div class="opt">
+    <div class="opt-bar"><span class="no" style="background:#4f46e5">A</span><h2>极简浅色 SaaS</h2><span class="tag">Linear / Vercel 气质 · 靛蓝点缀 · 留白舒展</span><span class="pick">要 A</span></div>
+    <div class="frame"><div class="mk A">
+      <div class="mk-side">
+        <div class="mk-brand"><span class="mk-logo">W</span>Wayfair Ops</div>
+        <div class="mk-grp">今日工作</div>
+        <div class="mk-nav on"><span class="mk-dot"></span>执行中心</div>
+        <div class="mk-nav"><span class="mk-dot"></span>任务清单</div>
+        <div class="mk-grp">分析与档案</div>
+        <div class="mk-nav"><span class="mk-dot"></span>定价体检</div>
+        <div class="mk-nav"><span class="mk-dot"></span>SKU 分级</div>
+      </div>
+      <div class="mk-main">
+        <div class="mk-h"><div><div class="mk-eyebrow">Start here</div><div class="mk-title">运营执行中心</div></div><span class="mk-btn">打开执行</span></div>
+        <div class="mk-kpis">
+          <div class="mk-kpi"><div class="v num">179</div><div class="l">本周任务</div></div>
+          <div class="mk-kpi"><div class="v num">686</div><div class="l">库存明细</div></div>
+          <div class="mk-kpi"><div class="v num">11</div><div class="l">A 级 SKU</div></div>
+          <div class="mk-kpi"><div class="v num">65</div><div class="l">P0 待办</div></div>
+        </div>
+        <table>
+          <tr><th>优先级</th><th>SKU</th><th>建议动作</th><th>状态</th></tr>
+          <tr><td><span class="pill p0">P0</span></td><td>MFC-D3-B</td><td>不要先提 Base（Base/前台价 75% 超线）</td><td><span class="pill st">待执行</span></td></tr>
+          <tr><td><span class="pill p0">P0</span></td><td>LFC-2W</td><td>先拆发货成本（竞争分位 0.88）</td><td><span class="pill st">待执行</span></td></tr>
+        </table>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- B -->
+  <div class="opt">
+    <div class="opt-bar"><span class="no" style="background:#0f766e">B</span><h2>柔和暖灰 Minimal</h2><span class="tag">Stripe / Notion 气质 · 墨绿点缀 · 温和耐看</span><span class="pick">要 B</span></div>
+    <div class="frame"><div class="mk B">
+      <div class="mk-side">
+        <div class="mk-brand"><span class="mk-logo">W</span>Wayfair Ops</div>
+        <div class="mk-grp">今日工作</div>
+        <div class="mk-nav on"><span class="mk-dot"></span>执行中心</div>
+        <div class="mk-nav"><span class="mk-dot"></span>任务清单</div>
+        <div class="mk-grp">分析与档案</div>
+        <div class="mk-nav"><span class="mk-dot"></span>定价体检</div>
+        <div class="mk-nav"><span class="mk-dot"></span>SKU 分级</div>
+      </div>
+      <div class="mk-main">
+        <div class="mk-h"><div><div class="mk-eyebrow">Start here</div><div class="mk-title">运营执行中心</div></div><span class="mk-btn">打开执行</span></div>
+        <div class="mk-kpis">
+          <div class="mk-kpi"><div class="v num">179</div><div class="l">本周任务</div></div>
+          <div class="mk-kpi"><div class="v num">686</div><div class="l">库存明细</div></div>
+          <div class="mk-kpi"><div class="v num">11</div><div class="l">A 级 SKU</div></div>
+          <div class="mk-kpi"><div class="v num">65</div><div class="l">P0 待办</div></div>
+        </div>
+        <table>
+          <tr><th>优先级</th><th>SKU</th><th>建议动作</th><th>状态</th></tr>
+          <tr><td><span class="pill p0">P0</span></td><td>MFC-D3-B</td><td>不要先提 Base（Base/前台价 75% 超线）</td><td><span class="pill st">待执行</span></td></tr>
+          <tr><td><span class="pill p0">P0</span></td><td>LFC-2W</td><td>先拆发货成本（竞争分位 0.88）</td><td><span class="pill st">待执行</span></td></tr>
+        </table>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- C -->
+  <div class="opt">
+    <div class="opt-bar"><span class="no" style="background:#2f6fed">C</span><h2>数据控制台</h2><span class="tag">Retool 气质 · 深色侧栏 + 高密度白底表格 · 最适合大数据表</span><span class="pick">要 C</span></div>
+    <div class="frame"><div class="mk C">
+      <div class="mk-side">
+        <div class="mk-brand"><span class="mk-logo">W</span>Wayfair Ops</div>
+        <div class="mk-grp">今日工作</div>
+        <div class="mk-nav on"><span class="mk-dot"></span>执行中心</div>
+        <div class="mk-nav"><span class="mk-dot"></span>任务清单</div>
+        <div class="mk-grp">分析与档案</div>
+        <div class="mk-nav"><span class="mk-dot"></span>定价体检</div>
+        <div class="mk-nav"><span class="mk-dot"></span>SKU 分级</div>
+      </div>
+      <div class="mk-main">
+        <div class="mk-h"><div><div class="mk-eyebrow">Start here</div><div class="mk-title">运营执行中心</div></div><span class="mk-btn">打开执行</span></div>
+        <div class="mk-kpis">
+          <div class="mk-kpi"><div class="v num">179</div><div class="l">本周任务</div></div>
+          <div class="mk-kpi"><div class="v num">686</div><div class="l">库存明细</div></div>
+          <div class="mk-kpi"><div class="v num">11</div><div class="l">A 级 SKU</div></div>
+          <div class="mk-kpi"><div class="v num">65</div><div class="l">P0 待办</div></div>
+        </div>
+        <table>
+          <tr><th>优先级</th><th>SKU</th><th>建议动作</th><th>状态</th></tr>
+          <tr><td><span class="pill p0">P0</span></td><td>MFC-D3-B</td><td>不要先提 Base（Base/前台价 75% 超线）</td><td><span class="pill st">待执行</span></td></tr>
+          <tr><td><span class="pill p0">P0</span></td><td>LFC-2W</td><td>先拆发货成本（竞争分位 0.88）</td><td><span class="pill st">待执行</span></td></tr>
+        </table>
+      </div>
+    </div></div>
+  </div>
+
+</div>
+
+<div class="note">
+  <b>我的推荐：C（数据控制台）。</b>你这站核心是 179 行任务表、686 行库存、定价体检大表——C 的高密度白底表格 + 深色侧栏最扛大数据，专业且耐看。A 最清爽适合"轻"界面，B 最温和。<br>
+  回我一个字母即可；不满意这三个方向也直说，我再换。
+</div>
+</body>
+</html>
