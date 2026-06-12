@@ -32,13 +32,13 @@
     <div class="wf-side-foot"><b>Production</b><small>ai-wayfair.vercel.app</small></div>
   </aside>
   <main class="wf-main">
-    <div class="wf-topbar"><div class="wf-search">搜索报告、SKU、库存、广告动作</div><div class="wf-top-actions"><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <div class="wf-topbar"><a class="wf-search" href="./Wayfair_帮助中心.html#help-q">搜索帮助、操作说明、口径规则…</a><div class="wf-top-actions"><span class="wf-chip">数据截至 2026-06-05</span><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
     <section class="wf-hero">
       <div class="wf-title-card"><div class="wf-eyebrow">Start here</div><h1>Wayfair 运营执行中心</h1><div class="wf-actions"><a class="wf-btn primary" href="./Wayfair_运营执行中心_20260605.html">执行中心</a><a class="wf-btn green" href="./Wayfair_库存映射对照工具_20260604.html">查库存</a><a class="wf-btn light" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html">促销准入</a></div></div>
       <aside class="wf-next-card"><h2>最短路径</h2><a href="./Wayfair_运营执行中心_20260605.html"><span>1. 本周做什么</span><small>执行中心</small></a><a href="./Wayfair_库存映射对照工具_20260604.html"><span>2. 动手前查库存</span><small>库存映射</small></a><a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span>3. 判断能不能促</span><small>促销准入</small></a></aside>
     </section>
-    <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
-    <main id="content" class="wf-content">
+    <section class="wf-kpis" title="数据截至 2026-06-05"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
+    <div id="content" class="wf-content">
 <header><h1>Wayfair 运营执行中心</h1><div class="meta">生成日期：2026-06-05 ｜ 目标：打开后 10 分钟知道本周先做什么</div></header>
 <div class="wrap"><style>
 /* ── fixed-layout task / exec tables ──────────────────── */
@@ -97,48 +97,9 @@
 .week-progress .pbar{flex:1;max-width:320px;height:8px;background:#e7ecf3;border-radius:99px;overflow:hidden}
 .week-progress .pbar i{display:block;height:100%;width:0;background:#23b887;border-radius:99px;transition:width .2s}
 </style>
-<script>
-(function(){
-  var STATES=['待执行','执行中','已执行','暂缓'];
-  var CLS={'待执行':'tag amber','执行中':'tag blue','已执行':'tag green','暂缓':'tag gray'};
-  var KEY=function(id){return 'wf2:'+id;};
-  function load(id){try{return JSON.parse(localStorage.getItem(KEY(id)))||{};}catch(e){return {};}}
-  function save(id,obj){try{localStorage.setItem(KEY(id),JSON.stringify(obj));}catch(e){}}
-  function applyRow(row,st){
-    var s=st.status||'待执行';
-    var btn=row.querySelector('.state-btn');
-    if(!btn)return;
-    btn.textContent=s; btn.className='state-btn '+(CLS[s]||'tag gray');
-    btn.title='点击切换：待执行 → 执行中 → 已执行 → 暂缓';
-    row.dataset.state=s;
-    var d=row.querySelector('.exec-date');
-    if(d) d.textContent=st.date||'';
-  }
-  function updateProgress(){
-    var rows=document.querySelectorAll('tr[data-task-id]');
-    var done=0; rows.forEach(function(r){if(r.dataset.state==='已执行')done++;});
-    var dc=document.getElementById('done-count'); if(dc) dc.textContent=done;
-    var tc=document.getElementById('total-count'); if(tc) tc.textContent=rows.length;
-    var bar=document.getElementById('progress-bar'); if(bar) bar.style.width=(rows.length?Math.round(done/rows.length*100):0)+'%';
-  }
-  document.addEventListener('DOMContentLoaded',function(){
-    document.querySelectorAll('tr[data-task-id]').forEach(function(row){
-      var id=row.dataset.taskId;
-      applyRow(row,load(id));
-      var btn=row.querySelector('.state-btn');
-      if(!btn)return;
-      btn.addEventListener('click',function(){
-        var next=STATES[(STATES.indexOf(row.dataset.state)+1)%STATES.length];
-        var prev=load(id);
-        var obj={status:next,date:next==='已执行'?new Date().toLocaleDateString('zh-CN'):(prev.date||'')};
-        save(id,obj); applyRow(row,obj); updateProgress();
-      });
-    });
-    updateProgress();
-  });
-})();
-</script>
-    </main>
+<script>window.WF_TASKS_GEN='20260605';</script>
+<script src="./assets/task-state.js"></script>
+    </div>
   </main>
 </div></div>
 <script src="./assets/dashboard-shell.js"></script>

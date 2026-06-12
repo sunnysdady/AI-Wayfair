@@ -61,6 +61,88 @@ CSS = """
 .wf-content .days span{flex:1;text-align:center;color:#98a2b3;font-size:10px}
 .wf-content .card.kpi span{display:block;color:#667085;font-size:12px;font-weight:700}.wf-content .card.kpi b{font-size:22px}
 .wf-content td:empty:before{content:"—";color:#c6cfdd}
+a.wf-search{text-decoration:none}
+@media(max-width:1100px){.wf-side{display:flex!important;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;gap:6px;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line)}.wf-brand,.wf-nav-label,.wf-side-foot{display:none}.wf-side nav{display:flex;flex-direction:row;gap:4px}.wf-side a{white-space:nowrap;padding:6px 9px}}
+"""
+
+TASK_JS = """
+(function(){
+  var GEN=window.WF_TASKS_GEN||'';
+  var STATES=['待执行','执行中','已执行','暂缓'];
+  var CLS={'待执行':'tag amber','执行中':'tag blue','已执行':'tag green','暂缓':'tag gray'};
+  var KEY=function(id){return 'wf2:'+id;};
+  var currentFilter='all';
+  function load(id){
+    try{
+      var obj=JSON.parse(localStorage.getItem(KEY(id)))||{};
+      if(obj.gen&&GEN&&obj.gen!==GEN) return {};  // 旧版清单的标记不再展示，避免错位误导
+      return obj;
+    }catch(e){return {};}
+  }
+  function save(id,obj){try{localStorage.setItem(KEY(id),JSON.stringify(obj));}catch(e){alert('保存失败：浏览器存储不可用（隐私模式或空间已满），本次标记不会保留。');}}
+  function applyRow(row,st){
+    var btn=row.querySelector('.state-btn');
+    if(!btn)return;
+    var s=st.status||'待执行';
+    btn.textContent=s; btn.className='state-btn '+(CLS[s]||'tag gray');
+    btn.title='点击切换：待执行 → 执行中 → 已执行 → 暂缓';
+    row.dataset.state=s;
+    var d=row.querySelector('.exec-date');
+    if(d) d.textContent=st.date||'';
+  }
+  function rows(){return document.querySelectorAll('tr[data-task-id]');}
+  function updateProgress(){
+    var done=0,n=0;
+    rows().forEach(function(r){n++;if(r.dataset.state==='已执行')done++;});
+    var dc=document.getElementById('done-count'); if(dc) dc.textContent=done;
+    var tc=document.getElementById('total-count'); if(tc) tc.textContent=n;
+    var bar=document.getElementById('progress-bar'); if(bar) bar.style.width=(n?Math.round(done/n*100):0)+'%';
+  }
+  function filterRows(f){
+    currentFilter=f;
+    rows().forEach(function(r){
+      var show=f==='all'||f===r.dataset.priority||
+        (f==='pending'&&r.dataset.state!=='已执行'&&r.dataset.state!=='暂缓')||
+        (f==='done'&&r.dataset.state==='已执行')||
+        (f==='defer'&&r.dataset.state==='暂缓');
+      r.style.display=show?'':'none';
+    });
+  }
+  document.addEventListener('DOMContentLoaded',function(){
+    rows().forEach(function(row){
+      var id=row.dataset.taskId;
+      applyRow(row,load(id));
+      var btn=row.querySelector('.state-btn');
+      if(!btn)return;
+      btn.addEventListener('click',function(){
+        var next=STATES[(STATES.indexOf(row.dataset.state)+1)%STATES.length];
+        var prev=load(id);
+        var obj={status:next,date:next==='已执行'?new Date().toLocaleDateString('zh-CN'):(prev.date||''),gen:GEN};
+        save(id,obj); applyRow(row,obj); updateProgress(); filterRows(currentFilter);
+      });
+    });
+    updateProgress();
+    document.querySelectorAll('.filt-btn[data-filter]').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        document.querySelectorAll('.filt-btn').forEach(function(b){b.classList.remove('active');});
+        btn.classList.add('active'); filterRows(btn.dataset.filter);
+      });
+    });
+    var reset=document.getElementById('reset-progress');
+    if(reset) reset.addEventListener('click',function(){
+      if(!confirm('确定清空本页所有任务的执行进度吗？此操作不可恢复。'))return;
+      rows().forEach(function(r){try{localStorage.removeItem(KEY(r.dataset.taskId));}catch(e){}});
+      rows().forEach(function(r){applyRow(r,{});});
+      updateProgress(); filterRows(currentFilter);
+    });
+    window.addEventListener('storage',function(e){
+      if(!e.key||e.key.indexOf('wf2:')!==0)return;
+      var id=e.key.slice(4);
+      rows().forEach(function(r){if(r.dataset.taskId===id)applyRow(r,load(id));});
+      updateProgress(); filterRows(currentFilter);
+    });
+  });
+})();
 """
 
 
@@ -100,10 +182,10 @@ def text(path: Path) -> str:
 
 
 def first_matching(*needles: str) -> str:
-    files = sorted(REPORTS.glob("*.html"))
+    # latest dated file wins (filenames sort lexicographically by date suffix)
+    files = sorted(REPORTS.glob("*.html"), reverse=True)
     for path in files:
-        hay = path.name
-        if all(n in hay for n in needles):
+        if all(n in path.name for n in needles):
             return "./" + path.name
     for path in files:
         src = text(path)
@@ -111,7 +193,7 @@ def first_matching(*needles: str) -> str:
         hay = path.name + "\n" + title
         if all(n in hay for n in needles):
             return "./" + path.name
-    return "#"
+    sys.exit(f"nav target not found, needles={needles} — 检查文件是否被改名/归档")
 
 
 def extract_title(src: str, fallback: str) -> str:
@@ -126,9 +208,15 @@ def extract_title(src: str, fallback: str) -> str:
 
 def extract_body(src: str) -> str:
     if 'class="wf-page"' in src:
-        match = re.search(r'<main id="content" class="wf-content">\s*(.*?)\s*</main>\s*(?:<p class="wf-footer-note"|</main>)', src, re.I | re.S)
+        match = re.search(
+            r'<(?:main|div) id="content" class="wf-content">\s*(.*?)\s*</(?:main|div)>\s*(?:<p class="wf-footer-note"|</main>)',
+            src, re.I | re.S,
+        )
         if match:
             return match.group(1).strip()
+        # a shelled page we cannot parse means the template/regex drifted;
+        # falling back to <body> here would wrap the shell inside a new shell
+        sys.exit("extract_body failed on an already-shelled page — 模板或正则漂移，禁止整 body 兜底")
     match = re.search(r"<body[^>]*>(.*?)</body>", src, re.I | re.S)
     return (match.group(1) if match else src).strip()
 
@@ -146,12 +234,14 @@ def context(title: str) -> tuple[str, str]:
         ("定价", ("Pricing health", "检查成本、售价、平台空间和提价风险。")),
         ("数据补齐", ("Data status", "确认数据已经收到、仍缺什么。")),
         ("WSP", ("Ads action", "关键词、Campaign、Product 层调整建议。")),
+        ("甘特图", ("Timeline", "任务节奏和时间安排。")),
+        ("口径", ("Calibration", "成本口径校准和防错规则。")),
         ("诊断", ("Diagnosis", "店铺问题、机会和风险。")),
         ("交接", ("Handoff", "接手流程和运营原则。")),
         ("护栏", ("Guardrails", "防止错误口径和误操作。")),
     ]
     for key, value in rules:
-        if key in title:
+        if key in title.replace(" ", ""):
             return value
     return ("Report", "关键数据和执行建议已经按 Dashboard 内页重新整理。")
 
@@ -170,7 +260,7 @@ NAV_GROUPS: list[tuple[str, list[tuple[tuple[str, ...], str]]]] = [
     ("分析与档案", [
         (("SKU经营档案",), "SKU经营档案"),
         (("SKU价值分级",), "SKU价值分级"),
-        (("产品定价体检表", "20260605"), "定价体检表"),
+        (("产品定价体检表",), "定价体检表"),
         (("ProductCatalog",), "Catalog定价"),
         (("评分评论",), "评分评论体检"),
     ]),
@@ -205,11 +295,30 @@ def nav(current_name: str) -> str:
     return "\n".join(parts)
 
 
+# KPI 单一事实来源：数据刷新时只改这里（index 与全部报告页共用）
+KPI_AS_OF = "2026-06-05"
+KPIS = [
+    ("5月", "有效 Cost Stack"),
+    ("686", "库存明细行"),
+    ("11", "A 级 SKU"),
+    ("准入", "促销判断已生成"),
+]
+
+
+def kpi_section() -> str:
+    cells = "".join(
+        f'<div class="wf-kpi"><div class="value">{html.escape(v)}</div><span class="label">{html.escape(l)}</span></div>'
+        for v, l in KPIS
+    )
+    return f'<section class="wf-kpis" title="数据截至 {KPI_AS_OF}">{cells}</section>'
+
+
 def shell(title: str, body: str, filename: str) -> str:
     eyebrow, desc = context(title)
     exec_center = first_matching("运营执行中心")
     inventory = first_matching("库存映射")
     promo = first_matching("促销准入")
+    help_page = first_matching("帮助中心")
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -226,21 +335,53 @@ def shell(title: str, body: str, filename: str) -> str:
     <div class="wf-side-foot"><b>Production</b><small>ai-wayfair.vercel.app</small></div>
   </aside>
   <main class="wf-main">
-    <div class="wf-topbar"><div class="wf-search">搜索报告、SKU、库存、广告动作</div><div class="wf-top-actions"><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <div class="wf-topbar"><a class="wf-search" href="{help_page}#help-q">搜索帮助、操作说明、口径规则…</a><div class="wf-top-actions"><span class="wf-chip">数据截至 {KPI_AS_OF}</span><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
     <section class="wf-hero">
       <div class="wf-title-card"><div class="wf-eyebrow">{html.escape(eyebrow)}</div><h1>{html.escape(title)}</h1><div class="wf-actions"><a class="wf-btn primary" href="{exec_center}">执行中心</a><a class="wf-btn green" href="{inventory}">查库存</a><a class="wf-btn light" href="{promo}">促销准入</a></div></div>
       <aside class="wf-next-card"><h2>最短路径</h2><a href="{exec_center}"><span>1. 本周做什么</span><small>执行中心</small></a><a href="{inventory}"><span>2. 动手前查库存</span><small>库存映射</small></a><a href="{promo}"><span>3. 判断能不能促</span><small>促销准入</small></a></aside>
     </section>
-    <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
-    <main id="content" class="wf-content">
+    {kpi_section()}
+    <div id="content" class="wf-content">
 {body}
-    </main>
+    </div>
   </main>
 </div></div>
 <script src="./assets/dashboard-shell.js"></script>
 </body>
 </html>
 """
+
+
+def index_nav() -> str:
+    """index.html 侧栏与报告页共用同一份 NAV_GROUPS，消除导航双源。"""
+    def link(href: str, label: str) -> str:
+        return f'<a href="{href}"><span class="ndot"></span>{html.escape(label)}</a>'
+
+    parts = [
+        '      <nav class="side-section">\n        <div class="side-label">入口</div>\n'
+        '        <a class="active" href="./index.html"><span><svg viewBox="0 0 24 24"><path d="M4 13h6V4H4zM14 20h6V4h-6zM4 20h6v-3H4z"/></svg></span>Dashboard</a>\n'
+        f'        {link("./reports/" + first_matching("帮助中心")[2:], "帮助中心")}\n      </nav>'
+    ]
+    for group_label, items in NAV_GROUPS:
+        links = "\n        ".join(
+            link("./reports/" + first_matching(*needles)[2:], label) for needles, label in items
+        )
+        parts.append(
+            f'      <nav class="side-section">\n        <div class="side-label">{html.escape(group_label)}</div>\n        {links}\n      </nav>'
+        )
+    return "\n".join(parts)
+
+
+def patch_index() -> None:
+    path = ROOT / "index.html"
+    src = text(path)
+    start, end = "<!-- WF-NAV-START -->", "<!-- WF-NAV-END -->"
+    if start not in src or end not in src:
+        sys.exit("index.html 缺少 WF-NAV-START/END 标记，无法生成侧栏")
+    pre, rest = src.split(start, 1)
+    _, post = rest.split(end, 1)
+    path.write_text(pre + start + "\n" + index_nav() + "\n      " + end + post, encoding="utf-8")
+    print("index.html sidebar regenerated from NAV_GROUPS")
 
 
 def main() -> None:
@@ -251,6 +392,7 @@ def main() -> None:
     assets.mkdir(exist_ok=True)
     (assets / "dashboard-shell.css").write_text(CSS, encoding="utf-8")
     (assets / "dashboard-shell.js").write_text(JS, encoding="utf-8")
+    (assets / "task-state.js").write_text(TASK_JS, encoding="utf-8")
 
     count = 0
     for path in sorted(REPORTS.glob("*.html")):
@@ -262,6 +404,7 @@ def main() -> None:
         path.write_text(shell(title, body, path.name), encoding="utf-8")
         count += 1
     print(f"dashboard shell applied to {count} report pages")
+    patch_index()
 
 
 if __name__ == "__main__":

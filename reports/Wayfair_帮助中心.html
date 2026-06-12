@@ -32,13 +32,13 @@
     <div class="wf-side-foot"><b>Production</b><small>ai-wayfair.vercel.app</small></div>
   </aside>
   <main class="wf-main">
-    <div class="wf-topbar"><div class="wf-search">搜索报告、SKU、库存、广告动作</div><div class="wf-top-actions"><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <div class="wf-topbar"><a class="wf-search" href="./Wayfair_帮助中心.html#help-q">搜索帮助、操作说明、口径规则…</a><div class="wf-top-actions"><span class="wf-chip">数据截至 2026-06-05</span><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
     <section class="wf-hero">
       <div class="wf-title-card"><div class="wf-eyebrow">Help</div><h1>Wayfair 帮助中心</h1><div class="wf-actions"><a class="wf-btn primary" href="./Wayfair_运营执行中心_20260605.html">执行中心</a><a class="wf-btn green" href="./Wayfair_库存映射对照工具_20260604.html">查库存</a><a class="wf-btn light" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html">促销准入</a></div></div>
       <aside class="wf-next-card"><h2>最短路径</h2><a href="./Wayfair_运营执行中心_20260605.html"><span>1. 本周做什么</span><small>执行中心</small></a><a href="./Wayfair_库存映射对照工具_20260604.html"><span>2. 动手前查库存</span><small>库存映射</small></a><a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span>3. 判断能不能促</span><small>促销准入</small></a></aside>
     </section>
-    <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
-    <main id="content" class="wf-content">
+    <section class="wf-kpis" title="数据截至 2026-06-05"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
+    <div id="content" class="wf-content">
 <h1>Wayfair 帮助中心</h1>
 <style>
 .help-search{display:flex;gap:10px;align-items:center;margin:0 0 16px}
@@ -66,9 +66,9 @@
 <div class="help-item" data-kw="规则 背景 操作护栏 口径校准 店铺诊断 交接"><b>🛡️ 规则与背景</b><p>操作护栏：广告、促销、Listing 防错规则；Cost Stack 校准：成本口径护栏；店铺诊断：问题、机会和结论；店铺交接：接手原则和流程。</p></div>
 
 <h2>3. 操作指南</h2>
-<div class="help-item" data-kw="标记 已执行 状态 按钮 点击 切换 执行中 暂缓"><b>如何标记任务"已执行"？</b><p>在「执行中心」或「任务清单」里，点击任务行的状态按钮（虚线圆角标签），按 待执行 → 执行中 → 已执行 → 暂缓 循环切换。标记"已执行"时自动记录当天日期。</p></div>
+<div class="help-item" data-kw="标记 已执行 状态 按钮 点击 切换 执行中 暂缓"><b>如何标记任务"已执行"？</b><p>在「执行中心」或「任务清单」里，点击任务行的状态按钮（带 ▾ 角标的圆角标签），按 待执行 → 执行中 → 已执行 → 暂缓 循环切换。标记"已执行"时自动记录当天日期。</p></div>
 <div class="help-item" data-kw="同步 进度 两个页面 共用"><b>执行中心和任务清单的进度同步吗？</b><p>同步。两个页面共用同一份进度记录，在任意一边标记，另一边刷新后状态一致。执行中心顶部显示"本周已执行 X / 20"，任务清单显示全量进度条。</p></div>
-<div class="help-item" data-kw="保存 localStorage 浏览器 丢失 刷新 换电脑"><b>标记的进度保存在哪里？</b><p>保存在当前浏览器的 localStorage 里：刷新、关闭页面都不丢失；但换浏览器或换电脑不会同步，清除浏览器数据会清空进度。</p></div>
+<div class="help-item" data-kw="保存 localStorage 浏览器 丢失 刷新 换电脑"><b>标记的进度保存在哪里？</b><p>保存在当前浏览器的 localStorage 里：刷新、关闭页面都不丢失；但换浏览器或换电脑不会同步，清除浏览器数据会清空进度。注意：进度只在正式域名 ai-wayfair.vercel.app 记录，预览链接是独立环境看不到你的进度；任务清单顶部有"重置全部进度"按钮可一键清空。</p></div>
 <div class="help-item" data-kw="筛选 过滤 P0 P1 P2 待执行"><b>如何筛选任务？</b><p>任务清单顶部有筛选按钮：全部 / P0 / P1 / P2 / 待执行 / 已执行 / 暂缓，点击即可过滤表格行。</p></div>
 <div class="help-item" data-kw="表格 滚动 横向 列 宽"><b>表格太宽看不全？</b><p>数据表支持横向滚动，首列（SKU）保持固定方便对照；部分长文本默认折行截断，点击"成本明细"等折叠项可展开。</p></div>
 
@@ -79,7 +79,7 @@
 <div class="help-item" data-kw="WSS 0行 未投放 无数据"><b>WSS 报表 0 行怎么处理？</b><p>按未投放/无数据处理，不进入任何分析结论。</p></div>
 
 <h2>5. 其他</h2>
-<div class="help-item" data-kw="归档 archive 废弃 旧版"><b>归档页面在哪里？</b><p>已废弃的旧页面（如旧版项目导航、过期定价体检占位页）移到 reports/archive/ 文件夹，不再出现在导航里。</p></div>
+<div class="help-item" data-kw="归档 archive 废弃 旧版"><b>归档页面在哪里？</b><p>已废弃的旧页面（如旧版项目导航、过期定价体检占位页）已下线归档（保存在代码仓库 reports/archive/，不发布到线上），需要时联系维护者取回。</p></div>
 <div class="help-item" data-kw="文件名 日期 版本 更新"><b>报告文件名里的日期是什么意思？</b><p>表示该报告的生成/更新版本（如 20260605）。同名报告以日期最新的为准，导航始终链接最新版。</p></div>
 
 <script>
@@ -91,11 +91,12 @@
     if(!q)return;
     function apply(){
       var kw=q.value.trim().toLowerCase();
+      var terms=kw.split(/\s+/).filter(Boolean);
       var items=document.querySelectorAll('.help-item');
       var shown=0;
       items.forEach(function(it){
         var hay=(it.textContent+' '+(it.dataset.kw||'')).toLowerCase();
-        var ok=!kw||hay.indexOf(kw)>-1;
+        var ok=!terms.length||terms.every(function(t){return hay.indexOf(t)>-1;});
         it.style.display=ok?'':'none';
         if(ok)shown++;
       });
@@ -107,10 +108,11 @@
       count.textContent=kw?('匹配 '+shown+' 条'):'';
     }
     q.addEventListener('input',apply);
+    if(location.hash==='#help-q')q.focus();
   });
 })();
 </script>
-    </main>
+    </div>
   </main>
 </div></div>
 <script src="./assets/dashboard-shell.js"></script>
