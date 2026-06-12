@@ -54,6 +54,7 @@ CSS = """
 .wf-content .card .link,.wf-content .card a.link{display:inline-block;font-weight:700;margin:2px 0}
 .wf-content .exec-date{color:#98a2b3;font-size:11px;margin-top:3px}
 .wf-content .clause-wrap{margin:6px 0}
+.wf-content .sku-profile-list{display:grid;gap:10px;margin:10px 0}
 .wf-content .barrow{display:grid;grid-template-columns:150px 1fr 92px;gap:10px;align-items:center;margin:7px 0;font-size:13px}
 .wf-content .barrow .small{text-align:right}
 .wf-content .lane{position:relative;height:13px;background:#eef2f7;border-radius:99px;overflow:hidden}
@@ -513,6 +514,7 @@ def needs_data_alert(title: str, filename: str) -> bool:
         "运营执行中心",
         "SKU任务清单",
         "数据补齐",
+        "甘特图",
     ]
     return any(key in hay for key in decision_pages)
 

@@ -15,8 +15,11 @@ REPORTS = ROOT / "reports"
 EXEMPT_ORPHAN_CLASSES = {"group-section"}  # 纯锚点修饰类，样式由 .section 提供
 EXEMPT_WALL_PAGES = {"Wayfair_帮助中心.html"}  # 帮助条目是说明散文，不是表格文本墙
 
+# 独立工具页：apply_dashboard_shell 的跳过清单同款，不套壳所以不做正文类检查
+STANDALONE_PAGES = ("每日库存生成工具",)
+
 # 功能回归期望值（任务清单重新生成时更新这里）
-EXPECT_TASK_ROWS = {"Wayfair_SKU任务清单": 178, "Wayfair_运营执行中心": 20}
+EXPECT_TASK_ROWS = {"Wayfair_SKU任务清单": 179, "Wayfair_运营执行中心": 20}
 
 failures: list[str] = []
 
@@ -33,7 +36,7 @@ def all_pages() -> list[Path]:
 def check_links() -> None:
     for f in all_pages():
         for href in re.findall(r"""href=["']([^"'#][^"']*)["']""", f.read_text()):
-            if href.startswith(("http", "mailto")):
+            if href.startswith(("http", "mailto", "data:")):
                 continue
             if not (f.parent / href.split("#")[0]).resolve().exists():
                 fail(f"断链 {f.name} -> {href}")
@@ -48,6 +51,8 @@ def check_orphan_classes() -> None:
     css = (REPORTS / "assets" / "dashboard-shell.css").read_text()
     defined = set(re.findall(r"\.([A-Za-z][\w-]*)", css))
     for f in sorted(REPORTS.glob("*.html")):
+        if any(key in f.name for key in STANDALONE_PAGES):
+            continue
         body = content_of(f.read_text())
         if body is None:
             fail(f"无法提取正文 {f.name}")
@@ -65,6 +70,8 @@ def check_orphan_classes() -> None:
 
 def check_structure() -> None:
     for f in sorted(REPORTS.glob("*.html")):
+        if any(key in f.name for key in STANDALONE_PAGES):
+            continue
         src = f.read_text()
         body = content_of(src)
         if body is None:
@@ -99,8 +106,14 @@ def check_visual_rules() -> None:
             fail(f"甘特图缺少数据新鲜度提醒 {f.name}")
 
 
+# 数据新鲜度提醒只要求出现在决策页（与 apply_dashboard_shell.needs_data_alert 保持一致）
+DATA_ALERT_PAGES = ("运营执行中心", "SKU任务清单", "数据补齐", "甘特图")
+
+
 def check_data_freshness_notice() -> None:
     for f in sorted(REPORTS.glob("*.html")):
+        if not any(key in f.name for key in DATA_ALERT_PAGES):
+            continue
         src = f.read_text()
         if "wf-data-alert" not in src:
             fail(f"缺少数据新鲜度提醒 {f.name}")
