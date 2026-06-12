@@ -35,6 +35,71 @@
 .wf-content .exec-date{color:#98a2b3;font-size:11px;margin-top:3px}
 .wf-content .clause-wrap{margin:6px 0}
 .wf-content .sku-profile-list{display:grid;gap:10px;margin:10px 0}
+
+/* ───────────────────────── Design refresh · Editorial Ops Desk ─────────────────────────
+   暖纸底 + 墨色主调 + Wayfair 紫点缀；Fraunces 衬线标题与 KPI；克制的层叠入场动效。
+   作为最末层覆盖上方全部历史样式（同特异度后者胜），不动结构。 */
+:root{--ink:#1b1e2a;--ink-2:#3a3e4e;--muted:#6e7281;--paper:#f3f1ea;--surface:#fffefb;--surface-2:#faf8f2;--line:#e3deD1;--accent:#7f187f;--accent-deep:#5e0f5e;--accent-soft:#f4e7f4;--green:#1f8a5d;--amber:#c07a14;--red:#c43f33;--blue:#2d5fc4;--font-display:"Fraunces",georgia,serif;--font-mono:"IBM Plex Mono",ui-monospace,monospace}
+body.wf-app-body{background:radial-gradient(1200px 500px at 75% -10%,#fbf3e9 0%,var(--paper) 55%) fixed,var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif}
+body.wf-app-body:before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.55;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.035 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
+.wf-page{position:relative;z-index:1}
+.wf-app{background:transparent;border:0;box-shadow:none}
+/* 深色侧栏：指挥台对比 */
+.wf-side{background:linear-gradient(180deg,#1c1f2c 0%,#15171f 100%)!important;border:0;border-radius:16px;box-shadow:0 18px 40px rgba(20,16,40,.28)}
+.wf-side a{color:#aeb3c4;border:1px solid transparent}
+.wf-side a:hover{background:rgba(255,255,255,.06);color:#fff}
+.wf-side a.active{background:linear-gradient(90deg,rgba(159,64,159,.30),rgba(127,24,127,.10));border-color:rgba(186,108,186,.35);color:#f0d6f0}
+.wf-side .wf-dot{opacity:.65}
+.wf-brand{color:#fff}.wf-brand small{color:#7d8296}.wf-brand{border-bottom:1px solid rgba(255,255,255,.08)!important}
+.wf-mark{background:linear-gradient(135deg,#9a2d9a,#5e0f5e);color:#fff}
+.wf-nav-group summary{color:#7d8296}.wf-nav-group[open]{background:rgba(255,255,255,.045)!important;border-color:rgba(255,255,255,.07)}
+.wf-nav-group summary:after{color:#7d8296}
+.wf-side-foot{background:rgba(31,138,93,.14);border-color:rgba(120,220,170,.25);color:#9fd9bd}.wf-side-foot b{color:#c9efdc}
+.wf-side::-webkit-scrollbar-thumb{background:#3a3f52}.wf-side::-webkit-scrollbar-track{background:transparent}
+/* 顶栏与主区 */
+.wf-topbar{background:rgba(243,241,234,.88)!important;border-bottom:1px solid var(--line)!important}
+.wf-search,a.wf-search{background:var(--surface);border-color:var(--line);color:#8a8775}
+.wf-chip{background:var(--surface);border-color:var(--line);color:var(--ink-2)}
+.wf-chip.live{background:#e8f5ee;color:#176344;border-color:#bfe3cf}
+/* 标题：Fraunces 衬线 */
+.wf-title-card h1,.wf-content h2,.wf-content h3,.wf-next-card h2{font-family:var(--font-display);font-weight:560;letter-spacing:.005em}
+.wf-title-card{background:linear-gradient(180deg,var(--surface),var(--surface-2))!important;border-color:var(--line)!important}
+.wf-eyebrow{color:var(--accent);display:inline-flex;align-items:center;gap:8px}
+.wf-eyebrow:after{content:"";width:34px;height:1px;background:linear-gradient(90deg,var(--accent),transparent)}
+.wf-panel>h2:first-child:before,.wf-content .section>h2:first-child:before{background:linear-gradient(180deg,var(--accent),var(--accent-deep))}
+/* 按钮 */
+.wf-btn.primary{background:linear-gradient(135deg,#7f187f,#530d53);box-shadow:0 6px 16px rgba(127,24,127,.28)}
+.wf-btn.primary:hover{box-shadow:0 8px 20px rgba(127,24,127,.38)}
+.wf-btn.green{background:#e7f4ed;color:#176344}.wf-btn.light{background:var(--accent-soft);color:var(--accent-deep)}
+/* KPI：衬线大数字 + 品牌色顶线 */
+.wf-kpi{border-top:3px solid var(--accent);background:var(--surface)}
+.wf-kpi .value{font-family:var(--font-display);font-weight:640;letter-spacing:-.01em}
+.wf-kpi .label{color:var(--muted)}
+/* 面板与卡片 */
+.wf-panel,.wf-content .section,.wf-readable-section{background:var(--surface)!important;border-color:var(--line)!important}
+.wf-content .card,.wf-content .linkcard,.wf-content .jumpcard,.wf-content .upload-card{background:var(--surface-2)!important;border-color:var(--line)!important}
+.wf-content .card:hover,.wf-content .linkcard:hover,.wf-content .jumpcard:hover{border-color:#c9a0c9!important;box-shadow:0 8px 20px rgba(127,24,127,.10)!important}
+.wf-content .num{font-family:var(--font-display);font-weight:640;color:var(--accent-deep)}
+/* 表格：报刊数据栏 */
+.wf-content table{font-variant-numeric:tabular-nums lining-nums}
+.wf-content th{background:#efeadd!important;color:#5d5a4c;font-size:11px;letter-spacing:.07em;text-transform:uppercase}
+.wf-content td{background:var(--surface)}
+.wf-content tbody tr:nth-child(even) td{background:var(--surface-2)}
+.wf-content tbody tr:hover td{background:#f6efe4}
+.wf-content .right,.wf-content td[align=right]{font-family:var(--font-mono);font-size:12.5px}
+.wf-table-wrap{border-color:var(--line)}
+.wf-data-alert{border-left-color:var(--amber)!important}
+.wf-next-card{background:linear-gradient(160deg,#221a2b,#15171f)!important}
+.wf-next-card a{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12)}
+/* 入场编排：一次性层叠浮现 */
+@keyframes wfRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.wf-hero{animation:wfRise .55s cubic-bezier(.22,.85,.3,1) both}
+.wf-kpis{animation:wfRise .55s .08s cubic-bezier(.22,.85,.3,1) both}
+.wf-data-alert{animation:wfRise .55s .14s cubic-bezier(.22,.85,.3,1) both}
+.wf-content{animation:wfRise .6s .18s cubic-bezier(.22,.85,.3,1) both}
+.wf-side{animation:wfRise .5s cubic-bezier(.22,.85,.3,1) both}
+@media (prefers-reduced-motion:reduce){.wf-hero,.wf-kpis,.wf-data-alert,.wf-content,.wf-side{animation:none}}
+@media(max-width:1100px){.wf-side{border-radius:12px}}
 .wf-content .barrow{display:grid;grid-template-columns:150px 1fr 92px;gap:10px;align-items:center;margin:7px 0;font-size:13px}
 .wf-content .barrow .small{text-align:right}
 .wf-content .lane{position:relative;height:13px;background:#eef2f7;border-radius:99px;overflow:hidden}
