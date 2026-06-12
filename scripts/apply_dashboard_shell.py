@@ -56,10 +56,11 @@ CSS = """
 .wf-content .barrow{display:grid;grid-template-columns:150px 1fr 92px;gap:10px;align-items:center;margin:7px 0;font-size:13px}
 .wf-content .barrow .small{text-align:right}
 .wf-content .lane{position:relative;height:13px;background:#eef2f7;border-radius:99px;overflow:hidden}
-.wf-content .bar{position:absolute;top:0;height:100%;border-radius:99px;background:#2870e8}
+.wf-content .lane>.bar{position:absolute;top:0;height:100%;border-radius:99px;background:#2870e8}
 .wf-content .days{display:flex;margin:4px 0 8px;padding:0 102px 0 160px}
 .wf-content .days span{flex:1;text-align:center;color:#98a2b3;font-size:10px}
 .wf-content .card.kpi span{display:block;color:#667085;font-size:12px;font-weight:700}.wf-content .card.kpi b{font-size:22px}
+.wf-data-alert{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;background:#fff8ed;border:1px solid #fed7aa;border-left:5px solid var(--amber);border-radius:14px;padding:14px 16px;margin:0 0 16px;color:#344054}.wf-data-alert b{display:block;color:#92400e}.wf-data-alert .stamp{font-size:24px;font-weight:950;color:#b54708}.wf-data-alert p{margin:0 0 6px}.wf-data-alert ul{margin:6px 0 0;padding-left:18px}.wf-data-alert li{margin:2px 0}@media(max-width:680px){.wf-data-alert{grid-template-columns:1fr}.wf-data-alert .stamp{font-size:20px}}
 .wf-content td:empty:before{content:"—";color:#c6cfdd}
 a.wf-search{text-decoration:none}
 @media(max-width:1100px){.wf-side{display:flex!important;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;gap:6px;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line)}.wf-brand,.wf-nav-label,.wf-side-foot{display:none}.wf-side nav{display:flex;flex-direction:row;gap:4px}.wf-side a{white-space:nowrap;padding:6px 9px}}
@@ -297,6 +298,8 @@ def nav(current_name: str) -> str:
 
 # KPI 单一事实来源：数据刷新时只改这里（index 与全部报告页共用）
 KPI_AS_OF = "2026-06-05"
+DATA_REFRESH_DATE = "2026-06-12"
+DATA_REFRESH_WINDOW = "2026-06-06 至 2026-06-12"
 KPIS = [
     ("5月", "有效 Cost Stack"),
     ("686", "库存明细行"),
@@ -311,6 +314,14 @@ def kpi_section() -> str:
         for v, l in KPIS
     )
     return f'<section class="wf-kpis" title="数据截至 {KPI_AS_OF}">{cells}</section>'
+
+
+def data_alert() -> str:
+    return f"""<section class="wf-data-alert">
+      <div><b>数据提醒</b><div class="stamp">需更新</div></div>
+      <div><p>当前页面数据截至 <b>{KPI_AS_OF}</b>。截至 {DATA_REFRESH_DATE}，若要做本周执行、促销、补货或广告判断，需要补齐 <b>{DATA_REFRESH_WINDOW}</b> 的最新数据。</p>
+      <ul><li>优先提交：有效 6月 Cost Stack、当前 active/upcoming 促销/折扣清单、最新库存、Listing Health、WSP Keyword/Targeting、6月订单与客诉扣款。</li><li>未补齐前，本页结论只代表 2026-06-05 版本，不建议直接当作 2026-06-12 的最新决策。</li></ul></div>
+    </section>"""
 
 
 def shell(title: str, body: str, filename: str) -> str:
@@ -341,6 +352,7 @@ def shell(title: str, body: str, filename: str) -> str:
       <aside class="wf-next-card"><h2>最短路径</h2><a href="{exec_center}"><span>1. 本周做什么</span><small>执行中心</small></a><a href="{inventory}"><span>2. 动手前查库存</span><small>库存映射</small></a><a href="{promo}"><span>3. 判断能不能促</span><small>促销准入</small></a></aside>
     </section>
     {kpi_section()}
+    {data_alert()}
     <div id="content" class="wf-content">
 {body}
     </div>

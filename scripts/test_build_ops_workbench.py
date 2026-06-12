@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import sys
 import unittest
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_ops_workbench as ops
 
 
@@ -35,6 +38,75 @@ class OpsWorkbenchRulesTest(unittest.TestCase):
         self.assertEqual(tasks[0]["优先级"], "P0")
         self.assertEqual(tasks[0]["问题类型"], "定价")
         self.assertIn("不要先提Base", tasks[0]["建议动作"])
+
+    def test_store_priority_demotes_tail_without_sales(self) -> None:
+        priority, _ = ops.store_priority({
+            "SKU价值分层": "N",
+            "5月订单数": 0,
+            "YB历史订单数": 0,
+            "5月回款额": 0,
+            "YB历史回款额": 0,
+            "5月毛利": 0,
+            "YB历史毛利": 0,
+            "平台空间率": 0.22,
+            "当前Base预估毛利率": 0.25,
+        }, [])
+        self.assertEqual(priority, "P2")
+
+    def test_store_priority_promotes_profitable_head_or_waist(self) -> None:
+        priority, score = ops.store_priority({
+            "SKU价值分层": "B",
+            "5月订单数": 4,
+            "YB历史订单数": 58,
+            "5月回款额": 378,
+            "YB历史回款额": 5060.2,
+            "5月毛利": 83.32,
+            "YB历史毛利": 812.588,
+            "平台空间率": 0.183,
+            "当前Base预估毛利率": 0.22,
+            "库存状态": "库存可查",
+            "促销准入": "禁止促销/先修复",
+            "Listing问题": "",
+        }, [{"问题类型": "定价"}])
+        self.assertEqual(priority, "P0")
+        self.assertGreater(score, 75)
+
+    def test_detail_tasks_are_downgraded_by_store_value(self) -> None:
+        import pandas as pd
+
+        profiles = pd.DataFrame([{
+            "供应商SKU": "TAIL-1",
+            "SKU价值分层": "N",
+            "5月订单数": 0,
+            "YB历史订单数": 0,
+            "5月回款额": 0,
+            "YB历史回款额": 0,
+            "5月毛利": 0,
+            "YB历史毛利": 0,
+            "平台空间率": 0.22,
+            "当前Base预估毛利率": 0.25,
+        }])
+        tasks = pd.DataFrame([{
+            "任务ID": "TASK-TAIL-1-PRICING-001",
+            "优先级": "P0",
+            "任务状态": "待执行",
+            "问题类型": "定价",
+            "供应商SKU": "TAIL-1",
+            "Wayfair Listing": "",
+            "产品名": "",
+            "SKU价值分层": "N",
+            "促销准入": "",
+            "触发原因": "不建议提价",
+            "建议动作": "不要先提Base",
+            "执行前检查": "",
+            "复盘指标": "",
+            "证据来源": "",
+            "证据链接": "",
+            "排序分": 95,
+        }])
+        adjusted = ops.align_task_priorities_to_store_value(profiles, tasks)
+        self.assertEqual(adjusted.iloc[0]["优先级"], "P2")
+        self.assertIn("综合经营优先级为 P2", adjusted.iloc[0]["触发原因"])
 
     def test_required_task_columns(self) -> None:
         self.assertEqual(ops.TASK_COLUMNS, [

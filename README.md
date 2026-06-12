@@ -80,10 +80,12 @@ AI-Wayfair/
 ## 重新生成报告
 
 ```bash
-cd /Users/pengzhang/Documents/Helloclaude/AI-Wayfair
+cd /path/to/AI-Wayfair
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
 
 # 1. 生成执行中心 / 任务清单 / SKU档案
-python3 scripts/build_ops_workbench.py
+.venv/bin/python scripts/build_ops_workbench.py
 
 # 2. 套 Dashboard shell（注意：会覆盖 <head>，页面专有 CSS 必须在 <body>）
 python3 scripts/apply_dashboard_shell.py
@@ -92,6 +94,8 @@ python3 scripts/apply_dashboard_shell.py
 python3 -m http.server 8787 --directory reports
 # 访问 http://localhost:8787/
 ```
+
+`build_all.sh` 使用仓库内已脱敏汇总数据生成站点并运行全站审计。若要从原始导出文件重建定价、Cost Stack 或 SKU 促销准入，请先把原始文件放到 `data/raw/`；该目录按数据安全规则不提交。
 
 ---
 

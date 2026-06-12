@@ -7,13 +7,15 @@ from pathlib import Path
 
 import pandas as pd
 
+from input_checks import require_files
 
-ROOT = Path("/Users/pengzhang/Documents/Codex 2/AI-Wayfair")
+
+ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw"
 DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
 OLD = DATA / "Wayfair_SKU价值分级_SABC_N_20260604.csv"
-ORDERS = Path("/Users/pengzhang/Documents/Codex 2/wayfair_may_analysis/handover_package/04_全量订单清洗版.csv")
+ORDERS = RAW / "04_全量订单清洗版.csv"
 
 OUT_CSV = DATA / "Wayfair_SKU价值分级_补齐版_20260604.csv"
 OUT_HTML = REPORTS / "Wayfair_6月SKU分层与促销准入清单_20260604.html"
@@ -643,6 +645,11 @@ th,td{{padding:8px 10px;border-bottom:1px solid #edf1f7;text-align:left;vertical
 
 
 def main():
+    require_files(
+        [OLD, *[RAW / name for name in FILES.values()]],
+        root=ROOT,
+        context="重建 SKU 分层与促销准入清单",
+    )
     df = enrich()
     historical_parts = set(df.loc[(pd.to_numeric(df["Orders"], errors="coerce").fillna(0) > 0) | (pd.to_numeric(df["Sales"], errors="coerce").fillna(0) > 0), "Part"].astype(str))
     df["IsInventoryAlias"] = (

@@ -87,6 +87,27 @@ def check_structure() -> None:
             fail(f"嵌套main残留 {f.name}")
 
 
+def check_visual_rules() -> None:
+    css = (REPORTS / "assets" / "dashboard-shell.css").read_text()
+    if re.search(r"\.wf-content\s+\.bar\s*\{[^}]*position\s*:\s*absolute", css):
+        fail("全局 .wf-content .bar 规则会污染甘特图，应限定到 .wf-content .lane>.bar")
+    if ".wf-content .lane>.bar" not in css:
+        fail("缺少进度条限定样式 .wf-content .lane>.bar")
+    for f in sorted(REPORTS.glob("*甘特图*.html")):
+        src = f.read_text()
+        if "wf-data-alert" not in src:
+            fail(f"甘特图缺少数据新鲜度提醒 {f.name}")
+
+
+def check_data_freshness_notice() -> None:
+    for f in sorted(REPORTS.glob("*.html")):
+        src = f.read_text()
+        if "wf-data-alert" not in src:
+            fail(f"缺少数据新鲜度提醒 {f.name}")
+        if "2026-06-06 至 2026-06-12" not in src:
+            fail(f"缺少本周需补数据区间 {f.name}")
+
+
 def check_regression() -> None:
     for prefix, expect in EXPECT_TASK_ROWS.items():
         matches = sorted(REPORTS.glob(f"{prefix}_*.html"))
@@ -107,6 +128,8 @@ def main() -> None:
     check_links()
     check_orphan_classes()
     check_structure()
+    check_visual_rules()
+    check_data_freshness_notice()
     check_regression()
     if failures:
         sys.exit(f"审计失败：{len(failures)} 项")

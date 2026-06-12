@@ -5,13 +5,15 @@ from pathlib import Path
 
 import pandas as pd
 
+from input_checks import require_files
 
-ROOT = Path("/Users/pengzhang/Documents/Codex 2/AI-Wayfair")
+
+ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
 RAW = ROOT / "data" / "raw"
 
-YB_TOOL = Path("/Users/pengzhang/Downloads/Wayfair YB-工具表 2026年 05月.xlsx")
+YB_TOOL = RAW / "Wayfair YB-工具表 2026年 05月.xlsx"
 PRICING_CATALOG = DATA / "Wayfair_Pricing_ProductCatalog_定价体检_20260604.csv"
 SKU_SCORE = DATA / "Wayfair_SKU价值分级_补齐版_20260604.csv"
 
@@ -590,6 +592,11 @@ def render(df: pd.DataFrame) -> None:
 def main() -> None:
     DATA.mkdir(exist_ok=True)
     REPORTS.mkdir(exist_ok=True)
+    require_files(
+        [YB_TOOL, PRICING_CATALOG, SKU_SCORE],
+        root=ROOT,
+        context="生成产品定价体检表",
+    )
     df = build()
     render(df)
     print("wrote", OUT_CSV)
