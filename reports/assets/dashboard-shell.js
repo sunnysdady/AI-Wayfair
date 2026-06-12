@@ -1,6 +1,7 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   const countRows = (table) => Math.max(0, table.querySelectorAll("tr").length - 1);
+  document.body.classList.add("wf-enhanced-shell");
 
   document.querySelectorAll(".wf-content").forEach((content) => {
     content.querySelectorAll(":scope > header").forEach((node) => node.remove());
@@ -72,7 +73,7 @@ document.addEventListener("DOMContentLoaded", () => {
       count.className = "wf-section-count";
       const rowCount = Array.from(block.querySelectorAll("table")).reduce((sum, table) => sum + countRows(table), 0);
       const cardCount = block.querySelectorAll(".card,.linkcard,.jumpcard").length;
-      count.textContent = rowCount ? `${rowCount} 行` : cardCount ? `${cardCount} 项` : "展开";
+      count.textContent = rowCount ? `${rowCount} 行` : cardCount ? `${cardCount} 项` : "说明";
       summary.append(title, count);
 
       const body = document.createElement("div");
@@ -89,6 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function installReaderTools(content) {
+    if (content.querySelector("#sku-profile-search")) return;
     const targets = () => Array.from(content.querySelectorAll(".wf-readable-section,.sku-profile,.card,.linkcard,.jumpcard"));
     const hasUsefulTargets = targets().length > 3 || content.querySelectorAll("table tr").length > 30;
     if (!hasUsefulTargets || content.querySelector(".wf-reader-tools")) return;
