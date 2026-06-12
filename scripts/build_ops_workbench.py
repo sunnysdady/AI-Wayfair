@@ -451,23 +451,56 @@ def pricing_tasks(row: dict | pd.Series) -> list[dict]:
     ]
 
 
+def promo_blockers(row: dict | pd.Series) -> list[str]:
+    """该 SKU 自己的促销阻断项（带数字），禁止使用桶级套话。"""
+    out: list[str] = []
+    margin = _num(row, "HistMargin")
+    plat = _num(row, "PlatformPctNew")
+    rating = _num(row, "Rating")
+    damage = _num(row, "FeedbackDamage")
+    tags = _num(row, "ListingRequiredTags")
+    reviews = _num(row, "Reviews")
+    if margin is not None and margin < 0.25:
+        out.append(f"真实毛利率 {margin:.1%} 撑不住折扣")
+    if plat is not None and plat < 0.16:
+        out.append(f"平台空间率 {plat:.1%} 偏低")
+    if damage:
+        out.append(f"{damage:.0f} 条 Damage/Missing/Defect 反馈未关闭")
+    if rating is not None and 0 < rating < 4.3:
+        out.append(f"评分 {rating:.1f} 承接弱")
+    if tags is not None and tags < 0.8:
+        out.append(f"TAG 覆盖率 {tags:.0%} 未达标")
+    if reviews is not None and reviews < 20:
+        out.append(f"Review 仅 {reviews:.0f} 条")
+    return out
+
+
 def promo_tasks(row: dict | pd.Series) -> list[dict]:
     sku, listing, name, grade, promo = base_fields(row)
     reason = text(row.get("PromoReason") or row.get("促销准入"))
+    blockers = promo_blockers(row)
+    margin = _num(row, "HistMargin")
+    margin_label = f"毛利率 {margin:.1%}" if margin is not None else "毛利率未知"
+    detail = "、".join(blockers) if blockers else (reason or "见促销准入清单")
     if "禁止" in promo or "禁促" in promo:
         priority = "P0"
-        action = "不要进深折扣促销；先处理利润、客诉、库存或 Listing 承接问题。"
+        action = f"不要进深折扣促销：{detail}；逐项修复并复核真实毛利后再评估。"
         score = 92
     elif "暂不" in promo:
         priority = "P1"
-        action = "暂不报名促销；先确认库存、利润和 Listing 承接。"
+        action = f"暂不报名促销：{detail}；确认库存映射高置信后再排期。"
         score = 70
     elif "谨慎" in promo:
         priority = "P2"
-        action = "只允许轻促观察；促销前再次确认库存和真实毛利。"
+        action = f"只允许 ≤5% 轻促观察（{margin_label}）：{detail}；促销前再核库存与真实毛利。"
         score = 45
     else:
         return []
+    damage = _num(row, "FeedbackDamage") or 0
+    review_parts = [f"促销期订单与促后毛利率（当前 {margin:.1%}）" if margin is not None else "促销期订单与促后毛利率"]
+    if damage:
+        review_parts.append(f"Damage 反馈 {damage:.0f} 条→不新增")
+    promo_review = "、".join(review_parts)
     return [
         task(
             sku=sku,
@@ -480,7 +513,7 @@ def promo_tasks(row: dict | pd.Series) -> list[dict]:
             reason=reason or promo,
             action=action,
             check="先看 SKU 分层与促销准入清单，再看定价体检和库存映射。",
-            review_metric="下次复盘看：促销期订单、促销后毛利、是否出现客诉或退货异常。",
+            review_metric=f"下次复盘看：{promo_review}。",
             source="SKU 分层与促销准入清单",
             link="./Wayfair_6月SKU分层与促销准入清单_20260604.html",
             score=score,
@@ -495,14 +528,32 @@ def listing_tasks(row: dict | pd.Series) -> list[dict]:
     reviews = num(row.get("Reviews"))
     feedback_damage = num(row.get("FeedbackDamage"))
     reasons: list[str] = []
+    fixes: list[str] = []
+    targets: list[str] = []
     if tags and tags < 0.8:
         reasons.append(f"Required Tags 覆盖率 {tags * 100:.1f}% 低于 80%")
+        fixes.append(f"补必填 TAG：覆盖率 {tags:.0%}，先拉到 95%")
+        targets.append(f"TAG 覆盖率 {tags:.0%}→≥95%")
     if reviews and reviews < 20:
         reasons.append(f"Review 数 {reviews:.0f} 低于 20")
+        fixes.append(f"催评/出评：Review {reviews:.0f} 条，优先老订单售后邀评到 ≥20")
+        targets.append(f"Review {reviews:.0f}→≥20")
     if feedback_damage > 0:
         reasons.append("客户反馈出现 Damage / Missing / Defect 类问题")
+        fixes.append(f"复盘 {feedback_damage:.0f} 条 Damage/Missing/Defect 反馈：查包装与运输，修复前不放量")
+        targets.append(f"Damage 反馈 {feedback_damage:.0f}→0 新增")
     if not reasons:
         return []
+    images = _num(row, "Images")
+    rating = _num(row, "Rating")
+    if images is not None and images < 8:
+        fixes.append(f"补图：当前 {images:.0f} 张→≥8 张")
+        targets.append(f"图片 {images:.0f}→≥8")
+    if rating is not None and 0 < rating < 4.3:
+        fixes.append(f"评分 {rating:.1f}：先处理差评原因再引流")
+    cr = _num(row, "CR")
+    if cr is not None and cr > 0:
+        targets.append(f"CVR 跟踪（当前 {cr:.2%}）")
     return [
         task(
             sku=sku,
@@ -513,9 +564,9 @@ def listing_tasks(row: dict | pd.Series) -> list[dict]:
             priority="P1",
             task_type="Listing",
             reason="；".join(reasons),
-            action="先修 Listing 承接：补必填 TAG、补图片/说明、复盘差评和客诉原因。",
+            action="；".join(fixes),
             check="打开 SKU 分层与促销准入清单，查看 TAG、图片、客户反馈和促销准入。",
-            review_metric="下次复盘看：Unique Visits、CVR、Review Count、Feedback Damage 数。",
+            review_metric=f"下次复盘看：{'、'.join(targets)}。",
             source="Detailed Listing Health / Customer Feedback",
             link="./Wayfair_6月SKU分层与促销准入清单_20260604.html",
             score=68 + min(feedback_damage, 5),
@@ -531,19 +582,33 @@ def inventory_tasks(row: dict | pd.Series) -> list[dict]:
     confidence = text(row.get("置信度"))
     available = num(row.get("可用量"))
     total_available = num(row.get("总可售含在途"))
+    transit = (num(row.get("待到货")) or 0) + (num(row.get("调拨在途")) or 0)
+    warehouse_sku = text(row.get("仓库SKU"))
+    match_basis = text(row.get("匹配依据"))
+    stock_label = f"可用 {available:.0f}、在途 {transit:.0f}、总可售 {total_available:.0f}"
     if confidence in {"低", "未匹配"}:
         reason = f"库存映射置信度为 {confidence}"
         priority = "P1"
         score = 74
+        basis = f"，当前匹配依据：{match_basis}" if match_basis else ""
+        action = (
+            f"人工复核映射（置信度 {confidence}{basis}）：核对仓库SKU {warehouse_sku or '未知'} ↔ {listing or sku}；"
+            f"复核通过前禁止用 {stock_label} 做补货、停投或促销决策"
+        )
+        review = f"映射置信度 {confidence}→高（人工确认后）"
     elif total_available <= 0:
         reason = "总可售含在途为 0"
         priority = "P0"
         score = 90
-    elif available <= 2:
+        action = f"总可售为 0（{stock_label}）：立即暂停该 SKU 广告与促销报名，评估补货周期或下架"
+        review = f"总可售 {total_available:.0f}→>0，缺货期广告花费→0"
+    else:
         reason = f"可用库存仅 {available:.0f}"
         priority = "P1"
         score = 66
-    else:
+        action = f"可用仅 {available:.0f}（在途 {transit:.0f}）：广告降到保底预算、促销暂缓，催在途或补货后再放量"
+        review = f"可用量 {available:.0f}→≥5，在途 {transit:.0f} 到仓时间确认"
+    if confidence not in {"低", "未匹配"} and total_available > 0 and available > 2:
         return []
     return [
         task(
@@ -555,9 +620,9 @@ def inventory_tasks(row: dict | pd.Series) -> list[dict]:
             priority=priority,
             task_type="库存",
             reason=reason,
-            action="促销、加预算、补货前先人工确认库存映射和可售数量。",
+            action=action,
             check="打开库存映射对照工具，确认仓库 SKU、Wayfair SKU、可用量和在途量。",
-            review_metric="下次复盘看：是否仍出现缺货 SKU 投广告或进入促销。",
+            review_metric=f"下次复盘看：{review}。",
             source="库存映射对照工具",
             link="./Wayfair_库存映射对照工具_20260604.html",
             score=score,
