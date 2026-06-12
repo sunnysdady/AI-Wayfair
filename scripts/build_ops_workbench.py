@@ -76,6 +76,9 @@ PROFILE_COLUMNS = [
     "ROAS",
     "Listing问题",
     "系统总建议",
+    "运营主动作",
+    "执行前检查",
+    "复盘指标",
     "详情锚点",
 ]
 
@@ -156,6 +159,121 @@ def sort_tasks(rows: Iterable[dict]) -> list[dict]:
             text(r.get("供应商SKU")),
             text(r.get("问题类型")),
         ),
+    )
+
+
+def store_action_plan(row: dict | pd.Series, priority: str, metrics: dict[str, object]) -> tuple[str, str, str]:
+    inventory_status = text(row.get("库存状态"))
+    available = num(row.get("可用库存"))
+    sellable = num(row.get("总可售含在途"))
+    listing_issue = text(row.get("Listing问题"))
+    promo = text(row.get("促销准入"))
+    complaint_count = num(row.get("客诉扣款记录数"))
+    complaint_amount = num(row.get("客诉扣款金额"))
+    ad_spend = num(row.get("广告花费"))
+    ad_orders = num(row.get("广告订单"))
+    roas = num(row.get("ROAS"))
+    base_ratio = num(row.get("Base前台价比例"))
+    platform_pct = float(metrics.get("platform_pct", 0) or 0)
+    est_margin = float(metrics.get("est_margin", 0) or 0)
+    total_orders = float(metrics.get("total_orders", 0) or 0)
+
+    if priority == "P2":
+        return (
+            "尾部只保留基础监控：不进大促、不加广告；等出现订单、可售库存和平台空间同时改善后再升级。",
+            "确认是否有新品上架计划、样品图文是否完整、是否存在库存/价格基础错误。",
+            "复盘是否新增订单、可售库存是否恢复、平台空间率是否仍高于18%。",
+        )
+
+    if inventory_status != "库存可查" or sellable <= 0:
+        if complaint_count > 0 or "Damage" in listing_issue or "Missing" in listing_issue or "Defect" in listing_issue:
+            return (
+                "库存恢复前先闭环客诉：核对包装/配件/说明书问题；可售恢复后只做小流量验证，不直接放大促销。",
+                f"查库存映射和客诉明细；当前可用 {available:.0f}，含在途 {sellable:.0f}，客诉/扣款 {complaint_count:.0f} 条。",
+                "复盘可售恢复、Damage/Missing/Defect 反馈、扣款金额和恢复后7天转化。",
+            )
+        if ad_spend >= 300:
+            return (
+                "库存锁定+广告减损：库存未恢复前暂停该 SKU 商品广告；恢复后只回开高意图词，预算按原来的30%试跑。",
+                f"查库存 ETA，同时导出 WSP：该 SKU 5月广告 spend {money(ad_spend)}、orders {ad_orders:.0f}、ROAS {roas:.2f}。",
+                "复盘恢复前广告节省金额、恢复后7天订单、ROAS 和库存消耗速度。",
+            )
+        if "Required Tags" in listing_issue:
+            return (
+                "库存锁定+Listing补齐：等可售恢复时同步补 Required Tags/Review 承接，避免库存回来后流量仍不转化。",
+                f"查库存映射；同步处理 {listing_issue}，补 TAG、标题关键词、主图/尺寸图和QA。",
+                "复盘 Listing Health、可售恢复后7天 CVR、广告点击到订单转化。",
+            )
+        if ad_spend >= 80 and (ad_orders <= 1 or roas < 2):
+            return (
+                "库存锁定+关键词止损：库存未恢复前停低效词；恢复后先用精确高意图词测，不恢复广泛匹配。",
+                f"查库存 ETA；广告 spend {money(ad_spend)}、orders {ad_orders:.0f}、ROAS {roas:.2f}，先标记浪费词。",
+                "复盘低效词花费下降、恢复后精确词订单和 ROAS。",
+            )
+        if base_ratio >= 0.72:
+            return (
+                "库存锁定+价格护栏：可售恢复前不提 Base；先复核 Base/前台价比例，避免库存回来后价格继续压转化。",
+                f"查库存映射；核对 Base/前台价 {base_ratio * 100:.1f}%、平台空间 {platform_pct * 100:.1f}%。",
+                "复盘可售恢复、价格竞争百分位、CVR 和真实订单毛利。",
+            )
+        if listing_issue:
+            return (
+                "库存锁定+评价承接：库存恢复前补 Review/QA/卖点说明；先解决信任问题，再恢复轻促或广告。",
+                f"查库存映射；同步处理 {listing_issue}，补评价承接、QA 和主图卖点。",
+                "复盘 Review 数、CVR、加购/下单转化和恢复后7天订单。",
+            )
+        return (
+            "先锁库存：当天核对库存映射和可售数；无可售先暂停促销/加预算，确认可售后再恢复轻促或广告。",
+            f"查库存映射、仓库可售、在途 ETA；当前可用 {available:.0f}，含在途 {sellable:.0f}。",
+            "复盘缺货天数、可售恢复时间、恢复后7天订单和广告花费是否回收。",
+        )
+
+    if ad_spend >= 20 and (ad_orders <= 0 or roas < 2):
+        return (
+            "先止损广告：暂停无订单 Campaign/Keyword，保留品牌词或高意图词；预算转给同类高转化款。",
+            f"导出5月 WSP 搜索词，标记 spend {money(ad_spend)}、orders {ad_orders:.0f}、ROAS {roas:.2f} 的低效词。",
+            "复盘7天广告花费、订单、ROAS、自然订单是否被误伤。",
+        )
+
+    if listing_issue:
+        return (
+            "先修 Listing 转化：补 Required Tags/主图/尺寸图，Review 少的先补 QA 和卖点；修完再开轻促或加预算。",
+            f"逐项处理 Listing Health：{listing_issue}；同步检查标题关键词、图片数、Review 与差评关键词。",
+            "复盘 Listing Health、Unique Visits、CVR、Review 数和客诉关键词是否改善。",
+        )
+
+    if complaint_count > 0:
+        return (
+            "先闭环客诉：按扣款原因拆包装、配件、说明书和质检责任；未定位前不放大促销流量。",
+            f"拉客诉/扣款明细 {complaint_count:.0f} 条、金额 {money(complaint_amount)}，归因到 Damage/Missing/Defect/物流。",
+            "复盘扣款率、退货/损坏反馈、差评关键词和补件成本。",
+        )
+
+    if base_ratio >= 0.72 or platform_pct < 0.16 or est_margin < 0.18:
+        return (
+            "先修成本/价格：复核 Base、前台价和 Total Cost，优先降拿货/包装/发货成本，不先提 Base。",
+            f"核对 Base/前台价 {base_ratio * 100:.1f}%、平台空间 {platform_pct * 100:.1f}%、预估毛利 {est_margin * 100:.1f}%。",
+            "复盘平台空间率、真实订单毛利率、价格竞争百分位和 Buy Box/转化。",
+        )
+
+    if "禁止" in promo or "暂不" in promo:
+        return (
+            "只做低风险承接：暂不报名深折扣；先用 Listing/库存/广告小修复验证转化，达标后再测5%轻促。",
+            f"确认促销禁入原因：{promo}；促销前必须同时满足库存可售、毛利率和 Listing Health。",
+            "复盘轻促前后订单、毛利、CVR、客诉和库存消耗速度。",
+        )
+
+    if priority == "P0" and total_orders >= 20:
+        return (
+            "可控放量：保安全库存，5%-8%轻促或高意图广告小幅加预算；不做深折扣换销量。",
+            "确认7天安全库存、毛利底线、主图/TAG/Review 无红灯，再设置预算和促销上限。",
+            "复盘7天订单增量、真实毛利、库存周转、ROAS 和客诉率。",
+        )
+
+    return (
+        "腰部验证：先修最大短板，再做小流量测试；连续7天毛利和转化达标后升级到P0。",
+        "按库存、Listing、价格、广告顺序查一遍，记录当前订单、毛利、CVR 和 ROAS 基线。",
+        "复盘7天订单、毛利率、CVR、ROAS 和是否进入稳定可放量池。",
     )
 
 
@@ -421,15 +539,6 @@ def build_profiles(pricing: pd.DataFrame, score: pd.DataFrame, inventory: pd.Dat
         ),
         axis=1,
     )
-    merged["系统总建议"] = merged.apply(
-        lambda r: "；".join(item for item in [
-            text(r.get("建议动作")),
-            text(r.get("NewAction")),
-            "促销/广告前先确认库存" if text(r.get("库存状态")) != "库存可查" else "",
-        ] if item),
-        axis=1,
-    )
-
     score_listing = merged["ScoreListing"] if "ScoreListing" in merged.columns else pd.Series("", index=merged.index)
     score_name = merged["ScoreName"] if "ScoreName" in merged.columns else pd.Series("", index=merged.index)
     score_grade = merged["ScoreGrade"] if "ScoreGrade" in merged.columns else pd.Series("", index=merged.index)
@@ -469,9 +578,23 @@ def build_profiles(pricing: pd.DataFrame, score: pd.DataFrame, inventory: pd.Dat
         "广告订单": col("SPOrdersNew"),
         "ROAS": col("ROAS"),
         "Listing问题": merged["Listing问题"],
-        "系统总建议": merged["系统总建议"],
         "详情锚点": merged["详情锚点"],
     })
+    advice = out.apply(
+        lambda r: pd.Series(
+            store_action_plan(r, store_priority(r, [])[0], commercial_metrics(r)),
+            index=["运营主动作", "执行前检查", "复盘指标"],
+        ),
+        axis=1,
+    )
+    out[["运营主动作", "执行前检查", "复盘指标"]] = advice
+    out["系统总建议"] = out.apply(
+        lambda r: "；".join(item for item in [
+            text(r.get("运营主动作")),
+            text(r.get("执行前检查")),
+        ] if item),
+        axis=1,
+    )
     return out[PROFILE_COLUMNS].copy()
 
 
@@ -583,6 +706,8 @@ def build_store_actions(profiles: pd.DataFrame, tasks: pd.DataFrame) -> list[dic
             risks.append("定价/成本")
         if num(r.get("客诉扣款记录数")) > 0:
             risks.append("客诉扣款")
+        if num(r.get("广告花费")) >= 20 and (num(r.get("广告订单")) <= 0 or num(r.get("ROAS")) < 2):
+            risks.append("广告止损")
         if not risks:
             risks.append("维持观察")
 
@@ -593,12 +718,7 @@ def build_store_actions(profiles: pd.DataFrame, tasks: pd.DataFrame) -> list[dic
         else:
             lead = "尾部观察款"
 
-        if priority == "P0":
-            action = "保护盈利和可放量：先确认库存与可售，再修 Listing/客诉短板；促销只做轻促，定价不先提 Base。"
-        elif priority == "P1":
-            action = "腰部优化：按库存、Listing、促销准入和成本顺序排查，确认能稳定盈利后再放量。"
-        else:
-            action = "低优先级观察：不占用本周核心资源，等销量、库存或平台空间改善后再进入重点池。"
+        action, check, review_metric = store_action_plan(r, priority, metrics)
 
         actions.append(task(
             sku=sku,
@@ -614,8 +734,8 @@ def build_store_actions(profiles: pd.DataFrame, tasks: pd.DataFrame) -> list[dic
                 f"主要风险：{'、'.join(risks)}"
             ),
             action=action,
-            check="先打开 SKU 经营档案看销量、毛利、平台空间、库存、广告和 Listing，再进入明细任务表处理。",
-            review_metric="下次复盘看：订单数、真实毛利、平台空间率、库存可售、转化和客诉是否改善。",
+            check=check,
+            review_metric=review_metric,
             source="SKU 经营档案",
             link=f"./Wayfair_SKU经营档案_20260605.html#{esc(r.get('详情锚点'))}",
             score=score,
@@ -882,7 +1002,11 @@ def render_profile_report(profiles: pd.DataFrame, tasks: pd.DataFrame) -> None:
     <div class="card"><b>客诉扣款</b><div>{num(r['客诉扣款记录数']):.0f} 条</div><div class="small">{money(r['客诉扣款金额'])}</div></div>
     <div class="card"><b>Listing 问题</b><div>{esc(r['Listing问题']) or '暂无自动红灯'}</div></div>
   </div>
-  <div class="card"><b>系统总建议</b><p>{esc(r['系统总建议'])}</p></div>
+  <div class="grid">
+    <div class="card"><b>运营主动作</b><p>{esc(r['运营主动作'])}</p></div>
+    <div class="card"><b>执行前检查</b><p>{esc(r['执行前检查'])}</p></div>
+    <div class="card"><b>复盘指标</b><p>{esc(r['复盘指标'])}</p></div>
+  </div>
   <div class="card"><b>关联任务</b><ul>{task_html}</ul></div>
 </section>
 """)
