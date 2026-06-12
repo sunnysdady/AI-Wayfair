@@ -63,6 +63,7 @@ CSS = """
 .wf-content .card.kpi span{display:block;color:#667085;font-size:12px;font-weight:700}.wf-content .card.kpi b{font-size:22px}
 .wf-data-alert{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;background:#fff8ed;border:1px solid #fed7aa;border-left:5px solid var(--amber);border-radius:14px;padding:14px 16px;margin:0 0 16px;color:#344054}.wf-data-alert b{display:block;color:#92400e}.wf-data-alert .stamp{font-size:24px;font-weight:950;color:#b54708}.wf-data-alert p{margin:0 0 6px}.wf-data-alert ul{margin:6px 0 0;padding-left:18px}.wf-data-alert li{margin:2px 0}@media(max-width:680px){.wf-data-alert{grid-template-columns:1fr}.wf-data-alert .stamp{font-size:20px}}
 .wf-content .upload-grid{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))!important;gap:12px!important;margin:10px 0}.wf-content .upload-card{background:#fbfcfe;border:1px solid #e4e9f2;border-radius:12px;padding:14px;display:grid;gap:9px}.wf-content .upload-card h3{margin:0;font-size:16px}.wf-content .upload-card small{color:#667085}.wf-content .upload-card input{width:100%;border:1px solid #d8e0ec;border-radius:9px;background:#fff;padding:8px}.wf-content .upload-meta{min-height:22px;color:#166534;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wf-content .freq{display:inline-flex;align-items:center;justify-self:start;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:900;background:#dbeafe;color:#1d4ed8}.wf-content .freq.week{background:#dcfce7;color:#166534}.wf-content .freq.month{background:#fef0c7;color:#b54708}.wf-content .freq.need{background:#f0f1f3;color:#475467}.wf-content .upload-actions{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}.wf-content .upload-actions button,.wf-content .upload-actions a{border:0;border-radius:10px;padding:10px 13px;font-weight:900;text-decoration:none;cursor:pointer}.wf-content .upload-actions button{background:#152033;color:#fff}.wf-content .upload-actions a{background:#eef4ff;color:#175cd3}.wf-content .route-list{display:grid;gap:8px}.wf-content .route-list a{display:flex;justify-content:space-between;gap:10px;background:#fff;border:1px solid #e4e9f2;border-radius:10px;padding:9px 11px;text-decoration:none;color:#152033}.wf-content .route-list span{color:#667085;font-size:12px}.wf-content .status-box{background:#f8fafc;border:1px solid #e4e9f2;border-radius:12px;padding:12px;white-space:pre-wrap;color:#344054}
+.wf-page{padding:10px}.wf-app{width:calc(100vw - 20px);max-width:1780px;grid-template-columns:220px minmax(0,1fr)}.wf-side{padding:16px 12px}.wf-main{padding:14px 16px 20px}.wf-topbar{margin-bottom:10px}.wf-hero{display:block;margin-bottom:10px}.wf-title-card{padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:14px}.wf-title-card h1{font-size:24px;margin:2px 0}.wf-title-card p{display:none}.wf-actions{margin-top:0}.wf-next-card,.wf-kpis{display:none}.wf-data-alert{grid-template-columns:120px minmax(0,1fr);gap:10px;padding:9px 12px;margin:0 0 10px;border-left-width:4px}.wf-data-alert .stamp{font-size:18px}.wf-data-alert ul{margin:3px 0 0}.wf-data-alert li{display:inline;margin-right:12px}.wf-panel{margin:10px 0;padding:13px}.wf-content .section{margin:10px 0;padding:13px}
 .wf-content td:empty:before{content:"—";color:#c6cfdd}
 a.wf-search{text-decoration:none}
 @media(max-width:1100px){.wf-side{display:flex!important;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;gap:6px;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line)}.wf-brand,.wf-nav-label,.wf-side-foot{display:none}.wf-nav-root,.wf-nav-group nav{display:flex;flex-direction:row;gap:4px}.wf-nav-group{display:flex;background:transparent!important;border:0!important}.wf-nav-group summary{white-space:nowrap;background:#eef4ff;color:#175cd3}.wf-nav-group summary:after{display:none}.wf-side a{white-space:nowrap;padding:6px 9px}}
@@ -320,11 +321,22 @@ def kpi_section() -> str:
 
 
 def data_alert() -> str:
+    upload = first_matching("数据上传中心")
     return f"""<section class="wf-data-alert">
       <div><b>数据提醒</b><div class="stamp">需更新</div></div>
       <div><p>当前页面数据截至 <b>{KPI_AS_OF}</b>。截至 {DATA_REFRESH_DATE}，若要做本周执行、促销、补货或广告判断，需要补齐 <b>{DATA_REFRESH_WINDOW}</b> 的最新数据。</p>
-      <ul><li>优先提交：有效 6月 Cost Stack、当前 active/upcoming 促销/折扣清单、最新库存、Listing Health、WSP Keyword/Targeting、6月订单与客诉扣款。</li><li>未补齐前，本页结论只代表 2026-06-05 版本，不建议直接当作 2026-06-12 的最新决策。</li></ul></div>
+      <ul><li>优先提交：6月 Cost Stack、促销/折扣、最新库存、Listing Health、WSP、订单与客诉。</li><li><a href="{upload}">去数据上传中心</a></li></ul></div>
     </section>"""
+
+
+def needs_data_alert(title: str, filename: str) -> bool:
+    hay = title + " " + filename
+    decision_pages = [
+        "运营执行中心",
+        "SKU任务清单",
+        "数据补齐",
+    ]
+    return any(key in hay for key in decision_pages)
 
 
 def shell(title: str, body: str, filename: str) -> str:
@@ -333,6 +345,7 @@ def shell(title: str, body: str, filename: str) -> str:
     inventory = first_matching("库存映射")
     promo = first_matching("促销准入")
     help_page = first_matching("帮助中心")
+    alert_html = data_alert() if needs_data_alert(title, filename) else ""
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -351,11 +364,9 @@ def shell(title: str, body: str, filename: str) -> str:
   <main class="wf-main">
     <div class="wf-topbar"><a class="wf-search" href="{help_page}#help-q">搜索帮助、操作说明、口径规则…</a><div class="wf-top-actions"><span class="wf-chip">数据截至 {KPI_AS_OF}</span><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
     <section class="wf-hero">
-      <div class="wf-title-card"><div class="wf-eyebrow">{html.escape(eyebrow)}</div><h1>{html.escape(title)}</h1><div class="wf-actions"><a class="wf-btn primary" href="{exec_center}">执行中心</a><a class="wf-btn green" href="{inventory}">查库存</a><a class="wf-btn light" href="{promo}">促销准入</a></div></div>
-      <aside class="wf-next-card"><h2>最短路径</h2><a href="{exec_center}"><span>1. 本周做什么</span><small>执行中心</small></a><a href="{inventory}"><span>2. 动手前查库存</span><small>库存映射</small></a><a href="{promo}"><span>3. 判断能不能促</span><small>促销准入</small></a></aside>
+      <div class="wf-title-card"><div><div class="wf-eyebrow">{html.escape(eyebrow)}</div><h1>{html.escape(title)}</h1></div><div class="wf-actions"><a class="wf-btn primary" href="{exec_center}">执行中心</a><a class="wf-btn green" href="{inventory}">查库存</a><a class="wf-btn light" href="{promo}">促销准入</a></div></div>
     </section>
-    {kpi_section()}
-    {data_alert()}
+    {alert_html}
     <div id="content" class="wf-content">
 {body}
     </div>

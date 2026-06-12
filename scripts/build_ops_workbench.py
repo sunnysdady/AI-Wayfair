@@ -849,6 +849,60 @@ _TASK_EXTRA_HEAD = _TABLE_STYLES + """<style>
 <script>window.WF_TASKS_GEN='20260605';</script>
 <script src="./assets/task-state.js"></script>"""
 
+_PROFILE_EXTRA = """<style>
+.profile-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0}
+.profile-toolbar input{height:36px;min-width:260px;flex:1;border:1px solid #d8e0ec;border-radius:10px;padding:0 12px;font-weight:700}
+.profile-filter,.profile-action{border:1px solid #d8e0ec;background:#fff;border-radius:999px;padding:7px 11px;font-weight:800;cursor:pointer}
+.profile-filter.active{background:#10213d;color:#fff;border-color:#10213d}
+.profile-count{color:#667085;font-size:12px;font-weight:800}
+.sku-profile{background:#fff;border:1px solid #d8e0ec;border-radius:12px;margin:8px 0;overflow:hidden}
+.sku-profile[open]{box-shadow:0 8px 20px rgba(16,24,40,.06)}
+.sku-profile summary{list-style:none;cursor:pointer;padding:12px 14px;display:grid;grid-template-columns:minmax(210px,1.2fr) repeat(5,minmax(90px,.6fr));gap:10px;align-items:center}
+.sku-profile summary::-webkit-details-marker{display:none}
+.sku-profile summary:hover{background:#f8fbff}
+.sku-title b{display:block;font-size:16px}.sku-title small{color:#667085;font-weight:700}
+.metric b{display:block}.metric small{display:block;color:#667085;font-size:12px}
+.profile-detail{padding:0 14px 14px;border-top:1px solid #edf1f7}
+.profile-detail .grid{margin-top:12px}
+.sku-empty{padding:18px;color:#667085}
+@media(max-width:900px){.sku-profile summary{grid-template-columns:1fr 1fr}.profile-toolbar input{min-width:100%}}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  const cards=Array.from(document.querySelectorAll('.sku-profile'));
+  const input=document.getElementById('sku-profile-search');
+  const count=document.getElementById('sku-profile-count');
+  let current='all';
+  function apply(){
+    const q=(input?.value||'').trim().toLowerCase();
+    let visible=0;
+    cards.forEach(card=>{
+      const hay=(card.dataset.search||'').toLowerCase();
+      const matchText=!q||hay.includes(q);
+      const matchFilter=current==='all'||card.dataset.grade===current||card.dataset.priority===current||card.dataset.stock===current;
+      const show=matchText&&matchFilter;
+      card.style.display=show?'':'none';
+      if(show) visible++;
+    });
+    if(count) count.textContent=`显示 ${visible} / ${cards.length} 个 SKU`;
+  }
+  document.querySelectorAll('.profile-filter').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.profile-filter').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active'); current=btn.dataset.filter; apply();
+    });
+  });
+  input?.addEventListener('input',apply);
+  document.getElementById('profile-open-visible')?.addEventListener('click',()=>cards.forEach(c=>{if(c.style.display!=='none')c.open=true;}));
+  document.getElementById('profile-close-all')?.addEventListener('click',()=>cards.forEach(c=>c.open=false));
+  if(location.hash){
+    const target=document.querySelector(location.hash);
+    if(target&&target.tagName==='DETAILS') target.open=true;
+  }
+  apply();
+});
+</script>"""
+
 
 _EXEC_COLGROUP = (
     "<colgroup>"
@@ -979,17 +1033,48 @@ def render_profile_report(profiles: pd.DataFrame, tasks: pd.DataFrame) -> None:
         sku: group.to_dict("records")
         for sku, group in tasks.groupby("供应商SKU", dropna=False)
     }
+    priority_rank = {"P0": 0, "P1": 1, "P2": 2}
+
+    def profile_priority(sku_tasks: list[dict]) -> str:
+        priorities = [text(t.get("优先级")) for t in sku_tasks if text(t.get("优先级"))]
+        if not priorities:
+            return "观察"
+        return sorted(priorities, key=lambda p: priority_rank.get(p, 9))[0]
+
     sections = []
-    for _, r in profiles.iterrows():
+    ordered = profiles.copy()
+    ordered["_total_orders"] = ordered["5月订单数"].map(num) + ordered["YB历史订单数"].map(num)
+    ordered["_profit"] = ordered["5月毛利"].map(num) + ordered["YB历史毛利"].map(num)
+    ordered = ordered.sort_values(["SKU价值分层", "_total_orders", "_profit"], ascending=[True, False, False])
+    for _, r in ordered.iterrows():
         sku = text(r["供应商SKU"])
         sku_tasks = task_map.get(sku, [])
+        priority = profile_priority(sku_tasks)
         task_html = "".join(
             f"<li>{tag(text(t['优先级']))} <b>{esc(t['问题类型'])}</b>：{esc(t['建议动作'])}</li>"
             for t in sku_tasks[:8]
         ) or "<li>当前没有自动生成任务，维持观察。</li>"
+        search_text = " ".join([
+            sku,
+            text(r["Wayfair Listing"]),
+            text(r["产品名"]),
+            text(r["SKU价值分层"]),
+            text(r["促销准入"]),
+            text(r["库存状态"]),
+            text(r["定价分组"]),
+            text(r["运营主动作"]),
+        ])
         sections.append(f"""
-<section class="section" id="{esc(r['详情锚点'])}">
-  <h2>{esc(sku)} <span class="small">{esc(r['Wayfair Listing'])} / {esc(r['产品名'])}</span></h2>
+<details class="sku-profile" id="{esc(r['详情锚点'])}" data-search="{esc(search_text)}" data-grade="{esc(r['SKU价值分层'])}" data-priority="{esc(priority)}" data-stock="{esc(r['库存状态'])}">
+  <summary>
+    <span class="sku-title"><b>{esc(sku)}</b><small>{esc(r['Wayfair Listing'])} / {esc(r['产品名'])}</small></span>
+    <span class="metric">{tag(priority)} <small>任务优先级</small></span>
+    <span class="metric"><b>{esc(r['SKU价值分层'])}</b><small>{esc(r['促销准入'])}</small></span>
+    <span class="metric"><b>{esc(r['库存状态'])}</b><small>可用 {num(r['可用库存']):.0f} / 含在途 {num(r['总可售含在途']):.0f}</small></span>
+    <span class="metric"><b>{num(r['5月订单数']):.0f} 单</b><small>5月 / 历史 {num(r['YB历史订单数']):.0f}</small></span>
+    <span class="metric"><b>{money(r['YB历史毛利'])}</b><small>历史毛利</small></span>
+  </summary>
+  <div class="profile-detail">
   <div class="grid">
     <div class="card"><b>SKU 分层</b><div class="num">{esc(r['SKU价值分层'])}</div><div class="small">{esc(r['促销准入'])}</div></div>
     <div class="card"><b>定价</b><div>分组：{esc(r['定价分组'])}</div><div>Base：{money(r['当前Base'])}</div><div>前台价：{money(r['美国前台价'])}</div></div>
@@ -1008,9 +1093,29 @@ def render_profile_report(profiles: pd.DataFrame, tasks: pd.DataFrame) -> None:
     <div class="card"><b>复盘指标</b><p>{esc(r['复盘指标'])}</p></div>
   </div>
   <div class="card"><b>关联任务</b><ul>{task_html}</ul></div>
-</section>
+  </div>
+</details>
 """)
-    body = "<div class='section'><h2>1. SKU 经营档案</h2><p>从任务清单点击 SKU 后，用本页复核该 SKU 的成本、库存、广告、促销和 Listing 状态。</p></div>" + "\n".join(sections)
+    body = f"""{_PROFILE_EXTRA}
+<div class='section'>
+  <h2>1. SKU 经营档案</h2>
+  <p>先用列表扫 SKU，必要时再展开详情；从任务清单跳转过来会自动展开对应 SKU。</p>
+  <div class="profile-toolbar">
+    <input id="sku-profile-search" type="search" placeholder="搜索 SKU、Listing、产品名、状态">
+    <button class="profile-filter active" type="button" data-filter="all">全部</button>
+    <button class="profile-filter" type="button" data-filter="P0">P0</button>
+    <button class="profile-filter" type="button" data-filter="P1">P1</button>
+    <button class="profile-filter" type="button" data-filter="A">A</button>
+    <button class="profile-filter" type="button" data-filter="B">B</button>
+    <button class="profile-filter" type="button" data-filter="库存不足">库存不足</button>
+    <button class="profile-action" id="profile-open-visible" type="button">展开当前</button>
+    <button class="profile-action" id="profile-close-all" type="button">全部收起</button>
+    <span class="profile-count" id="sku-profile-count"></span>
+  </div>
+</div>
+<div class="sku-profile-list">
+{''.join(sections) or '<div class="sku-empty">暂无 SKU 档案。</div>'}
+</div>"""
     OUT_SKU_PROFILE.write_text(page("Wayfair SKU 经营档案", body), encoding="utf-8")
 
 
