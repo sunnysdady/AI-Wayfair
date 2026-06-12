@@ -332,11 +332,92 @@ def base_fields(row: dict | pd.Series) -> tuple[str, str, str, str, str]:
     )
 
 
+def _num(row: dict | pd.Series, key: str) -> float | None:
+    try:
+        v = row.get(key)
+        if v is None or (isinstance(v, float) and pd.isna(v)) or str(v).strip() == "":
+            return None
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def pricing_metrics(row: dict | pd.Series) -> dict[str, float | None]:
+    """从定价体检表行里取该 SKU 自己的关键数字（口径与 build_product_pricing_health 一致）。"""
+    m_orders = _num(row, "6月订单数") or 0
+    h_orders = _num(row, "YB历史订单数") or 0
+    p_orders = _num(row, "平台历史订单数") or 0
+    margin = None
+    if m_orders > 0:
+        margin = _num(row, "6月毛利率")
+    if margin is None and h_orders > 0:
+        margin = _num(row, "YB历史毛利率")
+    if margin is None and max(m_orders, h_orders, p_orders) > 0:
+        margin = _num(row, "平台历史毛利率")
+    return {
+        "plat": _num(row, "平台空间率"),
+        "b2r": _num(row, "Base/前台价"),
+        "wsc": _num(row, "供货价竞争百分位"),
+        "ship": _num(row, "发货成本竞争百分位"),
+        "margin": margin,
+        "observed": max(m_orders, h_orders, p_orders),
+    }
+
+
+def enrich_pricing_action(group: str, action_text: str, m: dict) -> str:
+    """旧版体检表 CSV 的建议动作是模板句；用该 SKU 的数字重写首句。
+    体检表重新生成后（新版自带数字），首句已含"（"则原样保留。"""
+    clauses = [c for c in action_text.split("；") if c.strip()]
+    if not clauses or "（" in clauses[0]:
+        return action_text
+    if group == "不建议提价" and clauses[0].startswith("不要先提Base"):
+        holds: list[str] = []
+        if m["b2r"] is not None and m["b2r"] > 0.72:
+            holds.append(f"Base/前台价 {m['b2r']:.0%} 超 72% 红线")
+        if m["wsc"] is not None and m["wsc"] > 0.70:
+            holds.append(f"供货价竞争分位 {m['wsc']:.2f} 偏高")
+        if m["plat"] is not None and m["plat"] < 0.16:
+            holds.append(f"平台空间率 {m['plat']:.1%} 低于 16%")
+        lever = "先拆供应商可控项：拿货、包装、头程/发货成本，再查平台扣项是否异常"
+        if m["ship"] is not None and m["ship"] > 0.70 and m["ship"] >= (m["wsc"] or 0):
+            lever = f"本SKU首要瓶颈是发货成本（竞争分位 {m['ship']:.2f}）：优先复核包裹尺寸、发货方式、仓库位置"
+        elif m["wsc"] is not None and m["wsc"] > 0.70:
+            lever = f"本SKU首要瓶颈是供货价（竞争分位 {m['wsc']:.2f}）：优先谈拿货价或降包装/头程成本"
+        head = f"不要先提Base（{'、'.join(holds)}）；{lever}" if holds else f"不要先提Base；{lever}"
+        return "；".join([head] + clauses[1:])
+    if group == "先修成本" and clauses[0].startswith("先复核"):
+        margin_label = f"毛利率 {m['margin']:.1%}" if m["margin"] is not None else "毛利率样本不足"
+        plat_label = f"平台空间率 {m['plat']:.1%}" if m["plat"] is not None else "平台空间未知"
+        clauses[0] = f"{clauses[0]}（{margin_label}、{plat_label}）"
+        return "；".join(clauses)
+    return action_text
+
+
+def pricing_review_text(m: dict) -> str:
+    parts: list[str] = []
+    if m["plat"] is not None:
+        parts.append(f"平台空间率 {m['plat']:.1%}→≥16%")
+    if m["b2r"] is not None:
+        parts.append(f"Base/前台价 {m['b2r']:.0%}→≤72%")
+    if m["margin"] is not None:
+        parts.append(f"真实订单毛利率 {m['margin']:.1%}→≥25%")
+    elif m["observed"] < 3:
+        parts.append(f"成交 {m['observed']:.0f} 单→先攒满3单再看毛利")
+    if m["ship"] is not None and m["ship"] > 0.70:
+        parts.append(f"发货成本分位 {m['ship']:.2f}→≤0.70")
+    if m["wsc"] is not None and m["wsc"] > 0.70:
+        parts.append(f"供货价分位 {m['wsc']:.2f}→≤0.70")
+    return "、".join(parts)
+
+
 def pricing_tasks(row: dict | pd.Series) -> list[dict]:
     sku, listing, name, grade, promo = base_fields(row)
     group = text(row.get("定价分组"))
     issues = text(row.get("主要问题"))
     action_text = text(row.get("建议动作"))
+    metrics = pricing_metrics(row)
+    action_text = enrich_pricing_action(group, action_text, metrics)
+    sku_review = text(row.get("复盘指标")) or pricing_review_text(metrics)
     if group in {"不建议提价", "先修成本"}:
         priority = "P0"
         score = 95 if group == "不建议提价" else 88
@@ -357,7 +438,11 @@ def pricing_tasks(row: dict | pd.Series) -> list[dict]:
             reason=f"{group}：{issues}",
             action=action_text,
             check="打开产品定价体检表，展开该 SKU 的 Total Cost 明细，确认 Base、前台价、平台空间和你的成本。",
-            review_metric="下次复盘看：平台空间率、真实订单毛利率、是否仍被判为不建议提价或先修成本。",
+            review_metric=(
+                f"下次复盘看：{sku_review}。"
+                if sku_review
+                else "下次复盘看：平台空间率、真实订单毛利率、是否仍被判为不建议提价或先修成本。"
+            ),
             source="产品定价体检表",
             link="./Wayfair_产品定价体检表_20260605.html",
             score=score,
@@ -851,7 +936,7 @@ _TASK_EXTRA_HEAD = _TABLE_STYLES + """<style>
   .logic-flow b{display:block;margin-bottom:4px;color:#10213d}
   .logic-flow small{display:block;color:#667085;line-height:1.45}
 </style>
-<script>window.WF_TASKS_GEN='20260605';</script>
+<script>window.WF_TASKS_GEN='""" + REPORT_DATE.replace("-", "") + """';</script>
 <script src="./assets/task-state.js"></script>"""
 
 _PROFILE_EXTRA = """<style>
