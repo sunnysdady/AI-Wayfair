@@ -2,6 +2,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const countRows = (table) => Math.max(0, table.querySelectorAll("tr").length - 1);
   document.body.classList.add("wf-enhanced-shell");
+  installGlobalSearch();
 
   document.querySelectorAll(".wf-content").forEach((content) => {
     content.querySelectorAll(":scope > header").forEach((node) => node.remove());
@@ -10,6 +11,10 @@ document.addEventListener("DOMContentLoaded", () => {
       while (wrap.firstChild) content.insertBefore(wrap.firstChild, wrap);
       wrap.remove();
     }
+    const shellTitle = document.querySelector(".wf-title-card h1")?.textContent.trim();
+    content.querySelectorAll(":scope > h1").forEach((heading) => {
+      if (!shellTitle || heading.textContent.trim() === shellTitle) heading.remove();
+    });
   });
 
   document.querySelectorAll(".wf-content table").forEach((table) => {
@@ -132,5 +137,63 @@ document.addEventListener("DOMContentLoaded", () => {
       content.querySelectorAll("details.wf-readable-section,details.sku-profile").forEach((d) => d.open = false);
     });
     apply();
+  }
+
+  function installGlobalSearch() {
+    const root = document.querySelector(".wf-global-search");
+    if (!root) return;
+    const input = root.querySelector("input");
+    const results = root.querySelector(".wf-search-results");
+    if (!input || !results) return;
+
+    const seen = new Set();
+    const pages = Array.from(document.querySelectorAll(".wf-side a,.side a"))
+      .filter((link) => link.getAttribute("href") && !link.getAttribute("href").startsWith("#"))
+      .map((link) => {
+        const href = link.getAttribute("href");
+        const label = link.textContent.trim();
+        const group = link.closest("details")?.querySelector("summary")?.textContent.trim() || "入口";
+        return { href, label, group, haystack: `${label} ${group}`.toLowerCase() };
+      })
+      .filter((item) => {
+        const key = `${item.href}|${item.label}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return item.label;
+      });
+
+    let current = [];
+    const close = () => {
+      results.classList.remove("open");
+      results.innerHTML = "";
+      current = [];
+    };
+    const render = () => {
+      const q = input.value.trim().toLowerCase();
+      if (!q) {
+        close();
+        return;
+      }
+      current = pages.filter((item) => item.haystack.includes(q)).slice(0, 8);
+      results.innerHTML = current.length
+        ? current.map((item, idx) => `<a class="wf-search-result${idx === 0 ? " active" : ""}" href="${item.href}"><span>${item.label}</span><small>${item.group}</small></a>`).join("")
+        : '<div class="wf-search-empty">没有匹配页面，试试“库存 / 定价 / 促销 / 口径”。</div>';
+      results.classList.add("open");
+    };
+
+    input.addEventListener("input", render);
+    input.addEventListener("focus", render);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        close();
+        input.blur();
+      }
+      if (event.key === "Enter" && current[0]) {
+        window.location.href = current[0].href;
+      }
+    });
+    document.addEventListener("click", (event) => {
+      if (!root.contains(event.target)) close();
+    });
   }
 });
