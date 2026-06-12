@@ -8,4 +8,5 @@ data/raw/*.pdf
 data/raw/
 
 .vercel
+.venv/
 __pycache__/

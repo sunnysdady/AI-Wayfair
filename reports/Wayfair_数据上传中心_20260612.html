@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Wayfair 数据上传中心</title>
+  <link rel="stylesheet" href="./assets/dashboard-shell.css">
+</head>
+<body class="wf-app-body">
+<div class="wf-page"><div class="wf-app">
+  <aside class="wf-side">
+    <div class="wf-brand"><span class="wf-mark">W</span><div>Wayfair Ops<small>AI Command Center</small></div></div>
+    <nav class="wf-nav-root"><a class="" href="../index.html"><span class="wf-dot"></span>Dashboard</a></nav>
+<details class="wf-nav-group" open><summary>每日 / 高频</summary><nav><a class="active" href="./Wayfair_数据上传中心_20260612.html"><span class="wf-dot"></span>数据上传中心</a>
+<a class="" href="./Wayfair_每日库存生成工具_20260612.html"><span class="wf-dot"></span>每日库存生成</a>
+<a class="" href="./Wayfair_库存映射对照工具_20260604.html"><span class="wf-dot"></span>库存映射</a>
+<a class="" href="./Wayfair_运营执行中心_20260605.html"><span class="wf-dot"></span>执行中心</a>
+<a class="" href="./Wayfair_SKU任务清单_20260605.html"><span class="wf-dot"></span>任务清单</a></nav></details>
+<details class="wf-nav-group"><summary>每周经营</summary><nav><a class="" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span class="wf-dot"></span>促销准入</a>
+<a class="" href="./Wayfair_6月WSP广告调整执行清单_CostStack校准版.html"><span class="wf-dot"></span>广告调整</a>
+<a class="" href="./Wayfair_6月WSP关键词调整清单_20260604.html"><span class="wf-dot"></span>关键词调整</a>
+<a class="" href="./Wayfair_SKU经营档案_20260605.html"><span class="wf-dot"></span>SKU经营档案</a>
+<a class="" href="./Wayfair_SKU价值分级_SABC_N_20260604.html"><span class="wf-dot"></span>SKU价值分级</a></nav></details>
+<details class="wf-nav-group"><summary>月度 / 复盘</summary><nav><a class="" href="./Wayfair_产品定价体检表_20260605.html"><span class="wf-dot"></span>定价体检表</a>
+<a class="" href="./Wayfair_Pricing_ProductCatalog_定价体检_20260604.html"><span class="wf-dot"></span>Catalog定价</a>
+<a class="" href="./Wayfair_产品信息评分评论体检_20260604.html"><span class="wf-dot"></span>评分评论体检</a>
+<a class="" href="./Wayfair_店铺诊断_20260604.html"><span class="wf-dot"></span>店铺诊断</a></nav></details>
+<details class="wf-nav-group"><summary>规则与背景</summary><nav><a class="" href="./Wayfair_数据补齐清单_20260604.html"><span class="wf-dot"></span>数据补齐</a>
+<a class="" href="./Wayfair_运营工作台_20260604.html"><span class="wf-dot"></span>项目状态</a>
+<a class="" href="./Wayfair_6月待办甘特图_20260604.html"><span class="wf-dot"></span>待办甘特图</a>
+<a class="" href="./Wayfair_操作护栏_20260604.html"><span class="wf-dot"></span>操作护栏</a>
+<a class="" href="./Wayfair_CostStack口径校准与建议复核_20260604.html"><span class="wf-dot"></span>口径校准</a>
+<a class="" href="./Wayfair_店铺交接_20260604.html"><span class="wf-dot"></span>店铺交接</a>
+<a class="" href="./Wayfair_帮助中心.html"><span class="wf-dot"></span>帮助中心</a></nav></details>
+    <div class="wf-side-foot"><b>Production</b><small>ai-wayfair.vercel.app</small></div>
+  </aside>
+  <main class="wf-main">
+    <div class="wf-topbar"><div class="wf-global-search" role="search"><input type="search" aria-label="全局搜索页面" placeholder="搜索页面：库存、定价、促销、口径…"><div class="wf-search-results"></div></div><div class="wf-top-actions"><span class="wf-chip">订单截至 2026-06-12</span><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <section class="wf-hero">
+      <div class="wf-title-card"><div><div class="wf-eyebrow">Data intake</div><h1>Wayfair 数据上传中心</h1></div><div class="wf-actions"><a class="wf-btn primary" href="./Wayfair_运营执行中心_20260605.html">执行中心</a><a class="wf-btn green" href="./Wayfair_库存映射对照工具_20260604.html">查库存</a><a class="wf-btn light" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html">促销准入</a></div></div>
+    </section>
+    
+    <div id="content" class="wf-content">
+<h1>Wayfair 数据上传中心</h1>
+
+<h2>1. 上传频率与资料入口</h2>
+<div class="upload-grid">
+  <div class="upload-card" data-slot="daily_inventory">
+    <span class="freq">每日 / 高频</span>
+    <h3>库存模板 + 领星海外仓库存</h3>
+    <small>用于每日 Wayfair 库存文件、库存映射、执行中心复核。</small>
+    <input type="file" multiple accept=".csv,.xlsx,.xls">
+    <div class="upload-meta">未选择</div>
+  </div>
+  <div class="upload-card" data-slot="weekly_listing">
+    <span class="freq week">每周</span>
+    <h3>Listing Health / Option Drill Down</h3>
+    <small>用于 SKU 经营档案、价值分级、评分评论体检。</small>
+    <input type="file" multiple accept=".csv,.xlsx,.xls">
+    <div class="upload-meta">未选择</div>
+  </div>
+  <div class="upload-card" data-slot="weekly_ads">
+    <span class="freq week">每周</span>
+    <h3>WSP Keyword / Campaign / Targeting</h3>
+    <small>用于广告调整、关键词调整、执行中心广告动作。</small>
+    <input type="file" multiple accept=".csv,.xlsx,.xls">
+    <div class="upload-meta">未选择</div>
+  </div>
+  <div class="upload-card" data-slot="monthly_cost">
+    <span class="freq month">月度</span>
+    <h3>Cost Stack / Product Catalog</h3>
+    <small>用于定价体检、Catalog 定价、利润空间复核。</small>
+    <input type="file" multiple accept=".csv,.xlsx,.xls">
+    <div class="upload-meta">未选择</div>
+  </div>
+  <div class="upload-card" data-slot="weekly_order">
+    <span class="freq week">每周</span>
+    <h3>订单 / 客诉扣款 / 促销清单</h3>
+    <small>用于促销准入、SKU 价值分级、利润复盘。</small>
+    <input type="file" multiple accept=".csv,.xlsx,.xls">
+    <div class="upload-meta">未选择</div>
+  </div>
+  <div class="upload-card" data-slot="adhoc_mapping">
+    <span class="freq need">按需</span>
+    <h3>YB 映射关系表 / 仓库映射</h3>
+    <small>用于库存生成、库存映射、缺口修正。</small>
+    <input type="file" multiple accept=".xlsx,.xls,.csv">
+    <div class="upload-meta">未选择</div>
+  </div>
+</div>
+
+<div class="upload-actions">
+  <button type="button" id="exportUploadLog">导出提交记录</button>
+  <a href="./Wayfair_每日库存生成工具_20260612.html">打开每日库存生成</a>
+  <a href="./Wayfair_数据补齐清单_20260604.html">查看数据补齐清单</a>
+</div>
+<div class="status-box" id="uploadStatus">等待选择文件。</div>
+
+<h2>2. 上传后进入哪个报告</h2>
+<div class="route-list">
+  <a href="./Wayfair_每日库存生成工具_20260612.html"><b>每日库存生成</b><span>库存模板 + 映射表 + 领星库存</span></a>
+  <a href="./Wayfair_运营执行中心_20260605.html"><b>执行中心</b><span>库存、广告、订单、Listing 更新后重排 P0/P1/P2</span></a>
+  <a href="./Wayfair_SKU经营档案_20260605.html"><b>SKU 经营档案</b><span>订单、利润、库存、广告、Listing 综合档案</span></a>
+  <a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><b>促销准入</b><span>促销清单、毛利、客诉、库存更新后复核</span></a>
+  <a href="./Wayfair_产品定价体检表_20260605.html"><b>定价体检</b><span>Cost Stack / Catalog 更新后复盘价格空间</span></a>
+</div>
+
+<h2>3. 当前缺口判断</h2>
+<table>
+  <thead><tr><th>频率</th><th>资料</th><th>当前用途</th><th>缺失时的风险</th></tr></thead>
+  <tbody>
+    <tr><td>每日 / 高频</td><td>库存模板、领星海外仓库存、YB 映射表</td><td>生成 Wayfair 库存文件</td><td>库存为 0 或仓库错配，影响可售与广告动作</td></tr>
+    <tr><td>每周</td><td>Listing Health、Option Drill Down、WSP Keyword</td><td>更新执行中心与广告清单</td><td>仍按旧转化、旧流量、旧广告建议执行</td></tr>
+    <tr><td>每周</td><td>订单、客诉扣款、促销/折扣清单</td><td>重算 SKU 价值和促销准入</td><td>P0/P1 排序会偏旧，利润判断滞后</td></tr>
+    <tr><td>月度</td><td>Cost Stack、Product Catalog</td><td>定价体检和利润空间复核</td><td>Base、平台空间、毛利建议失真</td></tr>
+  </tbody>
+</table>
+
+<script>
+(function(){
+  const KEY = "wf_upload_center_log";
+  const status = document.getElementById("uploadStatus");
+  const saved = JSON.parse(localStorage.getItem(KEY) || "{}");
+  const nowText = () => new Date().toLocaleString("zh-CN");
+  function render(){
+    const rows = Object.entries(saved).map(([slot, info]) => `${slot}: ${info.files.join("；")} | ${info.time}`);
+    status.textContent = rows.length ? rows.join("\n") : "等待选择文件。";
+  }
+  document.querySelectorAll(".upload-card").forEach(card => {
+    const slot = card.dataset.slot;
+    const input = card.querySelector("input");
+    const meta = card.querySelector(".upload-meta");
+    if (saved[slot]) meta.textContent = saved[slot].files.join("；");
+    input.addEventListener("change", () => {
+      const files = Array.from(input.files).map(file => file.name);
+      saved[slot] = { files, time: nowText() };
+      meta.textContent = files.length ? files.join("；") : "未选择";
+      localStorage.setItem(KEY, JSON.stringify(saved));
+      render();
+    });
+  });
+  document.getElementById("exportUploadLog").addEventListener("click", () => {
+    const header = ["slot","files","time"];
+    const lines = [header.join(",")].concat(Object.entries(saved).map(([slot, info]) => [
+      slot,
+      `"${info.files.join("；").replace(/"/g,'""')}"`,
+      info.time
+    ].join(",")));
+    const blob = new Blob(["\uFEFF" + lines.join("\r\n")], {type:"text/csv;charset=utf-8"});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "Wayfair_data_upload_log.csv";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  });
+  render();
+})();
+</script>
+    </div>
+  </main>
+</div></div>
+<script src="./assets/dashboard-shell.js"></script>
+</body>
+</html>

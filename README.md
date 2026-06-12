@@ -80,10 +80,12 @@ AI-Wayfair/
 ## 重新生成报告
 
 ```bash
-cd /Users/pengzhang/Documents/Helloclaude/AI-Wayfair
+cd /path/to/AI-Wayfair
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
 
 # 1. 生成执行中心 / 任务清单 / SKU档案
-python3 scripts/build_ops_workbench.py
+.venv/bin/python scripts/build_ops_workbench.py
 
 # 2. 套 Dashboard shell（注意：会覆盖 <head>，页面专有 CSS 必须在 <body>）
 python3 scripts/apply_dashboard_shell.py
@@ -92,6 +94,27 @@ python3 scripts/apply_dashboard_shell.py
 python3 -m http.server 8787 --directory reports
 # 访问 http://localhost:8787/
 ```
+
+`build_all.sh` 使用仓库内已脱敏汇总数据生成站点并运行全站审计。若要从原始导出文件重建定价、Cost Stack 或 SKU 促销准入，请先把原始文件放到 `data/raw/`；该目录按数据安全规则不提交。
+
+---
+
+## 每日 Wayfair 库存文件
+
+使用 `scripts/build_wayfair_inventory.py` 将领星海外仓库存明细转换成 Wayfair 每日库存 CSV。输出以 Wayfair 库存模板的 `Supplier ID + Supplier Part#` 行为准，只更新 `In Stock`；无 SKU 映射、无仓库映射或领星无库存记录的行，库存填 `0`，并写入审计清单。
+
+```bash
+.venv/bin/python scripts/build_wayfair_inventory.py \
+  --template "/path/to/Inventory_YYYY-MM-DD.csv" \
+  --mapping "/path/to/YB-映射关系表.xlsx" \
+  --lingxing "/path/to/库存明细-仓库库存-YYYYMMDD.xlsx" \
+  --output outputs/Wayfair_Inventory_YYYY-MM-DD_generated.csv \
+  --audit-output outputs/Wayfair_Inventory_YYYY-MM-DD_audit.csv \
+  --issues-output outputs/Wayfair_Inventory_YYYY-MM-DD_issues.csv \
+  --summary-output outputs/Wayfair_Inventory_YYYY-MM-DD_summary.json
+```
+
+字段会自动识别：模板 `Supplier ID / Supplier Part# / In Stock`，映射表 `Supplier Part# / 领星SKU` 和 `云仓仓库ID / BZ领星仓库`，领星库存 `SKU / 仓库 / 可用量`。如果以后导出表头变化，可用脚本里的 `--*-col` 参数显式指定列名。
 
 ---
 

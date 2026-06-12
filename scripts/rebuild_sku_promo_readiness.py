@@ -7,13 +7,15 @@ from pathlib import Path
 
 import pandas as pd
 
+from input_checks import require_files
 
-ROOT = Path("/Users/pengzhang/Documents/Codex 2/AI-Wayfair")
+
+ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw"
 DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
 OLD = DATA / "Wayfair_SKU价值分级_SABC_N_20260604.csv"
-ORDERS = Path("/Users/pengzhang/Documents/Codex 2/wayfair_may_analysis/handover_package/04_全量订单清洗版.csv")
+ORDERS = RAW / "04_全量订单清洗版.csv"
 
 OUT_CSV = DATA / "Wayfair_SKU价值分级_补齐版_20260604.csv"
 OUT_HTML = REPORTS / "Wayfair_6月SKU分层与促销准入清单_20260604.html"
@@ -256,6 +258,107 @@ def present_in_maps(row: pd.Series, maps: dict[str, pd.DataFrame]) -> bool:
     return False
 
 
+def operating_action(row: pd.Series, maps: dict[str, pd.DataFrame], grade: str, actions: list[str]) -> str:
+    orders = num(row.get("Orders"))
+    net = num(row.get("NetGross"))
+    hist_margin = num(row.get("HistMargin"))
+    platform_pct = num(get_metric(row, maps, "PlatformPct"))
+    required_tags = max(pct_value(get_metric(row, maps, "RequiredTags")), pct_value(get_metric(row, maps, "OptionRequiredTagCoverage")))
+    image_health = text(get_metric(row, maps, "ImageHealth")).upper()
+    reviews = max(num(row.get("Reviews")), num(get_metric(row, maps, "LifetimeReviews")))
+    availability = text(get_metric(row, maps, "AvailabilityHealth")).upper()
+    incident_health = text(get_metric(row, maps, "IncidentReturnHealth")).upper()
+    sessions = max(num(get_metric(row, maps, "Sessions")), num(get_metric(row, maps, "UniqueVisits")), num(row.get("Visits")))
+    cr = max(pct_value(get_metric(row, maps, "OptionCR")), pct_value(get_metric(row, maps, "ListingCR")), pct_value(row.get("CR")))
+    sp_spend = num(get_metric(row, maps, "SPSpend"))
+    sp_revenue = num(get_metric(row, maps, "SPRevenue"))
+    sp_orders = num(get_metric(row, maps, "SPOrders"))
+    roas = sp_revenue / sp_spend if sp_spend > 0 else 0
+    feedback_damage = num(get_metric(row, maps, "FeedbackDamage"))
+    feedback_count = num(get_metric(row, maps, "FeedbackCount"))
+    promo_lift = num(get_metric(row, maps, "PromoLift"))
+    avg_discount = num(get_metric(row, maps, "AvgDiscount"))
+
+    if grade == "N" or (orders <= 0 and net <= 0):
+        return "新品/无历史：只补基础 Listing 和价格口径；不上大促，广告日预算小额测 7 天，有订单再升级。"
+    if availability == "RED":
+        return "先保可售：核对库存/履约/配送承接；可售恢复前暂停促销和加预算，避免有流量无交付。"
+    if sp_spend >= 5 and (sp_orders <= 0 or roas < 2):
+        return f"广告止损：暂停 spend {money(sp_spend)} 但订单 {sp_orders:.0f} 的词/商品；保留高意图词，7天看 ROAS 是否回到2以上。"
+    if required_tags and required_tags < 0.8:
+        return f"先修 Listing：Required Tags 只有 {required_tags * 100:.1f}%，补到95%后再投放；同步补标题关键词和属性。"
+    if image_health == "RED" or "补主图/尺寸图/细节图" in actions:
+        return "先补图文承接：补主图、尺寸图、细节图和安装/材质说明；修完看 CVR 是否回到类目均值。"
+    if sessions >= 200 and cr < 0.02:
+        return f"高访低转：先查前台价、主图、Review、配送时效；CVR {cr * 100:.1f}% 未修复前不加预算。"
+    if feedback_damage >= 2 or incident_health == "RED":
+        return "客诉优先：按 Damage/Missing/Defect 拆包装、配件和说明书责任；客诉未降前禁止深折扣放量。"
+    if feedback_count > 0:
+        return "先复盘反馈：拉 Customer Feedback 原因，修包装/说明/配件短板；轻促前确认同类问题不再重复。"
+    if hist_margin < 0.15 or platform_pct < 0.12:
+        return f"先修利润：复核 Cost Stack、Base 和供货成本；毛利率 {hist_margin * 100:.1f}% / 平台空间 {platform_pct * 100:.1f}% 未达标不叠加广告促销。"
+    if avg_discount >= 10 and promo_lift and promo_lift < 1:
+        return "不重复深折扣：历史折扣未带来增量，改测5%轻促或不促销，重点看毛利和自然单。"
+    if grade in ("S", "A") and orders >= 20 and hist_margin >= 0.22 and platform_pct >= 0.15:
+        return "重点经营：保7天安全库存，5%-8%轻促或高意图广告小幅加预算；复盘订单增量、毛利和ROAS。"
+    if grade == "B":
+        return "腰部优化：先修最大短板，再做小流量测试；连续7天订单、CVR、毛利达标后升级经营。"
+    return "谨慎经营：只保基础曝光，先复核利润、库存和客诉；未达标前不进促销核心池。"
+
+
+def operating_action_from_enriched(row: pd.Series) -> str:
+    grade = text(row.get("NewGrade"))
+    orders = num(row.get("Orders"))
+    net = num(row.get("NetGross"))
+    hist_margin = num(row.get("HistMargin"))
+    platform_pct = num(row.get("PlatformPctNew"))
+    required_tags = num(row.get("ListingRequiredTags"))
+    image_health = text(row.get("ImageHealth")).upper()
+    tag_health = text(row.get("TagHealth")).upper()
+    availability = text(row.get("AvailabilityHealth")).upper()
+    incident_health = text(row.get("IncidentReturnHealth")).upper()
+    feedback_count = num(row.get("FeedbackCount"))
+    feedback_damage = num(row.get("FeedbackDamage"))
+    ad_spend = num(row.get("SPSpendNew"))
+    ad_revenue = num(row.get("SPRevenueNew"))
+    ad_orders = num(row.get("SPOrdersNew"))
+    roas = ad_revenue / ad_spend if ad_spend > 0 else num(row.get("ROAS"))
+    promo = text(row.get("PromoReadiness"))
+    promo_reason = text(row.get("PromoReason"))
+    avg_discount = num(row.get("AvgDiscount"))
+    promo_lift = num(row.get("PromoLift"))
+    reviews = num(row.get("Reviews"))
+    cr = num(row.get("CR"))
+
+    if grade == "N" or (orders <= 0 and net <= 0):
+        return "新品/无历史：只补基础 Listing 和价格口径；不上大促，广告日预算小额测 7 天，有订单再升级。"
+    if availability == "RED":
+        return "先保可售：核对库存/履约/配送承接；可售恢复前暂停促销和加预算，避免有流量无交付。"
+    if ad_spend >= 5 and (ad_orders <= 0 or roas < 2):
+        return f"广告止损：暂停 spend {money(ad_spend)} 但订单 {ad_orders:.0f} 的词/商品；保留高意图词，7天看 ROAS 是否回到2以上。"
+    if required_tags and required_tags < 0.8:
+        return f"先修 Listing：Required Tags 只有 {required_tags * 100:.1f}%，补到95%后再投放；同步补标题关键词和属性。"
+    if tag_health == "RED" or image_health == "RED":
+        return "先补图文承接：补主图、尺寸图、细节图和核心属性；修完看 CVR 是否回到类目均值。"
+    if reviews and reviews < 10:
+        return f"先补信任承接：Review 只有 {reviews:.0f}，补 QA、卖点和差评解释；评价承接不足前不放大流量。"
+    if feedback_damage >= 2 or incident_health == "RED":
+        return "客诉优先：按 Damage/Missing/Defect 拆包装、配件和说明书责任；客诉未降前禁止深折扣放量。"
+    if feedback_count > 0:
+        return "先复盘反馈：拉 Customer Feedback 原因，修包装/说明/配件短板；轻促前确认同类问题不再重复。"
+    if hist_margin < 0.15 or platform_pct < 0.12:
+        return f"先修利润：复核 Cost Stack、Base 和供货成本；毛利率 {hist_margin * 100:.1f}% / 平台空间 {platform_pct * 100:.1f}% 未达标不叠加广告促销。"
+    if "禁止" in promo or "暂不" in promo:
+        return f"暂不进大促：先处理 {promo_reason or promo}；达标后只测5%轻促，先看毛利和CVR。"
+    if avg_discount >= 10 and promo_lift and promo_lift < 1:
+        return "不重复深折扣：历史折扣未带来增量，改测5%轻促或不促销，重点看毛利和自然单。"
+    if grade in ("S", "A") and orders >= 20 and hist_margin >= 0.22 and platform_pct >= 0.15:
+        return "重点经营：保7天安全库存，5%-8%轻促或高意图广告小幅加预算；复盘订单增量、毛利和ROAS。"
+    if grade == "B":
+        return "腰部优化：先修最大短板，再做小流量测试；连续7天订单、CVR、毛利达标后升级经营。"
+    return "谨慎经营：只保基础曝光，先复核利润、库存和客诉；未达标前不进促销核心池。"
+
+
 def score_row(row: pd.Series, maps: dict[str, pd.DataFrame]):
     qty = num(row.get("Qty"))
     orders = num(row.get("Orders"))
@@ -267,7 +370,7 @@ def score_row(row: pd.Series, maps: dict[str, pd.DataFrame]):
     is_new = (orders <= 0 and sales <= 0 and listing_units <= 0 and listing_revenue <= 0)
 
     if is_new:
-        return 0, "N", ["无历史订单/销售记录，按新品观察"], "新品观察：先补图文与基础价格口径，只允许小预算测款，不进大促"
+        return 0, "N", ["无历史订单/销售记录，按新品观察"], "新品/无历史：只补基础 Listing 和价格口径；不上大促，广告日预算小额测 7 天，有订单再升级。"
 
     score = 0
     reasons = []
@@ -431,7 +534,7 @@ def score_row(row: pd.Series, maps: dict[str, pd.DataFrame]):
         else:
             actions.append("谨慎经营：暂停低效广告，复核利润/客诉后再决定")
 
-    return score, grade, reasons, "；".join(dict.fromkeys(actions))
+    return score, grade, reasons, operating_action(row, maps, grade, list(dict.fromkeys(actions)))
 
 
 def promo_decision(row: pd.Series, maps: dict[str, pd.DataFrame], grade: str, reasons: list[str]):
@@ -643,6 +746,17 @@ th,td{{padding:8px 10px;border-bottom:1px solid #edf1f7;text-align:left;vertical
 
 
 def main():
+    required = [OLD, *[RAW / name for name in FILES.values()]]
+    missing = [path for path in required if not path.exists()]
+    if missing and OUT_CSV.exists():
+        df = pd.read_csv(OUT_CSV)
+        df["NewAction"] = df.apply(operating_action_from_enriched, axis=1)
+        df.to_csv(OUT_CSV, index=False, encoding="utf-8-sig")
+        render_html(df)
+        print("raw missing; refreshed actions from existing", OUT_CSV)
+        print("wrote", OUT_HTML)
+        return
+    require_files(required, root=ROOT, context="重建 SKU 分层与促销准入清单")
     df = enrich()
     historical_parts = set(df.loc[(pd.to_numeric(df["Orders"], errors="coerce").fillna(0) > 0) | (pd.to_numeric(df["Sales"], errors="coerce").fillna(0) > 0), "Part"].astype(str))
     df["IsInventoryAlias"] = (

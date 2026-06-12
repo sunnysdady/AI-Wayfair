@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
 
-REPORT_DATE = "2026-06-05"
+REPORT_DATE = "2026-06-12"
 
 PRICING_CSV = DATA / "Wayfair_产品定价体检表_20260605.csv"
 SKU_SCORE_CSV = DATA / "Wayfair_SKU价值分级_补齐版_20260604.csv"
@@ -57,8 +57,13 @@ PROFILE_COLUMNS = [
     "总可售含在途",
     "5月订单数",
     "YB历史订单数",
+    "5月回款额",
+    "YB历史回款额",
+    "5月毛利",
+    "YB历史毛利",
     "5月毛利率",
     "YB历史毛利率",
+    "当前Base预估毛利率",
     "当前Base",
     "美国前台价",
     "Base前台价比例",
@@ -71,6 +76,9 @@ PROFILE_COLUMNS = [
     "ROAS",
     "Listing问题",
     "系统总建议",
+    "运营主动作",
+    "执行前检查",
+    "复盘指标",
     "详情锚点",
 ]
 
@@ -82,6 +90,7 @@ TYPE_SLUG = {
     "Listing": "LISTING",
     "数据缺口": "DATA",
     "客诉": "FEEDBACK",
+    "综合经营": "OPS",
 }
 
 PRIORITY_SCORE = {"P0": 300, "P1": 200, "P2": 100}
@@ -150,6 +159,121 @@ def sort_tasks(rows: Iterable[dict]) -> list[dict]:
             text(r.get("供应商SKU")),
             text(r.get("问题类型")),
         ),
+    )
+
+
+def store_action_plan(row: dict | pd.Series, priority: str, metrics: dict[str, object]) -> tuple[str, str, str]:
+    inventory_status = text(row.get("库存状态"))
+    available = num(row.get("可用库存"))
+    sellable = num(row.get("总可售含在途"))
+    listing_issue = text(row.get("Listing问题"))
+    promo = text(row.get("促销准入"))
+    complaint_count = num(row.get("客诉扣款记录数"))
+    complaint_amount = num(row.get("客诉扣款金额"))
+    ad_spend = num(row.get("广告花费"))
+    ad_orders = num(row.get("广告订单"))
+    roas = num(row.get("ROAS"))
+    base_ratio = num(row.get("Base前台价比例"))
+    platform_pct = float(metrics.get("platform_pct", 0) or 0)
+    est_margin = float(metrics.get("est_margin", 0) or 0)
+    total_orders = float(metrics.get("total_orders", 0) or 0)
+
+    if priority == "P2":
+        return (
+            "尾部只保留基础监控：不进大促、不加广告；等出现订单、可售库存和平台空间同时改善后再升级。",
+            "确认是否有新品上架计划、样品图文是否完整、是否存在库存/价格基础错误。",
+            "复盘是否新增订单、可售库存是否恢复、平台空间率是否仍高于18%。",
+        )
+
+    if inventory_status != "库存可查" or sellable <= 0:
+        if complaint_count > 0 or "Damage" in listing_issue or "Missing" in listing_issue or "Defect" in listing_issue:
+            return (
+                "库存恢复前先闭环客诉：核对包装/配件/说明书问题；可售恢复后只做小流量验证，不直接放大促销。",
+                f"查库存映射和客诉明细；当前可用 {available:.0f}，含在途 {sellable:.0f}，客诉/扣款 {complaint_count:.0f} 条。",
+                "复盘可售恢复、Damage/Missing/Defect 反馈、扣款金额和恢复后7天转化。",
+            )
+        if ad_spend >= 300:
+            return (
+                "库存锁定+广告减损：库存未恢复前暂停该 SKU 商品广告；恢复后只回开高意图词，预算按原来的30%试跑。",
+                f"查库存 ETA，同时导出 WSP：该 SKU 5月广告 spend {money(ad_spend)}、orders {ad_orders:.0f}、ROAS {roas:.2f}。",
+                "复盘恢复前广告节省金额、恢复后7天订单、ROAS 和库存消耗速度。",
+            )
+        if "Required Tags" in listing_issue:
+            return (
+                "库存锁定+Listing补齐：等可售恢复时同步补 Required Tags/Review 承接，避免库存回来后流量仍不转化。",
+                f"查库存映射；同步处理 {listing_issue}，补 TAG、标题关键词、主图/尺寸图和QA。",
+                "复盘 Listing Health、可售恢复后7天 CVR、广告点击到订单转化。",
+            )
+        if ad_spend >= 80 and (ad_orders <= 1 or roas < 2):
+            return (
+                "库存锁定+关键词止损：库存未恢复前停低效词；恢复后先用精确高意图词测，不恢复广泛匹配。",
+                f"查库存 ETA；广告 spend {money(ad_spend)}、orders {ad_orders:.0f}、ROAS {roas:.2f}，先标记浪费词。",
+                "复盘低效词花费下降、恢复后精确词订单和 ROAS。",
+            )
+        if base_ratio >= 0.72:
+            return (
+                "库存锁定+价格护栏：可售恢复前不提 Base；先复核 Base/前台价比例，避免库存回来后价格继续压转化。",
+                f"查库存映射；核对 Base/前台价 {base_ratio * 100:.1f}%、平台空间 {platform_pct * 100:.1f}%。",
+                "复盘可售恢复、价格竞争百分位、CVR 和真实订单毛利。",
+            )
+        if listing_issue:
+            return (
+                "库存锁定+评价承接：库存恢复前补 Review/QA/卖点说明；先解决信任问题，再恢复轻促或广告。",
+                f"查库存映射；同步处理 {listing_issue}，补评价承接、QA 和主图卖点。",
+                "复盘 Review 数、CVR、加购/下单转化和恢复后7天订单。",
+            )
+        return (
+            "先锁库存：当天核对库存映射和可售数；无可售先暂停促销/加预算，确认可售后再恢复轻促或广告。",
+            f"查库存映射、仓库可售、在途 ETA；当前可用 {available:.0f}，含在途 {sellable:.0f}。",
+            "复盘缺货天数、可售恢复时间、恢复后7天订单和广告花费是否回收。",
+        )
+
+    if ad_spend >= 20 and (ad_orders <= 0 or roas < 2):
+        return (
+            "先止损广告：暂停无订单 Campaign/Keyword，保留品牌词或高意图词；预算转给同类高转化款。",
+            f"导出5月 WSP 搜索词，标记 spend {money(ad_spend)}、orders {ad_orders:.0f}、ROAS {roas:.2f} 的低效词。",
+            "复盘7天广告花费、订单、ROAS、自然订单是否被误伤。",
+        )
+
+    if listing_issue:
+        return (
+            "先修 Listing 转化：补 Required Tags/主图/尺寸图，Review 少的先补 QA 和卖点；修完再开轻促或加预算。",
+            f"逐项处理 Listing Health：{listing_issue}；同步检查标题关键词、图片数、Review 与差评关键词。",
+            "复盘 Listing Health、Unique Visits、CVR、Review 数和客诉关键词是否改善。",
+        )
+
+    if complaint_count > 0:
+        return (
+            "先闭环客诉：按扣款原因拆包装、配件、说明书和质检责任；未定位前不放大促销流量。",
+            f"拉客诉/扣款明细 {complaint_count:.0f} 条、金额 {money(complaint_amount)}，归因到 Damage/Missing/Defect/物流。",
+            "复盘扣款率、退货/损坏反馈、差评关键词和补件成本。",
+        )
+
+    if base_ratio >= 0.72 or platform_pct < 0.16 or est_margin < 0.18:
+        return (
+            "先修成本/价格：复核 Base、前台价和 Total Cost，优先降拿货/包装/发货成本，不先提 Base。",
+            f"核对 Base/前台价 {base_ratio * 100:.1f}%、平台空间 {platform_pct * 100:.1f}%、预估毛利 {est_margin * 100:.1f}%。",
+            "复盘平台空间率、真实订单毛利率、价格竞争百分位和 Buy Box/转化。",
+        )
+
+    if "禁止" in promo or "暂不" in promo:
+        return (
+            "只做低风险承接：暂不报名深折扣；先用 Listing/库存/广告小修复验证转化，达标后再测5%轻促。",
+            f"确认促销禁入原因：{promo}；促销前必须同时满足库存可售、毛利率和 Listing Health。",
+            "复盘轻促前后订单、毛利、CVR、客诉和库存消耗速度。",
+        )
+
+    if priority == "P0" and total_orders >= 20:
+        return (
+            "可控放量：保安全库存，5%-8%轻促或高意图广告小幅加预算；不做深折扣换销量。",
+            "确认7天安全库存、毛利底线、主图/TAG/Review 无红灯，再设置预算和促销上限。",
+            "复盘7天订单增量、真实毛利、库存周转、ROAS 和客诉率。",
+        )
+
+    return (
+        "腰部验证：先修最大短板，再做小流量测试；连续7天毛利和转化达标后升级到P0。",
+        "按库存、Listing、价格、广告顺序查一遍，记录当前订单、毛利、CVR 和 ROAS 基线。",
+        "复盘7天订单、毛利率、CVR、ROAS 和是否进入稳定可放量池。",
     )
 
 
@@ -415,15 +539,6 @@ def build_profiles(pricing: pd.DataFrame, score: pd.DataFrame, inventory: pd.Dat
         ),
         axis=1,
     )
-    merged["系统总建议"] = merged.apply(
-        lambda r: "；".join(item for item in [
-            text(r.get("建议动作")),
-            text(r.get("NewAction")),
-            "促销/广告前先确认库存" if text(r.get("库存状态")) != "库存可查" else "",
-        ] if item),
-        axis=1,
-    )
-
     score_listing = merged["ScoreListing"] if "ScoreListing" in merged.columns else pd.Series("", index=merged.index)
     score_name = merged["ScoreName"] if "ScoreName" in merged.columns else pd.Series("", index=merged.index)
     score_grade = merged["ScoreGrade"] if "ScoreGrade" in merged.columns else pd.Series("", index=merged.index)
@@ -445,8 +560,13 @@ def build_profiles(pricing: pd.DataFrame, score: pd.DataFrame, inventory: pd.Dat
         "总可售含在途": col("总可售含在途"),
         "5月订单数": col("5月订单数"),
         "YB历史订单数": col("YB历史订单数"),
+        "5月回款额": col("5月回款额"),
+        "YB历史回款额": col("YB历史回款额"),
+        "5月毛利": col("5月毛利"),
+        "YB历史毛利": col("YB历史毛利"),
         "5月毛利率": col("5月毛利率"),
         "YB历史毛利率": col("YB历史毛利率"),
+        "当前Base预估毛利率": col("当前Base预估毛利率"),
         "当前Base": col("Catalog当前Base Cost"),
         "美国前台价": col("美国前台价"),
         "Base前台价比例": col("Base/前台价"),
@@ -458,9 +578,23 @@ def build_profiles(pricing: pd.DataFrame, score: pd.DataFrame, inventory: pd.Dat
         "广告订单": col("SPOrdersNew"),
         "ROAS": col("ROAS"),
         "Listing问题": merged["Listing问题"],
-        "系统总建议": merged["系统总建议"],
         "详情锚点": merged["详情锚点"],
     })
+    advice = out.apply(
+        lambda r: pd.Series(
+            store_action_plan(r, store_priority(r, [])[0], commercial_metrics(r)),
+            index=["运营主动作", "执行前检查", "复盘指标"],
+        ),
+        axis=1,
+    )
+    out[["运营主动作", "执行前检查", "复盘指标"]] = advice
+    out["系统总建议"] = out.apply(
+        lambda r: "；".join(item for item in [
+            text(r.get("运营主动作")),
+            text(r.get("执行前检查")),
+        ] if item),
+        axis=1,
+    )
     return out[PROFILE_COLUMNS].copy()
 
 
@@ -494,6 +628,137 @@ def build_tasks(pricing: pd.DataFrame, score: pd.DataFrame, inventory: pd.DataFr
     if df.empty:
         return pd.DataFrame(columns=TASK_COLUMNS)
     return df[TASK_COLUMNS].copy()
+
+
+def commercial_metrics(row: dict | pd.Series) -> dict[str, float | str | bool]:
+    grade = text(row.get("SKU价值分层"))
+    may_orders = num(row.get("5月订单数"))
+    hist_orders = num(row.get("YB历史订单数"))
+    total_orders = may_orders + hist_orders
+    may_revenue = num(row.get("5月回款额"))
+    hist_revenue = num(row.get("YB历史回款额"))
+    revenue = may_revenue + hist_revenue
+    may_profit = num(row.get("5月毛利"))
+    hist_profit = num(row.get("YB历史毛利"))
+    profit = may_profit + hist_profit
+    platform_pct = num(row.get("平台空间率"))
+    est_margin = num(row.get("当前Base预估毛利率"))
+    head_or_waist = grade in {"S", "A", "B"} or total_orders >= 12 or profit >= 300
+    tail_no_sales = grade == "N" or (total_orders < 3 and revenue < 200 and profit <= 0)
+    profitable_now = total_orders > 0 and profit > 0
+    profit_candidate = platform_pct >= 0.18 and est_margin >= 0.20
+    return {
+        "grade": grade,
+        "total_orders": total_orders,
+        "revenue": revenue,
+        "profit": profit,
+        "platform_pct": platform_pct,
+        "est_margin": est_margin,
+        "head_or_waist": head_or_waist,
+        "tail_no_sales": tail_no_sales,
+        "profitable_now": profitable_now,
+        "profit_candidate": profit_candidate,
+    }
+
+
+def store_priority(row: dict | pd.Series, sku_tasks: list[dict]) -> tuple[str, float]:
+    metrics = commercial_metrics(row)
+    if metrics["tail_no_sales"]:
+        return "P2", 25 + min(float(metrics["platform_pct"]) * 50, 12)
+
+    grade_score = {"S": 50, "A": 45, "B": 35, "C": 20}.get(str(metrics["grade"]), 0)
+    score = grade_score
+    score += min(float(metrics["total_orders"]) * 1.2, 40)
+    score += min(max(float(metrics["profit"]), 0) / 50, 35)
+    score += 12 if float(metrics["platform_pct"]) >= 0.20 else (6 if float(metrics["platform_pct"]) >= 0.16 else 0)
+    score += 8 if num(row.get("5月订单数")) > 0 else 0
+    score += 8 if text(row.get("库存状态")) != "库存可查" else 0
+    score += 6 if "禁止" in text(row.get("促销准入")) else 0
+    score += 5 if text(row.get("Listing问题")) else 0
+    score += 5 if any(text(t.get("问题类型")) == "定价" for t in sku_tasks) else 0
+
+    if score >= 75 and (metrics["profitable_now"] or metrics["profit_candidate"]):
+        return "P0", score
+    if score >= 45 and (metrics["profitable_now"] or metrics["profit_candidate"] or metrics["head_or_waist"]):
+        return "P1", score
+    return "P2", score
+
+
+def build_store_actions(profiles: pd.DataFrame, tasks: pd.DataFrame) -> list[dict]:
+    task_map = {
+        sku: group.to_dict("records")
+        for sku, group in tasks.groupby("供应商SKU", dropna=False)
+    }
+    actions: list[dict] = []
+    for _, r in profiles.iterrows():
+        sku = text(r["供应商SKU"])
+        sku_tasks = task_map.get(sku, [])
+        priority, score = store_priority(r, sku_tasks)
+        metrics = commercial_metrics(r)
+        risks = []
+        if text(r.get("库存状态")) != "库存可查":
+            risks.append("库存/映射")
+        if "禁止" in text(r.get("促销准入")) or "暂不" in text(r.get("促销准入")):
+            risks.append("促销准入")
+        if text(r.get("Listing问题")):
+            risks.append("Listing承接")
+        if any(text(t.get("问题类型")) == "定价" for t in sku_tasks):
+            risks.append("定价/成本")
+        if num(r.get("客诉扣款记录数")) > 0:
+            risks.append("客诉扣款")
+        if num(r.get("广告花费")) >= 20 and (num(r.get("广告订单")) <= 0 or num(r.get("ROAS")) < 2):
+            risks.append("广告止损")
+        if not risks:
+            risks.append("维持观察")
+
+        if metrics["profitable_now"]:
+            lead = "当前盈利款"
+        elif metrics["profit_candidate"]:
+            lead = "可盈利候选款"
+        else:
+            lead = "尾部观察款"
+
+        action, check, review_metric = store_action_plan(r, priority, metrics)
+
+        actions.append(task(
+            sku=sku,
+            listing=text(r.get("Wayfair Listing")),
+            name=text(r.get("产品名")),
+            grade=text(r.get("SKU价值分层")),
+            promo=text(r.get("促销准入")),
+            priority=priority,
+            task_type="综合经营",
+            reason=(
+                f"{lead}：总订单 {float(metrics['total_orders']):.0f}，"
+                f"累计毛利 {money(metrics['profit'])}，平台空间率 {pct(metrics['platform_pct'])}；"
+                f"主要风险：{'、'.join(risks)}"
+            ),
+            action=action,
+            check=check,
+            review_metric=review_metric,
+            source="SKU 经营档案",
+            link=f"./Wayfair_SKU经营档案_20260605.html#{esc(r.get('详情锚点'))}",
+            score=score,
+            seq=1,
+        ))
+    return sort_tasks(actions)
+
+
+def align_task_priorities_to_store_value(profiles: pd.DataFrame, tasks: pd.DataFrame) -> pd.DataFrame:
+    store_priority_map = {
+        text(row["供应商SKU"]): store_priority(row, tasks[tasks["供应商SKU"].eq(row["供应商SKU"])].to_dict("records"))[0]
+        for _, row in profiles.iterrows()
+    }
+    adjusted = tasks.copy()
+    priority_rank = {"P0": 3, "P1": 2, "P2": 1}
+    for idx, row in adjusted.iterrows():
+        store_p = store_priority_map.get(text(row["供应商SKU"]), "P2")
+        task_p = text(row["优先级"])
+        if priority_rank.get(task_p, 0) > priority_rank.get(store_p, 0):
+            adjusted.at[idx, "优先级"] = store_p
+            adjusted.at[idx, "排序分"] = min(num(row["排序分"]), {"P0": 95, "P1": 78, "P2": 42}[store_p])
+            adjusted.at[idx, "触发原因"] = f"{row['触发原因']}；综合经营优先级为 {store_p}，按店铺价值降级处理"
+    return pd.DataFrame(sort_tasks(adjusted.to_dict("records")))[TASK_COLUMNS]
 
 
 # ── Task 5: HTML helpers and report rendering ─────────────────────────────────
@@ -565,9 +830,12 @@ _TABLE_STYLES = """<style>
 </style>"""
 
 _TASK_EXTRA_HEAD = _TABLE_STYLES + """<style>
-  .state-btn{cursor:pointer;border:none;background:none;padding:3px 9px;border-radius:999px;font-weight:800;font-size:12px;line-height:1.4;white-space:nowrap}
+  .state-btn{cursor:pointer;border:1px solid rgba(21,32,51,.14)!important;background:none;padding:3px 9px;border-radius:999px;font-weight:800;font-size:12px;line-height:1.4;white-space:nowrap}
   .state-btn:hover{opacity:.75}
   .exec-date{color:#667085;font-size:11px;margin-top:2px}
+  .week-progress{display:flex;align-items:center;gap:10px;margin:10px 0;color:#344054;font-weight:800}
+  .week-progress .pbar{flex:1;max-width:320px;height:8px;background:#e7ecf3;border-radius:99px;overflow:hidden}
+  .week-progress .pbar i{display:block;height:100%;width:0;background:#23b887;border-radius:99px;transition:width .2s}
   .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
   .progress-label{font-weight:800;color:#10213d;white-space:nowrap}
   .progress-bar-wrap{flex:1;min-width:120px;max-width:260px;background:#eef2f6;border-radius:999px;height:8px;overflow:hidden}
@@ -577,61 +845,69 @@ _TASK_EXTRA_HEAD = _TABLE_STYLES + """<style>
   tr[data-state="已执行"] td{opacity:.45}
   tr[data-state="已执行"]{background:#f6fff9}
   tr[data-state="暂缓"] td{opacity:.55}
+  .logic-flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:10px}
+  .logic-flow a{display:block;background:#fbfdff;border:1px solid #d8e0ec;border-radius:10px;padding:12px;text-decoration:none;color:#172033}
+  .logic-flow a:hover{border-color:#1f5cc4;box-shadow:0 8px 18px rgba(31,92,196,.10)}
+  .logic-flow b{display:block;margin-bottom:4px;color:#10213d}
+  .logic-flow small{display:block;color:#667085;line-height:1.45}
+</style>
+<script>window.WF_TASKS_GEN='20260605';</script>
+<script src="./assets/task-state.js"></script>"""
+
+_PROFILE_EXTRA = """<style>
+.profile-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0}
+.profile-toolbar input{height:36px;min-width:260px;flex:1;border:1px solid #d8e0ec;border-radius:10px;padding:0 12px;font-weight:700}
+.profile-filter,.profile-action{border:1px solid #d8e0ec;background:#fff;border-radius:999px;padding:7px 11px;font-weight:800;cursor:pointer}
+.profile-filter.active{background:#10213d;color:#fff;border-color:#10213d}
+.profile-count{color:#667085;font-size:12px;font-weight:800}
+.sku-profile{background:#fff;border:1px solid #d8e0ec;border-radius:12px;margin:8px 0;overflow:hidden}
+.sku-profile[open]{box-shadow:0 8px 20px rgba(16,24,40,.06)}
+.sku-profile summary{list-style:none;cursor:pointer;padding:12px 14px;display:grid;grid-template-columns:minmax(210px,1.2fr) repeat(5,minmax(90px,.6fr));gap:10px;align-items:center}
+.sku-profile summary::-webkit-details-marker{display:none}
+.sku-profile summary:hover{background:#f8fbff}
+.sku-title b{display:block;font-size:16px}.sku-title small{color:#667085;font-weight:700}
+.metric b{display:block}.metric small{display:block;color:#667085;font-size:12px}
+.profile-detail{padding:0 14px 14px;border-top:1px solid #edf1f7}
+.profile-detail .grid{margin-top:12px}
+.sku-empty{padding:18px;color:#667085}
+.course-note{background:#f8fbff;border:1px solid #d8e0ec;border-left:4px solid #1f5cc4;border-radius:10px;padding:12px 14px;margin:10px 0;color:#344054}
+.course-note b{color:#10213d}
+@media(max-width:900px){.sku-profile summary{grid-template-columns:1fr 1fr}.profile-toolbar input{min-width:100%}}
 </style>
 <script>
-(function(){
-  var STATES=['待执行','执行中','已执行','暂缓'];
-  var CLS={'待执行':'tag amber','执行中':'tag blue','已执行':'tag green','暂缓':'tag gray'};
-  var KEY=function(id){return 'wf2:'+id;};
-  function load(id){try{return JSON.parse(localStorage.getItem(KEY(id)))||{};}catch(e){return {};}}
-  function save(id,obj){try{localStorage.setItem(KEY(id),JSON.stringify(obj));}catch(e){}}
-  function applyRow(row,st){
-    var s=st.status||'待执行';
-    var btn=row.querySelector('.state-btn');
-    btn.textContent=s; btn.className='state-btn '+(CLS[s]||'tag gray');
-    row.dataset.state=s;
-    var d=row.querySelector('.exec-date');
-    if(d) d.textContent=st.date||'';
-  }
-  function updateProgress(){
-    var rows=document.querySelectorAll('tr[data-task-id]');
-    var done=0; rows.forEach(function(r){if(r.dataset.state==='已执行')done++;});
-    var n=rows.length;
-    var dc=document.getElementById('done-count'); if(dc) dc.textContent=done;
-    var tc=document.getElementById('total-count'); if(tc) tc.textContent=n;
-    var bar=document.getElementById('progress-bar'); if(bar) bar.style.width=(n?Math.round(done/n*100):0)+'%';
-  }
-  function filterRows(f){
-    document.querySelectorAll('tr[data-task-id]').forEach(function(r){
-      var show=f==='all'||f===r.dataset.priority||
-        (f==='pending'&&r.dataset.state!=='已执行'&&r.dataset.state!=='暂缓')||
-        (f==='done'&&r.dataset.state==='已执行')||
-        (f==='defer'&&r.dataset.state==='暂缓');
-      r.style.display=show?'':'none';
+document.addEventListener('DOMContentLoaded',function(){
+  const cards=Array.from(document.querySelectorAll('.sku-profile'));
+  const input=document.getElementById('sku-profile-search');
+  const count=document.getElementById('sku-profile-count');
+  let current='all';
+  function apply(){
+    const q=(input?.value||'').trim().toLowerCase();
+    let visible=0;
+    cards.forEach(card=>{
+      const hay=(card.dataset.search||'').toLowerCase();
+      const matchText=!q||hay.includes(q);
+      const matchFilter=current==='all'||card.dataset.grade===current||card.dataset.priority===current||card.dataset.stock===current;
+      const show=matchText&&matchFilter;
+      card.style.display=show?'':'none';
+      if(show) visible++;
     });
+    if(count) count.textContent=`显示 ${visible} / ${cards.length} 个 SKU`;
   }
-  document.addEventListener('DOMContentLoaded',function(){
-    document.querySelectorAll('tr[data-task-id]').forEach(function(row){
-      var id=row.dataset.taskId;
-      applyRow(row,load(id));
-      row.querySelector('.state-btn').addEventListener('click',function(){
-        var cur=row.dataset.state;
-        var next=STATES[(STATES.indexOf(cur)+1)%STATES.length];
-        var prev=load(id);
-        var date=next==='已执行'?new Date().toLocaleDateString('zh-CN'):(prev.date||'');
-        var obj={status:next,date:date};
-        save(id,obj); applyRow(row,obj); updateProgress();
-      });
-    });
-    updateProgress();
-    document.querySelectorAll('.filt-btn').forEach(function(btn){
-      btn.addEventListener('click',function(){
-        document.querySelectorAll('.filt-btn').forEach(function(b){b.classList.remove('active');});
-        btn.classList.add('active'); filterRows(btn.dataset.filter);
-      });
+  document.querySelectorAll('.profile-filter').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.profile-filter').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active'); current=btn.dataset.filter; apply();
     });
   });
-})();
+  input?.addEventListener('input',apply);
+  document.getElementById('profile-open-visible')?.addEventListener('click',()=>cards.forEach(c=>{if(c.style.display!=='none')c.open=true;}));
+  document.getElementById('profile-close-all')?.addEventListener('click',()=>cards.forEach(c=>c.open=false));
+  if(location.hash){
+    const target=document.querySelector(location.hash);
+    if(target&&target.tagName==='DETAILS') target.open=true;
+  }
+  apply();
+});
 </script>"""
 
 
@@ -655,11 +931,13 @@ def task_table(tasks: pd.DataFrame, limit: int | None = None) -> str:
     rows = tasks.head(limit) if limit else tasks
     body = []
     for _, r in rows.iterrows():
+        task_id = esc(r["任务ID"])
+        priority = esc(r["优先级"])
         body.append(
-            "<tr>"
-            f"<td>{tag(text(r['优先级']))}<div class='small'>{esc(r['任务ID'])}</div></td>"
+            f"<tr data-task-id='{task_id}' data-priority='{priority}' data-state='待执行'>"
+            f"<td>{tag(text(r['优先级']))}<div class='small'>{task_id}</div></td>"
             f"<td><b>{esc(r['供应商SKU'])}</b><div class='small'>{esc(r['Wayfair Listing'])} / {esc(r['产品名'])}</div></td>"
-            f"<td>{esc(r['问题类型'])}<div class='small'>{tag(text(r['任务状态']))}</div></td>"
+            f"<td>{esc(r['问题类型'])}<div class='small'><button type='button' class='state-btn tag amber'>待执行</button><div class='small exec-date'></div></div></td>"
             f"<td><div class='lc4'>{esc(r['触发原因'])}</div></td>"
             f"<td><b class='lc3'>{esc(r['建议动作'])}</b><div class='small lc2'>执行前：{esc(r['执行前检查'])}</div></td>"
             f"<td><div class='lc3'>{esc(r['复盘指标'])}</div></td>"
@@ -716,27 +994,37 @@ def task_toolbar(total: int) -> str:
   <button class="filt-btn" data-filter="pending">待执行</button>
   <button class="filt-btn" data-filter="done">已执行</button>
   <button class="filt-btn" data-filter="defer">暂缓</button>
+  <button class="filt-btn" id="reset-progress" type="button" style="margin-left:auto;color:#b42318">重置全部进度</button>
 </div>"""
 
 
-def render_execution_center(tasks: pd.DataFrame) -> None:
-    counts = tasks["优先级"].value_counts().to_dict()
+def render_execution_center(profiles: pd.DataFrame, tasks: pd.DataFrame) -> None:
+    store_actions = pd.DataFrame(build_store_actions(profiles, tasks))
+    counts = store_actions["优先级"].value_counts().to_dict()
     type_counts = tasks["问题类型"].value_counts().to_dict()
-    p0 = tasks[tasks["优先级"].eq("P0")]
+    weekly = store_actions.head(20)
     wait_data = tasks[tasks["问题类型"].eq("数据缺口")]
-    body = f"""{_TABLE_STYLES}
+    body = f"""{_TASK_EXTRA_HEAD}
 <div class="grid">
-  <div class="card"><div class="num">{int(counts.get('P0', 0))}</div><b>P0 必须先处理</b><div class="small">亏损、禁促、库存、定价红灯</div></div>
-  <div class="card"><div class="num">{int(counts.get('P1', 0))}</div><b>P1 本周处理</b><div class="small">影响放量和转化的任务</div></div>
-  <div class="card"><div class="num">{int(counts.get('P2', 0))}</div><b>P2 观察</b><div class="small">新品和轻促观察</div></div>
-  <div class="card"><div class="num">{len(tasks)}</div><b>总任务数</b><div class="small">来自定价、促销、库存、Listing</div></div>
+  <div class="card"><div class="num">{int(counts.get('P0', 0))}</div><b>P0 重点经营 SKU</b><div class="small">当前盈利或可放量，先保护收益</div></div>
+  <div class="card"><div class="num">{int(counts.get('P1', 0))}</div><b>P1 腰部优化 SKU</b><div class="small">有机会盈利，按短板修复</div></div>
+  <div class="card"><div class="num">{int(counts.get('P2', 0))}</div><b>P2 尾部观察 SKU</b><div class="small">无销量/无历史先不占核心资源</div></div>
+  <div class="card"><div class="num">{len(tasks)}</div><b>明细任务数</b><div class="small">定价、促销、库存、Listing 证据拆解</div></div>
 </div>
-<div class="section"><h2>1. 本周先做什么</h2>{task_table(p0, 20)}</div>
-<div class="section"><h2>2. 问题类型分布</h2><div class="grid">
+<div class="section"><h2>1. 课程逻辑落到工具的链接路径</h2>
+<p>借鉴培训里的主线：价格先拆成供应商可控成本和平台不可控扣项，再用订单、毛利、库存和 Listing 承接决定流量与转化动作。</p>
+<div class="logic-flow">
+  <a href="./Wayfair_产品定价体检表_20260605.html"><b>1. 拆价格和利润</b><small>看 Base、拿货/包装/发货、Retail Price Net、Total Cost、平台空间。</small></a>
+  <a href="./Wayfair_SKU经营档案_20260605.html"><b>2. 判断 SKU 经营价值</b><small>看历史订单、真实毛利、库存、广告、客诉和 Listing 证据。</small></a>
+  <a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><b>3. 决定流量/转化动作</b><small>盈利款放量，腰部款修短板，尾部无销量先观察。</small></a>
+  <a href="./Wayfair_SKU任务清单_20260605.html"><b>4. 管理盘复盘</b><small>按 P0/P1/P2 跟进执行状态，下次用结果修正模型。</small></a>
+</div></div>
+<div class="section"><h2>2. 本周先做什么</h2><p>先按店铺经营价值排序：当前盈利款和可盈利候选款优先，尾部无销量产品不进入本周核心池。</p><div class='week-progress'>本周已执行 <b id='done-count'>0</b> / <span id='total-count'>20</span><div class='pbar'><i id='progress-bar'></i></div></div>{task_table(weekly, 20)}</div>
+<div class="section"><h2>3. 问题类型分布</h2><div class="grid">
 {''.join(f"<div class='card'><div class='num'>{int(v)}</div><b>{esc(k)}</b></div>" for k, v in type_counts.items())}
 </div></div>
-<div class="section"><h2>3. 等数据 / 需确认</h2>{task_table(wait_data, 20) if not wait_data.empty else '<div class="card">当前没有单独的数据缺口任务；仍需关注有效 6 月 Cost Stack 和当前促销折扣清单。</div>'}</div>
-<div class="section"><h2>4. 全量任务入口</h2><div class="card"><a href="./Wayfair_SKU任务清单_20260605.html">打开 SKU 任务清单</a><br><a href="./Wayfair_SKU经营档案_20260605.html">打开 SKU 经营档案</a></div></div>
+<div class="section"><h2>4. 等数据 / 需确认</h2>{task_table(wait_data, 20) if not wait_data.empty else '<div class="card">当前没有单独的数据缺口任务；仍需关注有效 6 月 Cost Stack 和当前促销折扣清单。</div>'}</div>
+<div class="section"><h2>5. 全量任务入口</h2><div class="grid"><a class="linkcard" href="./Wayfair_SKU任务清单_20260605.html"><h3>SKU 任务清单</h3><p>全量 178 条任务，按 P0/P1/P2 筛选和标记进度。</p></a><a class="linkcard" href="./Wayfair_SKU经营档案_20260605.html"><h3>SKU 经营档案</h3><p>单 SKU 成本、库存、广告、促销和 Listing 证据。</p></a></div></div>
 """
     OUT_EXEC_CENTER.write_text(page("Wayfair 运营执行中心", body), encoding="utf-8")
 
@@ -760,17 +1048,48 @@ def render_profile_report(profiles: pd.DataFrame, tasks: pd.DataFrame) -> None:
         sku: group.to_dict("records")
         for sku, group in tasks.groupby("供应商SKU", dropna=False)
     }
+    priority_rank = {"P0": 0, "P1": 1, "P2": 2}
+
+    def profile_priority(sku_tasks: list[dict]) -> str:
+        priorities = [text(t.get("优先级")) for t in sku_tasks if text(t.get("优先级"))]
+        if not priorities:
+            return "观察"
+        return sorted(priorities, key=lambda p: priority_rank.get(p, 9))[0]
+
     sections = []
-    for _, r in profiles.iterrows():
+    ordered = profiles.copy()
+    ordered["_total_orders"] = ordered["5月订单数"].map(num) + ordered["YB历史订单数"].map(num)
+    ordered["_profit"] = ordered["5月毛利"].map(num) + ordered["YB历史毛利"].map(num)
+    ordered = ordered.sort_values(["SKU价值分层", "_total_orders", "_profit"], ascending=[True, False, False])
+    for _, r in ordered.iterrows():
         sku = text(r["供应商SKU"])
         sku_tasks = task_map.get(sku, [])
+        priority = profile_priority(sku_tasks)
         task_html = "".join(
             f"<li>{tag(text(t['优先级']))} <b>{esc(t['问题类型'])}</b>：{esc(t['建议动作'])}</li>"
             for t in sku_tasks[:8]
         ) or "<li>当前没有自动生成任务，维持观察。</li>"
+        search_text = " ".join([
+            sku,
+            text(r["Wayfair Listing"]),
+            text(r["产品名"]),
+            text(r["SKU价值分层"]),
+            text(r["促销准入"]),
+            text(r["库存状态"]),
+            text(r["定价分组"]),
+            text(r["运营主动作"]),
+        ])
         sections.append(f"""
-<section class="section" id="{esc(r['详情锚点'])}">
-  <h2>{esc(sku)} <span class="small">{esc(r['Wayfair Listing'])} / {esc(r['产品名'])}</span></h2>
+<details class="sku-profile" id="{esc(r['详情锚点'])}" data-search="{esc(search_text)}" data-grade="{esc(r['SKU价值分层'])}" data-priority="{esc(priority)}" data-stock="{esc(r['库存状态'])}">
+  <summary>
+    <span class="sku-title"><b>{esc(sku)}</b><small>{esc(r['Wayfair Listing'])} / {esc(r['产品名'])}</small></span>
+    <span class="metric">{tag(priority)} <small>任务优先级</small></span>
+    <span class="metric"><b>{esc(r['SKU价值分层'])}</b><small>{esc(r['促销准入'])}</small></span>
+    <span class="metric"><b>{esc(r['库存状态'])}</b><small>可用 {num(r['可用库存']):.0f} / 含在途 {num(r['总可售含在途']):.0f}</small></span>
+    <span class="metric"><b>{num(r['5月订单数']):.0f} 单</b><small>5月 / 历史 {num(r['YB历史订单数']):.0f}</small></span>
+    <span class="metric"><b>{money(r['YB历史毛利'])}</b><small>历史毛利</small></span>
+  </summary>
+  <div class="profile-detail">
   <div class="grid">
     <div class="card"><b>SKU 分层</b><div class="num">{esc(r['SKU价值分层'])}</div><div class="small">{esc(r['促销准入'])}</div></div>
     <div class="card"><b>定价</b><div>分组：{esc(r['定价分组'])}</div><div>Base：{money(r['当前Base'])}</div><div>前台价：{money(r['美国前台价'])}</div></div>
@@ -778,16 +1097,41 @@ def render_profile_report(profiles: pd.DataFrame, tasks: pd.DataFrame) -> None:
     <div class="card"><b>库存</b><div>{esc(r['库存状态'])}</div><div class="small">可用 {num(r['可用库存']):.0f} / 含在途 {num(r['总可售含在途']):.0f}</div></div>
   </div>
   <div class="grid">
-    <div class="card"><b>订单</b><div>5月 {num(r['5月订单数']):.0f} 单</div><div>历史 {num(r['YB历史订单数']):.0f} 单</div><div class="small">5月毛利率 {pct(r['5月毛利率'])}</div></div>
+    <div class="card"><b>经营贡献</b><div>5月 {num(r['5月订单数']):.0f} 单 / {money(r['5月毛利'])}</div><div>历史 {num(r['YB历史订单数']):.0f} 单 / {money(r['YB历史毛利'])}</div><div class="small">5月毛利率 {pct(r['5月毛利率'])}</div></div>
     <div class="card"><b>广告</b><div>Spend {money(r['广告花费'])}</div><div>Orders {num(r['广告订单']):.0f}</div><div class="small">ROAS {num(r['ROAS']):.2f}</div></div>
     <div class="card"><b>客诉扣款</b><div>{num(r['客诉扣款记录数']):.0f} 条</div><div class="small">{money(r['客诉扣款金额'])}</div></div>
     <div class="card"><b>Listing 问题</b><div>{esc(r['Listing问题']) or '暂无自动红灯'}</div></div>
   </div>
-  <div class="card"><b>系统总建议</b><p>{esc(r['系统总建议'])}</p></div>
+  <div class="grid">
+    <div class="card"><b>运营主动作</b><p>{esc(r['运营主动作'])}</p></div>
+    <div class="card"><b>执行前检查</b><p>{esc(r['执行前检查'])}</p></div>
+    <div class="card"><b>复盘指标</b><p>{esc(r['复盘指标'])}</p></div>
+  </div>
   <div class="card"><b>关联任务</b><ul>{task_html}</ul></div>
-</section>
+  </div>
+</details>
 """)
-    body = "<div class='section'><h2>1. SKU 经营档案</h2><p>从任务清单点击 SKU 后，用本页复核该 SKU 的成本、库存、广告、促销和 Listing 状态。</p></div>" + "\n".join(sections)
+    body = f"""{_PROFILE_EXTRA}
+<div class='section'>
+  <h2>1. SKU 经营档案</h2>
+  <p>先用列表扫 SKU，必要时再展开详情；从任务清单跳转过来会自动展开对应 SKU。</p>
+  <div class="course-note"><b>课程逻辑落地：</b>每个 SKU 先看真实订单和毛利，再看平台空间和 Base/前台价，最后才决定广告、促销或 Listing 修复。无历史销量的尾部 SKU 不抢 P0 资源。</div>
+  <div class="profile-toolbar">
+    <input id="sku-profile-search" type="search" placeholder="搜索 SKU、Listing、产品名、状态">
+    <button class="profile-filter active" type="button" data-filter="all">全部</button>
+    <button class="profile-filter" type="button" data-filter="P0">P0</button>
+    <button class="profile-filter" type="button" data-filter="P1">P1</button>
+    <button class="profile-filter" type="button" data-filter="A">A</button>
+    <button class="profile-filter" type="button" data-filter="B">B</button>
+    <button class="profile-filter" type="button" data-filter="库存不足">库存不足</button>
+    <button class="profile-action" id="profile-open-visible" type="button">展开当前</button>
+    <button class="profile-action" id="profile-close-all" type="button">全部收起</button>
+    <span class="profile-count" id="sku-profile-count"></span>
+  </div>
+</div>
+<div class="sku-profile-list">
+{''.join(sections) or '<div class="sku-empty">暂无 SKU 档案。</div>'}
+</div>"""
     OUT_SKU_PROFILE.write_text(page("Wayfair SKU 经营档案", body), encoding="utf-8")
 
 
@@ -799,6 +1143,7 @@ def main() -> None:
     pricing, score, inventory = load_sources()
     profiles = build_profiles(pricing, score, inventory)
     tasks = build_tasks(pricing, score, inventory)
+    tasks = align_task_priorities_to_store_value(profiles, tasks)
     profiles.to_csv(OUT_PROFILES, index=False, encoding="utf-8-sig")
     tasks.to_csv(OUT_TASKS, index=False, encoding="utf-8-sig")
     print(f"wrote {OUT_PROFILES}")
@@ -807,7 +1152,7 @@ def main() -> None:
     print(f"tasks {len(tasks)}")
     if not tasks.empty:
         print(tasks["优先级"].value_counts().to_string())
-    render_execution_center(tasks)
+    render_execution_center(profiles, tasks)
     render_task_report(tasks)
     render_profile_report(profiles, tasks)
     print(f"wrote {OUT_EXEC_CENTER}")

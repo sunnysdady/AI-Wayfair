@@ -6,8 +6,10 @@ from pathlib import Path
 
 import pandas as pd
 
+from input_checks import require_files
 
-ROOT = Path("/Users/pengzhang/Documents/Codex 2/AI-Wayfair")
+
+ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw"
 DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
@@ -293,6 +295,11 @@ body{{margin:0;background:#f6f7fb;color:#172033;font-family:Arial,'Microsoft YaH
 
 
 def main():
+    require_files(
+        [CATALOG, CATALOG_CHECK, COST],
+        root=ROOT,
+        context="生成 Product Catalog 定价体检",
+    )
     df = build()
     render(df)
     print("wrote", OUT_CSV)
