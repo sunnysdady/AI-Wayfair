@@ -93,6 +93,8 @@ body.wf-app-body{background:#f5f6fa;color:#202224;font-family:"Nunito Sans","Pin
 .wf-content .card,.wf-content .linkcard,.wf-content .jumpcard,.sku-profile{border:1px solid #edf0f6!important;border-radius:14px!important;background:#fff!important;box-shadow:none!important}.wf-content .card:hover,.wf-content .linkcard:hover,.wf-content .jumpcard:hover{border-color:#d4e0ff!important;box-shadow:0 8px 20px rgba(72,128,255,.08)!important}
 .wf-table-meta{background:#fff;border-color:#edf0f6;color:#7b8494}.wf-table-wrap{border:1px solid #edf0f6;border-radius:14px;background:#fff;box-shadow:var(--shadow)}.wf-content table{border-color:#edf0f6!important}.wf-content th{background:#fafbfe!important;color:#596579;border-bottom:1px solid #edf0f6!important}.wf-content th,.wf-content td{padding:11px 12px!important}.wf-content tbody tr:nth-child(even) td{background:#fcfdff}.wf-content tbody tr:hover td{background:#f6f9ff}.wf-content .tag,.wf-content .pill{border-radius:8px!important;padding:4px 9px!important}
 .wf-content .tag.blue,.wf-content .pill.blue{background:#eef4ff;color:#4880ff}.wf-content .tag.green,.wf-content .pill.green{background:#e9fff8;color:#00a88e}.wf-content .tag.amber,.wf-content .pill.amber,.wf-content .tag.todo{background:#fff7e6;color:#d97706}.wf-content .tag.red,.wf-content .pill.red{background:#fff0ee;color:#ef3826}.wf-content .tag.gray,.wf-content .pill.gray{background:#f3f4f6;color:#6b7280}.wf-content .tag.purple,.wf-content .pill.purple{background:#f3f0ff;color:#7c3aed}
+.wf-content .panel,.wf-content .drop,.wf-content .stat,.wf-content .log{border:1px solid #edf0f6;border-radius:16px;background:#fff;box-shadow:var(--shadow)}.wf-content .panel{padding:18px;margin:0 0 16px}.wf-content .panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.wf-content .panel-head h2,.wf-content .drop h2{margin:0!important;color:#202224;font-size:17px!important}.wf-content .panel-head small,.wf-content .drop small{color:#8b95a5;font-weight:800}.wf-content .drop{min-height:150px;padding:18px;display:grid;align-content:start;gap:11px;border-style:dashed}.wf-content .drop.ok{border-color:#c8f6ea;background:#f7fffc}.wf-content .drop input,.wf-content input[type="file"]{width:100%;border:1px solid #edf0f6;border-radius:10px;background:#f8f9fc;padding:9px}.wf-content .file-meta{color:#00a88e;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wf-content .stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}.wf-content .stat{padding:16px;box-shadow:none}.wf-content .stat b{display:block;color:#202224;font-size:28px;line-height:1.1}.wf-content .stat small{color:#8b95a5;font-weight:900}.wf-content .actions,.wf-content .downloads{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.wf-content .btn,.wf-content .download{border:0;border-radius:10px;padding:10px 14px;font-weight:950;text-decoration:none;cursor:pointer}.wf-content .btn.primary{background:#4880ff;color:#fff;box-shadow:0 8px 18px rgba(72,128,255,.2)}.wf-content .btn.light{background:#f4f7ff;color:#3567d6}.wf-content .btn:disabled{opacity:.45;cursor:not-allowed}.wf-content .download{display:none;background:#e9fff8;color:#00a88e}.wf-content .download.show{display:inline-flex}.wf-content .log{min-height:78px;padding:14px;color:#596579;white-space:pre-wrap;box-shadow:none}.wf-content .table-wrap{max-height:420px;overflow:auto;border:1px solid #edf0f6;border-radius:14px;background:#fff;box-shadow:var(--shadow)}.wf-content .table{width:100%;border-collapse:collapse;background:#fff}.wf-content .table th,.wf-content .table td{padding:11px 12px;border-bottom:1px solid #edf0f6;text-align:left;white-space:nowrap}.wf-content .table th{position:sticky;top:0;background:#fafbfe;color:#596579}.wf-content .status-ok{color:#00a88e;font-weight:950}.wf-content .status-warn{color:#d97706;font-weight:950}.wf-content .status-bad{color:#ef3826;font-weight:950}
+@media(max-width:900px){.wf-content .stats{grid-template-columns:1fr 1fr}.wf-content .actions,.wf-content .downloads{display:grid}.wf-content .btn,.wf-content .download{justify-content:center;width:100%}}@media(max-width:620px){.wf-content .stats{grid-template-columns:1fr}.wf-content .panel{padding:14px}.wf-content .drop{min-height:130px}}
 @media(max-width:1100px){.wf-app{grid-template-columns:1fr}.wf-side{height:auto;box-shadow:none}.wf-main{padding:18px}.wf-topbar{margin:-18px -18px 18px;padding:12px 18px}.wf-reader-tools,.profile-toolbar{top:64px}}@media(max-width:680px){.wf-topbar{display:block}.wf-top-actions{margin-top:10px}.wf-title-card{border-radius:14px}.wf-title-card h1{font-size:22px}.wf-app{width:100%}}
 """
 
@@ -423,6 +425,22 @@ def extract_body(src: str) -> str:
     return (match.group(1) if match else src).strip()
 
 
+def extract_inventory_tool_body(src: str) -> str:
+    main = re.search(r'<main class="main">\s*(.*?)\s*</main>', src, re.I | re.S)
+    if not main:
+        return extract_body(src)
+    body = main.group(1)
+    body = re.sub(
+        r'^\s*<div class="topbar">.*?<section class="hero">.*?</section>\s*',
+        "",
+        body,
+        count=1,
+        flags=re.I | re.S,
+    )
+    scripts = "\n".join(re.findall(r"<script\b(?![^>]*xlsx\.full\.min\.js)[^>]*>.*?</script>", src, re.I | re.S))
+    return (body.strip() + "\n" + scripts).strip()
+
+
 def context(title: str) -> tuple[str, str]:
     rules = [
         ("数据上传中心", ("Data intake", "按上传频率提交新数据，并进入对应工具和报告。")),
@@ -544,7 +562,9 @@ def shell(title: str, body: str, filename: str) -> str:
     inventory = first_matching("库存映射")
     promo = first_matching("促销准入")
     alert_html = data_alert() if needs_data_alert(title, filename) else ""
+    alert_slot = f"    {alert_html}\n" if alert_html else ""
     is_help_page = "帮助中心" in title or "帮助中心" in filename
+    extra_head = '  <script src="./assets/xlsx.full.min.js"></script>\n' if "每日库存生成" in title or "每日库存生成" in filename else ""
     topbar_search = (
         '<div class="wf-topbar-note">帮助中心使用下方本页搜索</div>'
         if is_help_page
@@ -557,6 +577,7 @@ def shell(title: str, body: str, filename: str) -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
   <title>{html.escape(title)}</title>
+{extra_head}\
   <link rel="stylesheet" href="./assets/dashboard-shell.css">
 </head>
 <body class="wf-app-body">
@@ -571,7 +592,7 @@ def shell(title: str, body: str, filename: str) -> str:
     <section class="wf-hero">
       <div class="wf-title-card"><div><div class="wf-eyebrow">{html.escape(eyebrow)}</div><h1>{html.escape(title)}</h1></div><div class="wf-actions"><a class="wf-btn primary" href="{exec_center}">执行中心</a><a class="wf-btn green" href="{inventory}">查库存</a><a class="wf-btn light" href="{promo}">促销准入</a></div></div>
     </section>
-    {alert_html}
+{alert_slot}\
     <div id="content" class="wf-content">
 {body}
     </div>
@@ -627,11 +648,11 @@ def main() -> None:
 
     count = 0
     for path in sorted(REPORTS.glob("*.html")):
-        if "项目导航" in path.name or "每日库存生成工具" in path.name:
+        if "项目导航" in path.name:
             continue
         src = text(path)
         title = extract_title(src, path.stem)
-        body = extract_body(src)
+        body = extract_inventory_tool_body(src) if "每日库存生成工具" in path.name else extract_body(src)
         path.write_text(shell(title, body, path.name), encoding="utf-8")
         count += 1
     print(f"dashboard shell applied to {count} report pages")
