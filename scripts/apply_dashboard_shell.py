@@ -479,7 +479,7 @@ def nav(current_name: str) -> str:
 
 
 # KPI 单一事实来源：数据刷新时只改这里（index 与全部报告页共用）
-KPI_AS_OF = "2026-06-05"
+KPI_AS_OF = "2026-06-12"
 DATA_REFRESH_DATE = "2026-06-12"
 DATA_REFRESH_WINDOW = "2026-06-06 至 2026-06-12"
 KPIS = [
@@ -495,14 +495,14 @@ def kpi_section() -> str:
         f'<div class="wf-kpi"><div class="value">{html.escape(v)}</div><span class="label">{html.escape(l)}</span></div>'
         for v, l in KPIS
     )
-    return f'<section class="wf-kpis" title="数据截至 {KPI_AS_OF}">{cells}</section>'
+    return f'<section class="wf-kpis" title="订单截至 {KPI_AS_OF}">{cells}</section>'
 
 
 def data_alert() -> str:
     upload = first_matching("数据上传中心")
     return f"""<section class="wf-data-alert">
       <div><b>数据提醒</b><div class="stamp">需更新</div></div>
-      <div><p>当前页面数据截至 <b>{KPI_AS_OF}</b>。截至 {DATA_REFRESH_DATE}，若要做本周执行、促销、补货或广告判断，需要补齐 <b>{DATA_REFRESH_WINDOW}</b> 的最新数据。</p>
+      <div><p>当前页面订单和固定成本已补到 <b>{KPI_AS_OF}</b>。截至 {DATA_REFRESH_DATE}，若要做本周执行、促销、补货或广告判断，还需要补齐 <b>{DATA_REFRESH_WINDOW}</b> 的广告、库存、客诉和促销资料。</p>
       <ul><li>优先提交：6月 Cost Stack、促销/折扣、最新库存、Listing Health、WSP、订单与客诉。</li><li><a href="{upload}">去数据上传中心</a></li></ul></div>
     </section>"""
 
@@ -546,7 +546,7 @@ def shell(title: str, body: str, filename: str) -> str:
     <div class="wf-side-foot"><b>Production</b><small>ai-wayfair.vercel.app</small></div>
   </aside>
   <main class="wf-main">
-    <div class="wf-topbar">{topbar_search}<div class="wf-top-actions"><span class="wf-chip">数据截至 {KPI_AS_OF}</span><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <div class="wf-topbar">{topbar_search}<div class="wf-top-actions"><span class="wf-chip">订单截至 {KPI_AS_OF}</span><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
     <section class="wf-hero">
       <div class="wf-title-card"><div><div class="wf-eyebrow">{html.escape(eyebrow)}</div><h1>{html.escape(title)}</h1></div><div class="wf-actions"><a class="wf-btn primary" href="{exec_center}">执行中心</a><a class="wf-btn green" href="{inventory}">查库存</a><a class="wf-btn light" href="{promo}">促销准入</a></div></div>
     </section>

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -13,22 +14,44 @@ DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
 RAW = ROOT / "data" / "raw"
 
-YB_TOOL = RAW / "Wayfair YB-工具表 2026年 05月.xlsx"
+PREFERRED_YB_TOOL = RAW / "Wayfair YB-工具表 2026年 05月.xlsx"
 PRICING_CATALOG = DATA / "Wayfair_Pricing_ProductCatalog_定价体检_20260604.csv"
 SKU_SCORE = DATA / "Wayfair_SKU价值分级_补齐版_20260604.csv"
 
 OUT_CSV = DATA / "Wayfair_产品定价体检表_20260605.csv"
 OUT_HTML = REPORTS / "Wayfair_产品定价体检表_20260605.html"
 OUT_COST = DATA / "Wayfair_YB_产品成本定价_脱敏版_20260605.csv"
-OUT_MAY = DATA / "Wayfair_5月订单利润_SKU汇总_脱敏版_20260605.csv"
+OUT_PERIOD = DATA / "Wayfair_本期订单利润_SKU汇总_脱敏版_20260612.csv"
 OUT_HISTORY = DATA / "Wayfair_YB_历史订单利润_SKU汇总_脱敏版_20260605.csv"
 OUT_DEDUCTIONS = DATA / "Wayfair_YB_客诉扣款_SKU汇总_脱敏版_20260605.csv"
 
 FEE_RATE = 0.06
 TARGET_MARGIN = 0.25
-REPORT_DATE = "2026-06-05"
+REPORT_DATE = "2026-06-12"
 MAY_START = pd.Timestamp("2026-05-01")
 MAY_END = pd.Timestamp("2026-06-01")
+
+
+def discover_yb_tool() -> Path:
+    if PREFERRED_YB_TOOL.exists():
+        return PREFERRED_YB_TOOL
+    candidates = sorted(RAW.glob("Wayfair YB-工具表 2026年 *.xlsx"))
+    if not candidates:
+        return PREFERRED_YB_TOOL
+
+    def key(path: Path) -> tuple[int, str]:
+        match = re.search(r"2026年\s*(\d{1,2})月", path.name)
+        return (int(match.group(1)) if match else 0, path.name)
+
+    return max(candidates, key=key)
+
+
+YB_TOOL = discover_yb_tool()
+YB_TOOL_LABEL = f"YB工具表（文件名：{YB_TOOL.name}）"
+CURRENT_PERIOD_START = MAY_START
+CURRENT_PERIOD_END = MAY_END
+CURRENT_PERIOD_LABEL = "5月"
+CURRENT_PERIOD_CUTOFF = "2026-05-31"
 
 
 def n(v, default=0.0) -> float:
@@ -131,9 +154,22 @@ def load_order_lines() -> pd.DataFrame:
     return df[[c for c in keep if c in df.columns]].copy()
 
 
+def set_current_period(lines: pd.DataFrame) -> None:
+    global CURRENT_PERIOD_START, CURRENT_PERIOD_END, CURRENT_PERIOD_LABEL, CURRENT_PERIOD_CUTOFF
+    dates = lines["OrderDate"].dropna()
+    dates = dates[dates.ge(pd.Timestamp("2025-01-01"))]
+    if dates.empty:
+        return
+    latest = dates.max()
+    CURRENT_PERIOD_START = latest.to_period("M").to_timestamp()
+    CURRENT_PERIOD_END = CURRENT_PERIOD_START + pd.DateOffset(months=1)
+    CURRENT_PERIOD_LABEL = f"{CURRENT_PERIOD_START.month}月"
+    CURRENT_PERIOD_CUTOFF = latest.strftime("%Y-%m-%d")
+
+
 def aggregate_orders(df: pd.DataFrame, prefix: str, month_only: bool = False) -> pd.DataFrame:
     if month_only:
-        df = df[df["OrderDate"].ge(MAY_START) & df["OrderDate"].lt(MAY_END)].copy()
+        df = df[df["OrderDate"].ge(CURRENT_PERIOD_START) & df["OrderDate"].lt(CURRENT_PERIOD_END)].copy()
     if df.empty:
         return pd.DataFrame(columns=["Part"])
     agg = df.groupby("Part", dropna=False).agg(
@@ -156,6 +192,7 @@ def aggregate_orders(df: pd.DataFrame, prefix: str, month_only: bool = False) ->
 
 def load_order_aggregates() -> tuple[pd.DataFrame, pd.DataFrame]:
     lines = load_order_lines()
+    set_current_period(lines)
     may = aggregate_orders(lines, "May", month_only=True)
     hist = aggregate_orders(lines, "YBHist", month_only=False)
     return may, hist
@@ -281,9 +318,9 @@ def recommendation(row: pd.Series) -> tuple[str, str, str]:
     if observed_orders < 3:
         issues.append("成交样本不足")
     elif may_orders <= 0 and hist_orders >= 3:
-        issues.append("5月无成交，仅历史订单支撑")
+        issues.append(f"{CURRENT_PERIOD_LABEL}无成交，仅历史订单支撑")
     elif may_orders > 0 and may_orders < 3:
-        issues.append("5月成交样本不足")
+        issues.append(f"{CURRENT_PERIOD_LABEL}成交样本不足")
     if margin_value is not None and margin_value < 0.15:
         issues.append("真实订单毛利率低于15%")
     elif margin_value is not None and margin_value < 0.25:
@@ -321,22 +358,22 @@ def recommendation(row: pd.Series) -> tuple[str, str, str]:
 
     if can_raise:
         grade = "可尝试提Base"
-        actions.append("可向Wayfair小幅上调Base Cost 3%-5%，先挑5月有订单且平台空间充足SKU")
+        actions.append(f"可向Wayfair小幅上调Base Cost 3%-5%；只挑{CURRENT_PERIOD_LABEL}有订单、平台空间充足且Base/前台价仍安全的SKU")
     elif must_hold and (margin_value is None or margin_value < 0.25):
         grade = "不建议提价"
-        actions.append("不要先提Base；先降拿货/包装/发货成本，或修Listing承接")
+        actions.append("不要先提Base；先拆供应商可控项：拿货、包装、头程/发货成本，再查平台扣项是否异常")
     elif observed_orders < 3:
         grade = "新品观察"
-        actions.append("先不提Base，保留当前价格做成交验证；有3单以上再复核")
+        actions.append("先不提Base，保留当前价格做成交验证；有3单以上再进入利润模型复核")
     elif margin_value is not None and margin_value >= 0.30 and platform_pct >= 0.20 and base_to_retail <= 0.72 and wsc <= 0.70:
         grade = "价格健康"
-        actions.append("维持当前Base Cost，可做5%-10%轻促候选")
+        actions.append("维持当前Base Cost；库存和Listing承接无红灯时，可做5%-10%轻促候选")
     elif margin_value is not None and margin_value >= 0.20 and platform_pct >= 0.18:
         grade = "维持观察"
-        actions.append("维持Base Cost，促销不超过5%，先看库存和转化")
+        actions.append("维持Base Cost；先看库存、转化和客诉，促销不超过5%")
     else:
         grade = "先修成本"
-        actions.append("先复核成本、退货和物流，不进大促")
+        actions.append("先复核供应商可控成本与平台不可控扣项，不进大促")
 
     if ship > 0.70:
         actions.append("优先复核包裹尺寸、发货方式、仓库位置")
@@ -362,7 +399,7 @@ def build() -> pd.DataFrame:
     score = load_sku_score()
 
     yb.to_csv(OUT_COST, index=False, encoding="utf-8-sig")
-    may.to_csv(OUT_MAY, index=False, encoding="utf-8-sig")
+    may.to_csv(OUT_PERIOD, index=False, encoding="utf-8-sig")
     hist.to_csv(OUT_HISTORY, index=False, encoding="utf-8-sig")
     deductions.to_csv(OUT_DEDUCTIONS, index=False, encoding="utf-8-sig")
 
@@ -374,7 +411,7 @@ def build() -> pd.DataFrame:
         .merge(score, on="Part", how="left", suffixes=("", "_Score"))
     )
 
-    df["OwnerCostSource"] = df["ProcurementCost"].notna().map({True: "YB产品上架", False: "缺成本"})
+    df["OwnerCostSource"] = df["ProcurementCost"].notna().map({True: f"{YB_TOOL_LABEL}产品上架", False: "缺成本"})
     df["WholesaleAfterB2B"] = df["WholesaleCost"].fillna(
         df["CatalogBaseCost"] * (1 - df["CurrentB2BDiscount"].fillna(0) / 100)
     )
@@ -414,6 +451,7 @@ def build() -> pd.DataFrame:
         "EstimatedCurrentGross", "EstimatedCurrentMargin", "YBPromo2BMargin",
         "RequiredBaseFor25Pct", "MaxBaseByRetail70Pct", "BaseGapToTarget25Pct",
         "YBBaseGap", "NewGrade", "PromoReadiness", "定价分组", "主要问题", "建议动作",
+        "OwnerCostSource",
     ]
     df = df[[c for c in order if c in df.columns]].copy()
     df = df.sort_values(["定价分组", "MayOrders", "YBHistOrders"], ascending=[True, False, False])
@@ -446,11 +484,11 @@ def render(df: pd.DataFrame) -> None:
         "WSCPercentile": "供货价竞争百分位",
         "ShipCostPercentile": "发货成本竞争百分位",
         "IncidentReturnPercentile": "退货客诉竞争百分位",
-        "MayOrders": "5月订单数",
-        "MaySellerRevenue": "5月回款额",
-        "MayGross": "5月毛利",
-        "MayMargin": "5月毛利率",
-        "MayZeroRevenueOrders": "5月0回款订单数",
+        "MayOrders": f"{CURRENT_PERIOD_LABEL}订单数",
+        "MaySellerRevenue": f"{CURRENT_PERIOD_LABEL}回款额",
+        "MayGross": f"{CURRENT_PERIOD_LABEL}毛利",
+        "MayMargin": f"{CURRENT_PERIOD_LABEL}毛利率",
+        "MayZeroRevenueOrders": f"{CURRENT_PERIOD_LABEL}0回款订单数",
         "YBHistOrders": "YB历史订单数",
         "YBHistSellerRevenue": "YB历史回款额",
         "YBHistGross": "YB历史毛利",
@@ -475,6 +513,7 @@ def render(df: pd.DataFrame) -> None:
         "YBBaseGap": "Catalog-YB Base差额",
         "NewGrade": "SKU价值分层",
         "PromoReadiness": "促销准入",
+        "OwnerCostSource": "成本来源",
     }
     out = df.rename(columns=rename)
     out.to_csv(OUT_CSV, index=False, encoding="utf-8-sig")
@@ -531,7 +570,7 @@ def render(df: pd.DataFrame) -> None:
                 f"<td class='right'>{money(r.get('CatalogBaseCost'))}<div class='small'>供货收入 {money(r.get('WholesaleAfterB2B'))}</div></td>"
                 f"<td class='right'>{money(r.get('RetailUS'))}<div class='small'>Base/前台 {pct(r.get('BaseToRetailUS'))}</div></td>"
                 f"<td class='right'>{money(r.get('PlatformMargin'))}<div class='small'>{pct(r.get('PlatformPct'))}</div></td>"
-                f"<td class='right'>{pct(r.get('MayMargin'))}<div class='small'>5月单 {n(r.get('MayOrders')):.0f} / YB历史 {n(r.get('YBHistOrders')):.0f}单 {pct(r.get('YBHistMargin'))}</div></td>"
+                f"<td class='right'>{pct(r.get('MayMargin'))}<div class='small'>{CURRENT_PERIOD_LABEL}单 {n(r.get('MayOrders')):.0f} / YB历史 {n(r.get('YBHistOrders')):.0f}单 {pct(r.get('YBHistMargin'))}</div></td>"
                 f"<td class='right'>{pct(r.get('EstimatedCurrentMargin'))}<div class='small'>目标Base {money(r.get('RequiredBaseFor25Pct'))}</div></td>"
                 f"<td class='text-list'><ul>{issue_items}</ul></td>"
                 f"<td class='text-list action-list'><ul>{action_items}</ul></td>"
@@ -569,13 +608,14 @@ def render(df: pd.DataFrame) -> None:
     <style>
     html{{scroll-behavior:smooth}}body{{margin:0;background:#f6f7fb;color:#172033;font-family:Arial,'Microsoft YaHei',sans-serif;line-height:1.6}}header{{background:#10213d;color:#fff;padding:30px 34px}}h1{{margin:0;font-size:28px}}.meta{{color:#dbe7ff;margin-top:6px}}.wrap{{max-width:1440px;margin:auto;padding:24px 34px}}.grid{{display:grid;grid-template-columns:repeat(8,minmax(120px,1fr));gap:10px}}.card,.section{{background:#fff;border:1px solid #d8e0ec;border-radius:8px;box-shadow:0 6px 18px #1018280a}}.card{{padding:14px}}.jumpcard{{display:block;color:#172033;text-decoration:none}}.jumpcard:hover{{border-color:#1f5cc4;box-shadow:0 8px 20px #1f5cc41a}}.num{{font-size:25px;font-weight:800;color:#1f5cc4}}.section{{padding:20px;margin:18px 0;scroll-margin-top:16px}}h2{{margin:0 0 12px;font-size:21px}}.callout{{border-left:4px solid #1f5cc4;background:#f8fbff;padding:12px 14px;border-radius:8px;margin:12px 0}}.warn{{border-left-color:#b54708;background:#fff8ed}}.jumpnav{{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 18px}}.jumpnav a{{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #d8e0ec;border-radius:999px;color:#172033;padding:7px 11px;text-decoration:none;line-height:1.2}}.jumpnav a:hover{{border-color:#1f5cc4;color:#1f5cc4}}.tablebox{{overflow:auto;border:1px solid #d8e0ec;border-radius:8px;max-height:720px;background:#fff;max-width:100%}}.pricing-table{{width:100%;border-collapse:separate;border-spacing:0;min-width:2340px;table-layout:fixed;background:#fff}}.col-sku{{width:330px}}.col-grade{{width:150px}}.col-money{{width:145px}}.col-platform{{width:260px}}.col-margin{{width:160px}}.col-issues{{width:380px}}.col-actions{{width:470px}}th,td{{padding:10px 12px;border-bottom:1px solid #edf1f7;text-align:left;vertical-align:top;font-size:13px;line-height:1.45;overflow-wrap:normal;word-break:normal}}th{{position:sticky;top:0;background:#eef2f6;z-index:3;color:#344054}}th:first-child,td:first-child{{position:sticky;left:0;z-index:2;background:#fff;box-shadow:1px 0 0 #edf1f7}}th:first-child{{z-index:4;background:#eef2f6}}.sku-cell b{{display:block;font-size:13.5px}}.right{{text-align:right;white-space:nowrap}}.small{{color:#667085;font-size:12px;line-height:1.45;white-space:normal}}.text-list ul{{margin:0;padding-left:16px}}.text-list li{{margin:0 0 5px}}.text-list li:last-child{{margin-bottom:0}}.action-list li{{font-weight:600}}.costdetail{{margin-top:7px;text-align:left;white-space:normal}}.costdetail summary{{cursor:pointer;color:#1f5cc4;font-weight:700;white-space:normal}}.costgrid{{margin:7px 0;padding:8px;background:#f8fafc;border:1px solid #d8e0ec;border-radius:6px;min-width:220px}}.costgrid div{{display:flex;justify-content:space-between;gap:12px;padding:2px 0}}.costgrid span{{color:#667085}}.backtop{{margin-top:10px;text-align:right}}.backtop a{{color:#1f5cc4;text-decoration:none}}@media(max-width:900px){{header{{padding:22px 18px}}.grid{{grid-template-columns:1fr 1fr}}.wrap{{padding:16px}}.section{{padding:16px}}.pricing-table{{min-width:2200px}}}}
 </style></head><body>
-<header id="top"><h1>Wayfair 产品定价体检表</h1><div class="meta">生成日期：{REPORT_DATE} ｜ 数据源：05月YB工具表（产品上架/订单处理/客诉扣款）、Product Catalog、5月 Cost Stack、SKU 分层</div></header>
+<header id="top"><h1>Wayfair 产品定价体检表</h1><div class="meta">生成日期：{REPORT_DATE} ｜ 成本源：{YB_TOOL_LABEL}（产品上架固定拿货成本/Base Cost）｜ 经营判断：{CURRENT_PERIOD_LABEL}订单汇总（截至 {CURRENT_PERIOD_CUTOFF}）、Product Catalog、5月 Cost Stack、SKU 分层</div></header>
 <div class="wrap">
 <div class="grid">{cards}</div>
 <div class="jumpnav">{quick_nav}</div>
 <div class="section"><h2>1. 定价结论</h2>
-<div class="callout"><b>核心判断：</b>这张表不是看 Wayfair 前台价能不能涨，而是判断你的 Base Cost 是否健康。只有在“2026年5月有真实订单、你的毛利偏低、平台空间足够、Base/前台价不高、供货价竞争百分位不差”的 SKU，才建议尝试小幅上调 Base Cost。</div>
-<div class="callout warn"><b>执行护栏：</b>Base/前台价超过 72%、供货价竞争百分位高于 0.70、平台空间低于 16%、大促2B利润率低于 12%、或有明显客诉扣款的 SKU，不建议先提价或进深折扣。</div>
+<div class="callout"><b>课程逻辑落地：</b>先拆供应商可控项（固定拿货成本、包装、头程/发货），再看平台不可控扣项（Ship、Return、Allowance、Handling），最后用 Retail Price Net - Total Cost 得到平台空间。只有在“{CURRENT_PERIOD_LABEL}有真实订单、你的毛利偏低、平台空间足够、Base/前台价不高、供货价竞争百分位不差”的 SKU，才建议尝试小幅上调 Base Cost。</div>
+<div class="callout"><b>数据口径：</b>YB 工具表文件名不作为月份判断；成本取产品上架里的固定拿货成本，订单样本按表内实际日期归入 {CURRENT_PERIOD_LABEL}（截至 {CURRENT_PERIOD_CUTOFF}）。6月广告/库存/客诉等资料补齐后，再重新生成经营判断和 P0/P1 排序。</div>
+<div class="callout warn"><b>执行护栏：</b>Base/前台价超过 72%、供货价竞争百分位高于 0.70、平台空间低于 16%、大促2B利润率低于 12%、或有明显客诉扣款的 SKU，不建议先提价或进深折扣；先回到成本项和平台扣项复核。</div>
 </div>
 <div class="section"><h2>2. 优先处理清单</h2>
 <div class="tablebox">{table_header}<tbody>{table_rows(top)}</tbody></table></div>

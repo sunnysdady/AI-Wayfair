@@ -67,24 +67,24 @@ body{background:linear-gradient(180deg,#edf3f8 0,#f5f7fb 42%,#eef2f6 100%);font-
     <main class="main">
       <div class="topbar">
         <div class="wf-global-search" role="search"><input type="search" aria-label="全局搜索页面" placeholder="搜索页面：库存、定价、促销、口径…"><div class="wf-search-results"></div></div>
-        <div class="top-actions"><span class="chip">数据截至 2026-06-05</span><a class="chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div>
+        <div class="top-actions"><span class="chip">订单截至 2026-06-12</span><a class="chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div>
       </div>
 
       <section class="hero">
         <div class="hero-card">
           <div class="eyebrow">WAYFAIR OPERATIONS DASHBOARD</div>
-          <h1>先查库存，再做广告和促销动作。</h1>
+          <h1>先算清利润，再决定流量和转化动作。</h1>
           <div class="primary-actions">
-            <a class="btn primary" href="./reports/Wayfair_运营执行中心_20260605.html">打开执行中心</a>
-            <a class="btn green" href="./reports/Wayfair_库存映射对照工具_20260604.html">查库存映射</a>
-            <a class="btn light" href="./reports/Wayfair_6月SKU分层与促销准入清单_20260604.html">看促销准入</a>
+            <a class="btn primary" href="./reports/Wayfair_产品定价体检表_20260605.html">拆定价利润</a>
+            <a class="btn green" href="./reports/Wayfair_SKU经营档案_20260605.html">看SKU经营价值</a>
+            <a class="btn light" href="./reports/Wayfair_运营执行中心_20260605.html">打开执行中心</a>
           </div>
         </div>
         <aside class="insight">
-          <h2>当前判断 <small style="font-weight:400;color:#94a3b8;font-size:12px">（基于 2026-06-05 数据）</small></h2>
-          <div class="insight-row"><span class="dot green"></span><div><b>5月 Cost Stack 可用</b><small>6月导出为空表，价格结论先不用它。</small></div></div>
-          <div class="insight-row"><span class="dot amber"></span><div><b>库存先行</b><small>库存映射中/低置信项，人工复核后再动作。</small></div></div>
-          <div class="insight-row"><span class="dot red"></span><div><b>避免单报表决策</b><small>广告、促销必须合并 SKU 价值、库存、评分、客诉。</small></div></div>
+          <h2>当前判断 <small style="font-weight:400;color:#94a3b8;font-size:12px">（订单截至 2026-06-12，广告/库存等按现有资料）</small></h2>
+          <div class="insight-row"><span class="dot green"></span><div><b>先拆价格公式</b><small>供应商可控成本 + 平台不可控扣项，算清平台空间。</small></div></div>
+          <div class="insight-row"><span class="dot amber"></span><div><b>再看经营价值</b><small>历史订单、真实毛利、库存、Listing 承接共同决定 P0/P1。</small></div></div>
+          <div class="insight-row"><span class="dot red"></span><div><b>最后做流量动作</b><small>广告、促销不能脱离利润模型和周期复盘。</small></div></div>
         </aside>
       </section>
 
@@ -97,12 +97,13 @@ body{background:linear-gradient(180deg,#edf3f8 0,#f5f7fb 42%,#eef2f6 100%);font-
 
       <section class="grid2">
         <div class="panel">
-          <div class="panel-head"><h2>最短操作路径</h2><small>4 steps</small></div>
+          <div class="panel-head"><h2>课程逻辑路径</h2><small>5 steps</small></div>
           <div class="path">
-            <a href="./reports/Wayfair_运营执行中心_20260605.html"><span class="num">1</span><div><b>看执行中心</b><small>本周必须先处理的 SKU、原因和动作。</small></div><span class="arrow">→</span></a>
-            <a href="./reports/Wayfair_库存映射对照工具_20260604.html"><span class="num">2</span><div><b>查库存映射</b><small>加预算或进促销前，确认库存和映射置信度。</small></div><span class="arrow">→</span></a>
-            <a href="./reports/Wayfair_6月SKU分层与促销准入清单_20260604.html"><span class="num">3</span><div><b>判断促销准入</b><small>决定保留、暂停、促销测试或 Listing 修复。</small></div><span class="arrow">→</span></a>
-            <a href="./reports/Wayfair_6月WSP广告调整执行清单_CostStack校准版.html"><span class="num">4</span><div><b>执行广告/关键词清单</b><small>按清单落地 Campaign、Product、关键词动作。</small></div><span class="arrow">→</span></a>
+            <a href="./reports/Wayfair_产品定价体检表_20260605.html"><span class="num">1</span><div><b>拆价格和利润</b><small>供应商可控成本、平台扣项、平台空间先算清。</small></div><span class="arrow">→</span></a>
+            <a href="./reports/Wayfair_SKU经营档案_20260605.html"><span class="num">2</span><div><b>判断 SKU 经营价值</b><small>看订单、毛利、库存、广告、客诉和 Listing 证据。</small></div><span class="arrow">→</span></a>
+            <a href="./reports/Wayfair_库存映射对照工具_20260604.html"><span class="num">3</span><div><b>确认库存和承接</b><small>库存、评分评论、Listing Health 过关后才放流量。</small></div><span class="arrow">→</span></a>
+            <a href="./reports/Wayfair_运营执行中心_20260605.html"><span class="num">4</span><div><b>排 P0 / P1 动作</b><small>当前盈利款和可盈利候选款优先，尾部先观察。</small></div><span class="arrow">→</span></a>
+            <a href="./reports/Wayfair_SKU任务清单_20260605.html"><span class="num">5</span><div><b>管理盘复盘</b><small>记录执行状态，用订单、毛利、CVR、ROAS 修正模型。</small></div><span class="arrow">→</span></a>
           </div>
         </div>
         <div class="panel">

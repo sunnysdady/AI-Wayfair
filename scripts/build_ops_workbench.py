@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 REPORTS = ROOT / "reports"
 
-REPORT_DATE = "2026-06-05"
+REPORT_DATE = "2026-06-12"
 
 PRICING_CSV = DATA / "Wayfair_产品定价体检表_20260605.csv"
 SKU_SCORE_CSV = DATA / "Wayfair_SKU价值分级_补齐版_20260604.csv"
@@ -845,6 +845,11 @@ _TASK_EXTRA_HEAD = _TABLE_STYLES + """<style>
   tr[data-state="已执行"] td{opacity:.45}
   tr[data-state="已执行"]{background:#f6fff9}
   tr[data-state="暂缓"] td{opacity:.55}
+  .logic-flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:10px}
+  .logic-flow a{display:block;background:#fbfdff;border:1px solid #d8e0ec;border-radius:10px;padding:12px;text-decoration:none;color:#172033}
+  .logic-flow a:hover{border-color:#1f5cc4;box-shadow:0 8px 18px rgba(31,92,196,.10)}
+  .logic-flow b{display:block;margin-bottom:4px;color:#10213d}
+  .logic-flow small{display:block;color:#667085;line-height:1.45}
 </style>
 <script>window.WF_TASKS_GEN='20260605';</script>
 <script src="./assets/task-state.js"></script>"""
@@ -865,6 +870,8 @@ _PROFILE_EXTRA = """<style>
 .profile-detail{padding:0 14px 14px;border-top:1px solid #edf1f7}
 .profile-detail .grid{margin-top:12px}
 .sku-empty{padding:18px;color:#667085}
+.course-note{background:#f8fbff;border:1px solid #d8e0ec;border-left:4px solid #1f5cc4;border-radius:10px;padding:12px 14px;margin:10px 0;color:#344054}
+.course-note b{color:#10213d}
 @media(max-width:900px){.sku-profile summary{grid-template-columns:1fr 1fr}.profile-toolbar input{min-width:100%}}
 </style>
 <script>
@@ -1004,12 +1011,20 @@ def render_execution_center(profiles: pd.DataFrame, tasks: pd.DataFrame) -> None
   <div class="card"><div class="num">{int(counts.get('P2', 0))}</div><b>P2 尾部观察 SKU</b><div class="small">无销量/无历史先不占核心资源</div></div>
   <div class="card"><div class="num">{len(tasks)}</div><b>明细任务数</b><div class="small">定价、促销、库存、Listing 证据拆解</div></div>
 </div>
-<div class="section"><h2>1. 本周先做什么</h2><p>先按店铺经营价值排序：当前盈利款和可盈利候选款优先，尾部无销量产品不进入本周核心池。</p><div class='week-progress'>本周已执行 <b id='done-count'>0</b> / <span id='total-count'>20</span><div class='pbar'><i id='progress-bar'></i></div></div>{task_table(weekly, 20)}</div>
-<div class="section"><h2>2. 问题类型分布</h2><div class="grid">
+<div class="section"><h2>1. 课程逻辑落到工具的链接路径</h2>
+<p>借鉴培训里的主线：价格先拆成供应商可控成本和平台不可控扣项，再用订单、毛利、库存和 Listing 承接决定流量与转化动作。</p>
+<div class="logic-flow">
+  <a href="./Wayfair_产品定价体检表_20260605.html"><b>1. 拆价格和利润</b><small>看 Base、拿货/包装/发货、Retail Price Net、Total Cost、平台空间。</small></a>
+  <a href="./Wayfair_SKU经营档案_20260605.html"><b>2. 判断 SKU 经营价值</b><small>看历史订单、真实毛利、库存、广告、客诉和 Listing 证据。</small></a>
+  <a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><b>3. 决定流量/转化动作</b><small>盈利款放量，腰部款修短板，尾部无销量先观察。</small></a>
+  <a href="./Wayfair_SKU任务清单_20260605.html"><b>4. 管理盘复盘</b><small>按 P0/P1/P2 跟进执行状态，下次用结果修正模型。</small></a>
+</div></div>
+<div class="section"><h2>2. 本周先做什么</h2><p>先按店铺经营价值排序：当前盈利款和可盈利候选款优先，尾部无销量产品不进入本周核心池。</p><div class='week-progress'>本周已执行 <b id='done-count'>0</b> / <span id='total-count'>20</span><div class='pbar'><i id='progress-bar'></i></div></div>{task_table(weekly, 20)}</div>
+<div class="section"><h2>3. 问题类型分布</h2><div class="grid">
 {''.join(f"<div class='card'><div class='num'>{int(v)}</div><b>{esc(k)}</b></div>" for k, v in type_counts.items())}
 </div></div>
-<div class="section"><h2>3. 等数据 / 需确认</h2>{task_table(wait_data, 20) if not wait_data.empty else '<div class="card">当前没有单独的数据缺口任务；仍需关注有效 6 月 Cost Stack 和当前促销折扣清单。</div>'}</div>
-<div class="section"><h2>4. 全量任务入口</h2><div class="grid"><a class="linkcard" href="./Wayfair_SKU任务清单_20260605.html"><h3>SKU 任务清单</h3><p>全量 178 条任务，按 P0/P1/P2 筛选和标记进度。</p></a><a class="linkcard" href="./Wayfair_SKU经营档案_20260605.html"><h3>SKU 经营档案</h3><p>单 SKU 成本、库存、广告、促销和 Listing 证据。</p></a></div></div>
+<div class="section"><h2>4. 等数据 / 需确认</h2>{task_table(wait_data, 20) if not wait_data.empty else '<div class="card">当前没有单独的数据缺口任务；仍需关注有效 6 月 Cost Stack 和当前促销折扣清单。</div>'}</div>
+<div class="section"><h2>5. 全量任务入口</h2><div class="grid"><a class="linkcard" href="./Wayfair_SKU任务清单_20260605.html"><h3>SKU 任务清单</h3><p>全量 178 条任务，按 P0/P1/P2 筛选和标记进度。</p></a><a class="linkcard" href="./Wayfair_SKU经营档案_20260605.html"><h3>SKU 经营档案</h3><p>单 SKU 成本、库存、广告、促销和 Listing 证据。</p></a></div></div>
 """
     OUT_EXEC_CENTER.write_text(page("Wayfair 运营执行中心", body), encoding="utf-8")
 
@@ -1100,6 +1115,7 @@ def render_profile_report(profiles: pd.DataFrame, tasks: pd.DataFrame) -> None:
 <div class='section'>
   <h2>1. SKU 经营档案</h2>
   <p>先用列表扫 SKU，必要时再展开详情；从任务清单跳转过来会自动展开对应 SKU。</p>
+  <div class="course-note"><b>课程逻辑落地：</b>每个 SKU 先看真实订单和毛利，再看平台空间和 Base/前台价，最后才决定广告、促销或 Listing 修复。无历史销量的尾部 SKU 不抢 P0 资源。</div>
   <div class="profile-toolbar">
     <input id="sku-profile-search" type="search" placeholder="搜索 SKU、Listing、产品名、状态">
     <button class="profile-filter active" type="button" data-filter="all">全部</button>
