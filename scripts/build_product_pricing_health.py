@@ -283,7 +283,7 @@ def load_sku_score() -> pd.DataFrame:
     return df.drop_duplicates("Part", keep="first")
 
 
-def recommendation(row: pd.Series) -> tuple[str, str, str]:
+def recommendation(row: pd.Series) -> tuple[str, str, str, str]:
     issues: list[str] = []
     actions: list[str] = []
     grade = "观察"
@@ -311,9 +311,9 @@ def recommendation(row: pd.Series) -> tuple[str, str, str]:
         margin_value = n(row.get("HistMargin"))
 
     if retail <= 0:
-        return "待确认价格", "缺少美国前台价，不能做提价/促销判断", "先确认是否仍可售或仅部分店铺可售"
+        return "待确认价格", "缺少美国前台价，不能做提价/促销判断", "先确认是否仍可售或仅部分店铺可售", "补齐美国前台价后重新进入定价模型"
     if procurement <= 0:
-        return "待补成本", "缺少你的拿货成本", "先补产品上架成本，再决定 Base Cost"
+        return "待补成本", "缺少你的拿货成本", "先补产品上架成本，再决定 Base Cost", "补齐拿货成本后重新进入定价模型"
 
     if observed_orders < 3:
         issues.append("成交样本不足")
@@ -356,24 +356,40 @@ def recommendation(row: pd.Series) -> tuple[str, str, str]:
     )
     must_hold = base_to_retail > 0.72 or wsc > 0.70 or platform_pct < 0.16
 
+    margin_label = f"毛利率 {margin_value:.1%}" if margin_value is not None else "毛利率样本不足"
     if can_raise:
         grade = "可尝试提Base"
-        actions.append(f"可向Wayfair小幅上调Base Cost 3%-5%；只挑{CURRENT_PERIOD_LABEL}有订单、平台空间充足且Base/前台价仍安全的SKU")
+        actions.append(
+            f"可向Wayfair小幅上调Base Cost 3%-5%（{margin_label}、平台空间率 {platform_pct:.1%}、"
+            f"Base/前台价 {base_to_retail:.0%} 仍安全）；只挑{CURRENT_PERIOD_LABEL}有订单的SKU"
+        )
     elif must_hold and (margin_value is None or margin_value < 0.25):
         grade = "不建议提价"
-        actions.append("不要先提Base；先拆供应商可控项：拿货、包装、头程/发货成本，再查平台扣项是否异常")
+        holds: list[str] = []
+        if base_to_retail > 0.72:
+            holds.append(f"Base/前台价 {base_to_retail:.0%} 超 72% 红线")
+        if wsc > 0.70:
+            holds.append(f"供货价竞争分位 {wsc:.2f} 偏高")
+        if platform_pct and platform_pct < 0.16:
+            holds.append(f"平台空间率 {platform_pct:.1%} 低于 16%")
+        lever = "先拆供应商可控项：拿货、包装、头程/发货成本，再查平台扣项是否异常"
+        if ship > 0.70 and ship >= wsc:
+            lever = f"本SKU首要瓶颈是发货成本（竞争分位 {ship:.2f}）：优先复核包裹尺寸、发货方式、仓库位置"
+        elif wsc > 0.70:
+            lever = f"本SKU首要瓶颈是供货价（竞争分位 {wsc:.2f}）：优先谈拿货价或降包装/头程成本"
+        actions.append(f"不要先提Base（{'、'.join(holds)}）；{lever}")
     elif observed_orders < 3:
         grade = "新品观察"
-        actions.append("先不提Base，保留当前价格做成交验证；有3单以上再进入利润模型复核")
+        actions.append(f"先不提Base，保留当前价格做成交验证（累计成交 {observed_orders:.0f} 单，不足3单）；有3单以上再进入利润模型复核")
     elif margin_value is not None and margin_value >= 0.30 and platform_pct >= 0.20 and base_to_retail <= 0.72 and wsc <= 0.70:
         grade = "价格健康"
-        actions.append("维持当前Base Cost；库存和Listing承接无红灯时，可做5%-10%轻促候选")
+        actions.append(f"维持当前Base Cost（{margin_label}、平台空间率 {platform_pct:.1%}）；库存和Listing承接无红灯时，可做5%-10%轻促候选")
     elif margin_value is not None and margin_value >= 0.20 and platform_pct >= 0.18:
         grade = "维持观察"
-        actions.append("维持Base Cost；先看库存、转化和客诉，促销不超过5%")
+        actions.append(f"维持Base Cost（{margin_label}、平台空间率 {platform_pct:.1%}，未到健康线）；先看库存、转化和客诉，促销不超过5%")
     else:
         grade = "先修成本"
-        actions.append("先复核供应商可控成本与平台不可控扣项，不进大促")
+        actions.append(f"先复核供应商可控成本与平台不可控扣项（{margin_label}、平台空间率 {platform_pct:.1%}），不进大促")
 
     if ship > 0.70:
         actions.append("优先复核包裹尺寸、发货方式、仓库位置")
@@ -388,7 +404,21 @@ def recommendation(row: pd.Series) -> tuple[str, str, str]:
 
     if not issues:
         issues.append("价格结构暂无明显红灯")
-    return grade, "；".join(issues), "；".join(dict.fromkeys(actions))
+    review_parts: list[str] = []
+    if platform_pct:
+        review_parts.append(f"平台空间率 {platform_pct:.1%}→≥16%")
+    if base_to_retail:
+        review_parts.append(f"Base/前台价 {base_to_retail:.0%}→≤72%")
+    if margin_value is not None:
+        review_parts.append(f"真实订单毛利率 {margin_value:.1%}→≥25%")
+    elif observed_orders < 3:
+        review_parts.append(f"成交 {observed_orders:.0f} 单→先攒满3单再看毛利")
+    if ship > 0.70:
+        review_parts.append(f"发货成本分位 {ship:.2f}→≤0.70")
+    if wsc > 0.70:
+        review_parts.append(f"供货价分位 {wsc:.2f}→≤0.70")
+    review = "、".join(review_parts) or "补齐价格与成本数据后重新进入定价模型"
+    return grade, "；".join(issues), "；".join(dict.fromkeys(actions)), review
 
 
 def build() -> pd.DataFrame:
@@ -436,6 +466,7 @@ def build() -> pd.DataFrame:
     df["定价分组"] = [r[0] for r in recs]
     df["主要问题"] = [r[1] for r in recs]
     df["建议动作"] = [r[2] for r in recs]
+    df["复盘指标"] = [r[3] for r in recs]
 
     order = [
         "Part", "Listing", "Status", "ChineseName", "类目", "ProcurementCost", "YBBaseCost",
@@ -450,7 +481,7 @@ def build() -> pd.DataFrame:
         "DeductionReasons", "Orders", "Sales", "NetGross", "HistMargin",
         "EstimatedCurrentGross", "EstimatedCurrentMargin", "YBPromo2BMargin",
         "RequiredBaseFor25Pct", "MaxBaseByRetail70Pct", "BaseGapToTarget25Pct",
-        "YBBaseGap", "NewGrade", "PromoReadiness", "定价分组", "主要问题", "建议动作",
+        "YBBaseGap", "NewGrade", "PromoReadiness", "定价分组", "主要问题", "建议动作", "复盘指标",
         "OwnerCostSource",
     ]
     df = df[[c for c in order if c in df.columns]].copy()

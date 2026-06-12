@@ -332,11 +332,92 @@ def base_fields(row: dict | pd.Series) -> tuple[str, str, str, str, str]:
     )
 
 
+def _num(row: dict | pd.Series, key: str) -> float | None:
+    try:
+        v = row.get(key)
+        if v is None or (isinstance(v, float) and pd.isna(v)) or str(v).strip() == "":
+            return None
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def pricing_metrics(row: dict | pd.Series) -> dict[str, float | None]:
+    """从定价体检表行里取该 SKU 自己的关键数字（口径与 build_product_pricing_health 一致）。"""
+    m_orders = _num(row, "6月订单数") or 0
+    h_orders = _num(row, "YB历史订单数") or 0
+    p_orders = _num(row, "平台历史订单数") or 0
+    margin = None
+    if m_orders > 0:
+        margin = _num(row, "6月毛利率")
+    if margin is None and h_orders > 0:
+        margin = _num(row, "YB历史毛利率")
+    if margin is None and max(m_orders, h_orders, p_orders) > 0:
+        margin = _num(row, "平台历史毛利率")
+    return {
+        "plat": _num(row, "平台空间率"),
+        "b2r": _num(row, "Base/前台价"),
+        "wsc": _num(row, "供货价竞争百分位"),
+        "ship": _num(row, "发货成本竞争百分位"),
+        "margin": margin,
+        "observed": max(m_orders, h_orders, p_orders),
+    }
+
+
+def enrich_pricing_action(group: str, action_text: str, m: dict) -> str:
+    """旧版体检表 CSV 的建议动作是模板句；用该 SKU 的数字重写首句。
+    体检表重新生成后（新版自带数字），首句已含"（"则原样保留。"""
+    clauses = [c for c in action_text.split("；") if c.strip()]
+    if not clauses or "（" in clauses[0]:
+        return action_text
+    if group == "不建议提价" and clauses[0].startswith("不要先提Base"):
+        holds: list[str] = []
+        if m["b2r"] is not None and m["b2r"] > 0.72:
+            holds.append(f"Base/前台价 {m['b2r']:.0%} 超 72% 红线")
+        if m["wsc"] is not None and m["wsc"] > 0.70:
+            holds.append(f"供货价竞争分位 {m['wsc']:.2f} 偏高")
+        if m["plat"] is not None and m["plat"] < 0.16:
+            holds.append(f"平台空间率 {m['plat']:.1%} 低于 16%")
+        lever = "先拆供应商可控项：拿货、包装、头程/发货成本，再查平台扣项是否异常"
+        if m["ship"] is not None and m["ship"] > 0.70 and m["ship"] >= (m["wsc"] or 0):
+            lever = f"本SKU首要瓶颈是发货成本（竞争分位 {m['ship']:.2f}）：优先复核包裹尺寸、发货方式、仓库位置"
+        elif m["wsc"] is not None and m["wsc"] > 0.70:
+            lever = f"本SKU首要瓶颈是供货价（竞争分位 {m['wsc']:.2f}）：优先谈拿货价或降包装/头程成本"
+        head = f"不要先提Base（{'、'.join(holds)}）；{lever}" if holds else f"不要先提Base；{lever}"
+        return "；".join([head] + clauses[1:])
+    if group == "先修成本" and clauses[0].startswith("先复核"):
+        margin_label = f"毛利率 {m['margin']:.1%}" if m["margin"] is not None else "毛利率样本不足"
+        plat_label = f"平台空间率 {m['plat']:.1%}" if m["plat"] is not None else "平台空间未知"
+        clauses[0] = f"{clauses[0]}（{margin_label}、{plat_label}）"
+        return "；".join(clauses)
+    return action_text
+
+
+def pricing_review_text(m: dict) -> str:
+    parts: list[str] = []
+    if m["plat"] is not None:
+        parts.append(f"平台空间率 {m['plat']:.1%}→≥16%")
+    if m["b2r"] is not None:
+        parts.append(f"Base/前台价 {m['b2r']:.0%}→≤72%")
+    if m["margin"] is not None:
+        parts.append(f"真实订单毛利率 {m['margin']:.1%}→≥25%")
+    elif m["observed"] < 3:
+        parts.append(f"成交 {m['observed']:.0f} 单→先攒满3单再看毛利")
+    if m["ship"] is not None and m["ship"] > 0.70:
+        parts.append(f"发货成本分位 {m['ship']:.2f}→≤0.70")
+    if m["wsc"] is not None and m["wsc"] > 0.70:
+        parts.append(f"供货价分位 {m['wsc']:.2f}→≤0.70")
+    return "、".join(parts)
+
+
 def pricing_tasks(row: dict | pd.Series) -> list[dict]:
     sku, listing, name, grade, promo = base_fields(row)
     group = text(row.get("定价分组"))
     issues = text(row.get("主要问题"))
     action_text = text(row.get("建议动作"))
+    metrics = pricing_metrics(row)
+    action_text = enrich_pricing_action(group, action_text, metrics)
+    sku_review = text(row.get("复盘指标")) or pricing_review_text(metrics)
     if group in {"不建议提价", "先修成本"}:
         priority = "P0"
         score = 95 if group == "不建议提价" else 88
@@ -357,7 +438,11 @@ def pricing_tasks(row: dict | pd.Series) -> list[dict]:
             reason=f"{group}：{issues}",
             action=action_text,
             check="打开产品定价体检表，展开该 SKU 的 Total Cost 明细，确认 Base、前台价、平台空间和你的成本。",
-            review_metric="下次复盘看：平台空间率、真实订单毛利率、是否仍被判为不建议提价或先修成本。",
+            review_metric=(
+                f"下次复盘看：{sku_review}。"
+                if sku_review
+                else "下次复盘看：平台空间率、真实订单毛利率、是否仍被判为不建议提价或先修成本。"
+            ),
             source="产品定价体检表",
             link="./Wayfair_产品定价体检表_20260605.html",
             score=score,
@@ -366,23 +451,56 @@ def pricing_tasks(row: dict | pd.Series) -> list[dict]:
     ]
 
 
+def promo_blockers(row: dict | pd.Series) -> list[str]:
+    """该 SKU 自己的促销阻断项（带数字），禁止使用桶级套话。"""
+    out: list[str] = []
+    margin = _num(row, "HistMargin")
+    plat = _num(row, "PlatformPctNew")
+    rating = _num(row, "Rating")
+    damage = _num(row, "FeedbackDamage")
+    tags = _num(row, "ListingRequiredTags")
+    reviews = _num(row, "Reviews")
+    if margin is not None and margin < 0.25:
+        out.append(f"真实毛利率 {margin:.1%} 撑不住折扣")
+    if plat is not None and plat < 0.16:
+        out.append(f"平台空间率 {plat:.1%} 偏低")
+    if damage:
+        out.append(f"{damage:.0f} 条 Damage/Missing/Defect 反馈未关闭")
+    if rating is not None and 0 < rating < 4.3:
+        out.append(f"评分 {rating:.1f} 承接弱")
+    if tags is not None and tags < 0.8:
+        out.append(f"TAG 覆盖率 {tags:.0%} 未达标")
+    if reviews is not None and reviews < 20:
+        out.append(f"Review 仅 {reviews:.0f} 条")
+    return out
+
+
 def promo_tasks(row: dict | pd.Series) -> list[dict]:
     sku, listing, name, grade, promo = base_fields(row)
     reason = text(row.get("PromoReason") or row.get("促销准入"))
+    blockers = promo_blockers(row)
+    margin = _num(row, "HistMargin")
+    margin_label = f"毛利率 {margin:.1%}" if margin is not None else "毛利率未知"
+    detail = "、".join(blockers) if blockers else (reason or "见促销准入清单")
     if "禁止" in promo or "禁促" in promo:
         priority = "P0"
-        action = "不要进深折扣促销；先处理利润、客诉、库存或 Listing 承接问题。"
+        action = f"不要进深折扣促销：{detail}；逐项修复并复核真实毛利后再评估。"
         score = 92
     elif "暂不" in promo:
         priority = "P1"
-        action = "暂不报名促销；先确认库存、利润和 Listing 承接。"
+        action = f"暂不报名促销：{detail}；确认库存映射高置信后再排期。"
         score = 70
     elif "谨慎" in promo:
         priority = "P2"
-        action = "只允许轻促观察；促销前再次确认库存和真实毛利。"
+        action = f"只允许 ≤5% 轻促观察（{margin_label}）：{detail}；促销前再核库存与真实毛利。"
         score = 45
     else:
         return []
+    damage = _num(row, "FeedbackDamage") or 0
+    review_parts = [f"促销期订单与促后毛利率（当前 {margin:.1%}）" if margin is not None else "促销期订单与促后毛利率"]
+    if damage:
+        review_parts.append(f"Damage 反馈 {damage:.0f} 条→不新增")
+    promo_review = "、".join(review_parts)
     return [
         task(
             sku=sku,
@@ -395,7 +513,7 @@ def promo_tasks(row: dict | pd.Series) -> list[dict]:
             reason=reason or promo,
             action=action,
             check="先看 SKU 分层与促销准入清单，再看定价体检和库存映射。",
-            review_metric="下次复盘看：促销期订单、促销后毛利、是否出现客诉或退货异常。",
+            review_metric=f"下次复盘看：{promo_review}。",
             source="SKU 分层与促销准入清单",
             link="./Wayfair_6月SKU分层与促销准入清单_20260604.html",
             score=score,
@@ -410,14 +528,32 @@ def listing_tasks(row: dict | pd.Series) -> list[dict]:
     reviews = num(row.get("Reviews"))
     feedback_damage = num(row.get("FeedbackDamage"))
     reasons: list[str] = []
+    fixes: list[str] = []
+    targets: list[str] = []
     if tags and tags < 0.8:
         reasons.append(f"Required Tags 覆盖率 {tags * 100:.1f}% 低于 80%")
+        fixes.append(f"补必填 TAG：覆盖率 {tags:.0%}，先拉到 95%")
+        targets.append(f"TAG 覆盖率 {tags:.0%}→≥95%")
     if reviews and reviews < 20:
         reasons.append(f"Review 数 {reviews:.0f} 低于 20")
+        fixes.append(f"催评/出评：Review {reviews:.0f} 条，优先老订单售后邀评到 ≥20")
+        targets.append(f"Review {reviews:.0f}→≥20")
     if feedback_damage > 0:
         reasons.append("客户反馈出现 Damage / Missing / Defect 类问题")
+        fixes.append(f"复盘 {feedback_damage:.0f} 条 Damage/Missing/Defect 反馈：查包装与运输，修复前不放量")
+        targets.append(f"Damage 反馈 {feedback_damage:.0f}→0 新增")
     if not reasons:
         return []
+    images = _num(row, "Images")
+    rating = _num(row, "Rating")
+    if images is not None and images < 8:
+        fixes.append(f"补图：当前 {images:.0f} 张→≥8 张")
+        targets.append(f"图片 {images:.0f}→≥8")
+    if rating is not None and 0 < rating < 4.3:
+        fixes.append(f"评分 {rating:.1f}：先处理差评原因再引流")
+    cr = _num(row, "CR")
+    if cr is not None and cr > 0:
+        targets.append(f"CVR 跟踪（当前 {cr:.2%}）")
     return [
         task(
             sku=sku,
@@ -428,9 +564,9 @@ def listing_tasks(row: dict | pd.Series) -> list[dict]:
             priority="P1",
             task_type="Listing",
             reason="；".join(reasons),
-            action="先修 Listing 承接：补必填 TAG、补图片/说明、复盘差评和客诉原因。",
+            action="；".join(fixes),
             check="打开 SKU 分层与促销准入清单，查看 TAG、图片、客户反馈和促销准入。",
-            review_metric="下次复盘看：Unique Visits、CVR、Review Count、Feedback Damage 数。",
+            review_metric=f"下次复盘看：{'、'.join(targets)}。",
             source="Detailed Listing Health / Customer Feedback",
             link="./Wayfair_6月SKU分层与促销准入清单_20260604.html",
             score=68 + min(feedback_damage, 5),
@@ -446,19 +582,33 @@ def inventory_tasks(row: dict | pd.Series) -> list[dict]:
     confidence = text(row.get("置信度"))
     available = num(row.get("可用量"))
     total_available = num(row.get("总可售含在途"))
+    transit = (num(row.get("待到货")) or 0) + (num(row.get("调拨在途")) or 0)
+    warehouse_sku = text(row.get("仓库SKU"))
+    match_basis = text(row.get("匹配依据"))
+    stock_label = f"可用 {available:.0f}、在途 {transit:.0f}、总可售 {total_available:.0f}"
     if confidence in {"低", "未匹配"}:
         reason = f"库存映射置信度为 {confidence}"
         priority = "P1"
         score = 74
+        basis = f"，当前匹配依据：{match_basis}" if match_basis else ""
+        action = (
+            f"人工复核映射（置信度 {confidence}{basis}）：核对仓库SKU {warehouse_sku or '未知'} ↔ {listing or sku}；"
+            f"复核通过前禁止用 {stock_label} 做补货、停投或促销决策"
+        )
+        review = f"映射置信度 {confidence}→高（人工确认后）"
     elif total_available <= 0:
         reason = "总可售含在途为 0"
         priority = "P0"
         score = 90
-    elif available <= 2:
+        action = f"总可售为 0（{stock_label}）：立即暂停该 SKU 广告与促销报名，评估补货周期或下架"
+        review = f"总可售 {total_available:.0f}→>0，缺货期广告花费→0"
+    else:
         reason = f"可用库存仅 {available:.0f}"
         priority = "P1"
         score = 66
-    else:
+        action = f"可用仅 {available:.0f}（在途 {transit:.0f}）：广告降到保底预算、促销暂缓，催在途或补货后再放量"
+        review = f"可用量 {available:.0f}→≥5，在途 {transit:.0f} 到仓时间确认"
+    if confidence not in {"低", "未匹配"} and total_available > 0 and available > 2:
         return []
     return [
         task(
@@ -470,9 +620,9 @@ def inventory_tasks(row: dict | pd.Series) -> list[dict]:
             priority=priority,
             task_type="库存",
             reason=reason,
-            action="促销、加预算、补货前先人工确认库存映射和可售数量。",
+            action=action,
             check="打开库存映射对照工具，确认仓库 SKU、Wayfair SKU、可用量和在途量。",
-            review_metric="下次复盘看：是否仍出现缺货 SKU 投广告或进入促销。",
+            review_metric=f"下次复盘看：{review}。",
             source="库存映射对照工具",
             link="./Wayfair_库存映射对照工具_20260604.html",
             score=score,
@@ -851,7 +1001,7 @@ _TASK_EXTRA_HEAD = _TABLE_STYLES + """<style>
   .logic-flow b{display:block;margin-bottom:4px;color:#10213d}
   .logic-flow small{display:block;color:#667085;line-height:1.45}
 </style>
-<script>window.WF_TASKS_GEN='20260605';</script>
+<script>window.WF_TASKS_GEN='""" + REPORT_DATE.replace("-", "") + """';</script>
 <script src="./assets/task-state.js"></script>"""
 
 _PROFILE_EXTRA = """<style>
