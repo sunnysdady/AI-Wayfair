@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wayfair 每日库存生成工具</title>
+  <script src="./assets/xlsx.full.min.js"></script>
+  <style>
+    :root{--bg:#eef2f6;--surface:#fff;--surface2:#f8fafc;--ink:#152033;--muted:#667085;--line:#dde4ee;--blue:#2870e8;--green:#15936a;--amber:#b45309;--red:#b42318;--shadow:0 18px 45px rgba(16,24,40,.1)}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Arial,"Microsoft YaHei",sans-serif}.page{min-height:100vh;padding:18px}.app{max-width:1320px;margin:auto;display:grid;grid-template-columns:232px 1fr;background:#f7f9fc;border:1px solid #d7dfeb;border-radius:18px;box-shadow:var(--shadow);overflow:hidden}.side{background:#fff;border-right:1px solid var(--line);padding:22px 16px;display:flex;flex-direction:column;gap:8px}.brand{display:flex;align-items:center;gap:10px;font-weight:900}.mark{width:34px;height:34px;border-radius:10px;background:#e8f6f1;display:grid;place-items:center;color:#11966e}.mark svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.brand small{display:block;color:var(--muted);font-weight:700}.side-section{display:grid;gap:6px}.side-label{font-size:11px;font-weight:900;color:#98a2b3;text-transform:uppercase;margin:6px 8px 2px}.side a{display:flex;align-items:center;gap:9px;text-decoration:none;color:#344054;padding:6px 10px;border-radius:9px;font-size:13px;font-weight:700}.side a:hover,.side a.active{background:#edf5ff;color:#175cd3}.ndot{width:8px;height:8px;border-radius:99px;background:currentColor}.side-foot{margin-top:auto;border:1px solid #d8f0e4;background:#effaf4;border-radius:12px;padding:12px;color:#166534}.main{padding:22px 24px 26px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.crumb{display:flex;align-items:center;gap:8px;color:#667085;font-weight:800}.crumb a{color:#175cd3;text-decoration:none}.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 11px;color:#344054;font-weight:800}.hero{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}.eyebrow{font-size:12px;color:#667085;font-weight:900;letter-spacing:.04em}.hero h1{font-size:30px;line-height:1.15;margin:8px 0 8px}.hero p{max-width:820px;color:var(--muted);margin:0}.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px}.drop{background:var(--surface);border:1px dashed #b9c6d8;border-radius:14px;padding:16px;min-height:154px;display:grid;align-content:start;gap:11px}.drop.ok{border-color:#8fd6bd;background:#f3fbf7}.drop h2{margin:0;font-size:16px}.drop small{color:var(--muted)}.drop input{width:100%;padding:9px;border:1px solid var(--line);border-radius:9px;background:#fff}.file-meta{font-weight:800;color:#166534;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.panel h2{font-size:19px;margin:0}.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.btn{border:0;border-radius:10px;padding:10px 13px;font-weight:900;cursor:pointer}.btn.primary{background:#152033;color:#fff}.btn.light{background:#eef4ff;color:#175cd3}.btn:disabled{opacity:.45;cursor:not-allowed}.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.stat{background:var(--surface2);border:1px solid #e4e9f2;border-radius:12px;padding:12px}.stat b{display:block;font-size:24px;line-height:1.1}.stat small{color:var(--muted);font-weight:800}.downloads{display:flex;gap:10px;flex-wrap:wrap}.download{display:none;text-decoration:none;border-radius:10px;padding:10px 13px;font-weight:900;background:#e9f8ef;color:#166534}.download.show{display:inline-flex}.log{border:1px solid #e4e9f2;background:#fbfcfe;border-radius:12px;padding:12px;min-height:74px;color:#344054;white-space:pre-wrap}.table-wrap{max-height:300px;overflow:auto;border:1px solid #e4e9f2;border-radius:12px}.table{width:100%;border-collapse:collapse;background:#fff}.table th,.table td{padding:8px 10px;border-bottom:1px solid #edf1f6;text-align:left;white-space:nowrap}.table th{position:sticky;top:0;background:#eef2f7;color:#344054}.status-ok{color:#166534;font-weight:900}.status-warn{color:#b45309;font-weight:900}.status-bad{color:#b42318;font-weight:900}@media(max-width:1050px){.app{grid-template-columns:1fr}.side{display:flex;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line)}.brand,.side-label,.side-foot{display:none}.side-section{display:flex;flex-direction:row;gap:4px}.side a{white-space:nowrap}.grid,.stats{grid-template-columns:1fr}.main{padding:18px}}@media(max-width:620px){.page{padding:0}.app{border-radius:0;border:0}.topbar{display:block}.chip{display:inline-flex;margin-top:10px}.hero h1{font-size:26px}.actions,.downloads{display:grid}.btn,.download{justify-content:center;width:100%}}
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="app">
+    <aside class="side">
+      <div class="brand"><span class="mark"><svg viewBox="0 0 24 24"><path d="M5 12a7 7 0 0 1 7-7h7v7a7 7 0 0 1-7 7H5z"/><path d="M9 12h6M12 9v6"/></svg></span><div>Wayfair Ops<small>AI Command Center</small></div></div>
+      <nav class="side-section">
+        <div class="side-label">入口</div>
+        <a href="../index.html"><span class="ndot"></span>Dashboard</a>
+        <a href="./Wayfair_帮助中心.html"><span class="ndot"></span>帮助中心</a>
+      </nav>
+      <nav class="side-section">
+        <div class="side-label">今日工作</div>
+        <a href="./Wayfair_运营执行中心_20260605.html"><span class="ndot"></span>执行中心</a>
+        <a href="./Wayfair_SKU任务清单_20260605.html"><span class="ndot"></span>任务清单</a>
+        <a href="./Wayfair_6月待办甘特图_20260604.html"><span class="ndot"></span>待办甘特图</a>
+      </nav>
+      <nav class="side-section">
+        <div class="side-label">数据与工具</div>
+        <a class="active" href="./Wayfair_每日库存生成工具_20260612.html"><span class="ndot"></span>每日库存生成</a>
+        <a href="./Wayfair_库存映射对照工具_20260604.html"><span class="ndot"></span>库存映射</a>
+        <a href="./Wayfair_数据补齐清单_20260604.html"><span class="ndot"></span>数据补齐</a>
+        <a href="./Wayfair_运营工作台_20260604.html"><span class="ndot"></span>项目状态</a>
+      </nav>
+      <nav class="side-section">
+        <div class="side-label">规则与背景</div>
+        <a href="./Wayfair_操作护栏_20260604.html"><span class="ndot"></span>操作护栏</a>
+        <a href="./Wayfair_店铺诊断_20260604.html"><span class="ndot"></span>店铺诊断</a>
+      </nav>
+      <div class="side-foot"><b>Production</b><small>ai-wayfair.vercel.app</small></div>
+    </aside>
+    <main class="main">
+      <div class="topbar">
+        <div class="crumb"><a href="../index.html">Dashboard</a><span>/</span><span>每日库存生成</span></div>
+        <span class="chip">浏览器本地处理，不上传原始数据</span>
+      </div>
+
+      <section class="hero">
+        <div class="eyebrow">WAYFAIR INVENTORY TOOL</div>
+        <h1>生成每日 Wayfair 库存文件</h1>
+        <p>以 Wayfair 库存模板的 SKU 和仓库行为准，按映射表找到领星 SKU 与仓库，用领星可用量回填 In Stock；无映射或无库存记录的行填 0，并输出审计清单。</p>
+      </section>
+
+      <section class="grid">
+        <label class="drop" id="templateDrop">
+          <h2>1. Wayfair 库存模板 CSV</h2>
+          <small>示例：Inventory_2026-06-12.csv</small>
+          <input id="templateFile" type="file" accept=".csv">
+          <span class="file-meta" id="templateMeta">未选择</span>
+        </label>
+        <label class="drop" id="mappingDrop">
+          <h2>2. YB 映射关系表 XLSX</h2>
+          <small>包含 SKU 汇总映射关系表、仓库映射关系表</small>
+          <input id="mappingFile" type="file" accept=".xlsx,.xls">
+          <span class="file-meta" id="mappingMeta">未选择</span>
+        </label>
+        <label class="drop" id="inventoryDrop">
+          <h2>3. 领星海外仓库存明细 XLSX</h2>
+          <small>使用 SKU / 仓库 / 可用量</small>
+          <input id="inventoryFile" type="file" accept=".xlsx,.xls">
+          <span class="file-meta" id="inventoryMeta">未选择</span>
+        </label>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>生成结果</h2>
+          <div class="actions">
+            <button class="btn light" id="clearBtn" type="button">清空</button>
+            <button class="btn primary" id="buildBtn" type="button" disabled>生成库存文件</button>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat"><b id="rowsStat">0</b><small>模板行数</small></div>
+          <div class="stat"><b id="okStat">0</b><small>正常匹配</small></div>
+          <div class="stat"><b id="missingSkuStat">0</b><small>缺 SKU 映射</small></div>
+          <div class="stat"><b id="missingInvStat">0</b><small>缺库存记录</small></div>
+          <div class="stat"><b id="qtyStat">0</b><small>写入总库存</small></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>下载</h2><small id="downloadHint">生成后显示</small></div>
+        <div class="downloads">
+          <a class="download" id="outputLink" download>Wayfair 库存 CSV</a>
+          <a class="download" id="auditLink" download>完整审计 CSV</a>
+          <a class="download" id="issuesLink" download>缺口清单 CSV</a>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>运行日志</h2><small>字段自动识别</small></div>
+        <div class="log" id="log" data-library-ready="pending">等待选择文件。</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>缺口预览</h2><small id="issueHint">只显示前 80 行</small></div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>Status</th><th>Supplier ID</th><th>Supplier Part#</th><th>领星 SKU</th><th>领星仓库</th><th>库存</th></tr></thead>
+            <tbody id="issuesBody"><tr><td colspan="6">暂无缺口。</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<script>
+const state = { template:null, mapping:null, inventory:null, urls:[] };
+window.addEventListener("load", () => {
+  const log = document.getElementById("log");
+  if (typeof XLSX === "undefined") {
+    log.dataset.libraryReady = "false";
+    log.textContent = "解析库未加载，请刷新页面后重试。";
+    document.getElementById("buildBtn").disabled = true;
+  } else {
+    log.dataset.libraryReady = "true";
+  }
+});
+const ids = ["templateFile","mappingFile","inventoryFile"];
+ids.forEach(id => document.getElementById(id).addEventListener("change", onFileChange));
+document.getElementById("buildBtn").addEventListener("click", build);
+document.getElementById("clearBtn").addEventListener("click", () => location.reload());
+
+function setLog(lines){ document.getElementById("log").textContent = Array.isArray(lines) ? lines.join("\n") : lines; }
+function text(value){ return value == null ? "" : String(value).trim(); }
+function normKey(value){ return text(value).toUpperCase(); }
+function normCol(value){ return text(value).replace(/[\s_/#\\-]+/g,"").toLowerCase(); }
+function cleanSupplierId(value){
+  const raw = text(value);
+  if (!raw) return "";
+  const n = Number(raw);
+  return Number.isFinite(n) && Number.isInteger(n) ? String(n) : raw;
+}
+function findColumn(rows, candidates, label){
+  const first = rows[0] || {};
+  const lookup = {};
+  Object.keys(first).forEach(col => lookup[normCol(col)] = col);
+  for (const candidate of candidates) {
+    const col = lookup[normCol(candidate)];
+    if (col) return col;
+  }
+  throw new Error(`无法识别${label}列：${Object.keys(first).join(", ")}`);
+}
+function splitSkus(value){
+  return text(value).split(/[,，;；\n\r]+/).map(normKey).filter(Boolean);
+}
+function readAsArrayBuffer(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(file);
+  });
+}
+async function readWorkbook(file){
+  const buffer = await readAsArrayBuffer(file);
+  return XLSX.read(buffer, { type:"array", cellDates:false, raw:false });
+}
+function sheetRows(workbook, sheetName){
+  const sheet = workbook.Sheets[sheetName];
+  return XLSX.utils.sheet_to_json(sheet, { defval:"" });
+}
+function firstSheet(workbook, matcher, fallbackIndex=0){
+  return workbook.SheetNames.find(matcher) || workbook.SheetNames[fallbackIndex] || workbook.SheetNames[0];
+}
+function toCsv(rows, header){
+  const escape = value => {
+    const s = text(value);
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+    return s;
+  };
+  return "\uFEFF" + [header.map(escape).join(","), ...rows.map(row => header.map(col => escape(row[col])).join(","))].join("\r\n");
+}
+function downloadUrl(linkId, filename, csv){
+  const blob = new Blob([csv], { type:"text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  state.urls.push(url);
+  const link = document.getElementById(linkId);
+  link.href = url;
+  link.download = filename;
+  link.classList.add("show");
+}
+async function onFileChange(event){
+  const input = event.target;
+  const file = input.files[0];
+  const key = input.id.replace("File","");
+  const meta = document.getElementById(`${key}Meta`);
+  const drop = document.getElementById(`${key}Drop`);
+  if (!file) return;
+  meta.textContent = file.name;
+  drop.classList.add("ok");
+  state[key] = file;
+  document.getElementById("buildBtn").disabled = !(state.template && state.mapping && state.inventory) || typeof XLSX === "undefined";
+  setLog(`已选择：${file.name}`);
+}
+function buildSkuMap(rows){
+  const wayfairCol = findColumn(rows, ["Supplier Part#","Supplier Part Number","Wayfair SKU","供应商SKU"], "Wayfair SKU 映射");
+  const lingxingCol = findColumn(rows, ["领星SKU","SKU","SKU编码","Lingxing SKU"], "领星 SKU 映射");
+  const map = new Map();
+  rows.forEach(row => {
+    const key = normKey(row[wayfairCol]);
+    const skus = splitSkus(row[lingxingCol]);
+    if (!key || !skus.length) return;
+    const existing = map.get(key) || [];
+    skus.forEach(sku => { if (!existing.includes(sku)) existing.push(sku); });
+    map.set(key, existing);
+  });
+  return { map, wayfairCol, lingxingCol };
+}
+function buildWarehouseMap(rows){
+  const idCol = findColumn(rows, ["云仓仓库ID","Supplier ID","Warehouse ID","Wayfair仓库ID"], "仓库 ID 映射");
+  const warehouseCol = findColumn(rows, ["BZ领星仓库","领星仓库","仓库","Warehouse"], "领星仓库映射");
+  const map = new Map();
+  rows.forEach(row => {
+    const id = cleanSupplierId(row[idCol]);
+    const warehouse = text(row[warehouseCol]);
+    if (id && warehouse) map.set(id, warehouse);
+  });
+  return { map, idCol, warehouseCol };
+}
+function buildInventoryLookup(rows){
+  const skuCol = findColumn(rows, ["SKU","领星SKU","MSKU"], "库存 SKU");
+  const warehouseCol = findColumn(rows, ["仓库","领星仓库","Warehouse"], "库存仓库");
+  const qtyCol = findColumn(rows, ["可用量","可售库存","可用库存","库存数量","Available"], "库存数量");
+  const lookup = new Map();
+  rows.forEach(row => {
+    const sku = normKey(row[skuCol]);
+    const warehouse = text(row[warehouseCol]);
+    const qty = Math.max(Math.floor(Number(String(row[qtyCol]).replace(/,/g,"")) || 0), 0);
+    if (!sku || !warehouse) return;
+    const key = `${sku}\u0001${warehouse}`;
+    lookup.set(key, (lookup.get(key) || 0) + qty);
+  });
+  return { lookup, skuCol, warehouseCol, qtyCol };
+}
+function lookupQty(mappedSkus, warehouse, lookup){
+  return mappedSkus.reduce((sum, sku) => sum + (lookup.get(`${sku}\u0001${warehouse}`) || 0), 0);
+}
+function hasInventory(mappedSkus, warehouse, lookup){
+  return mappedSkus.some(sku => lookup.has(`${sku}\u0001${warehouse}`));
+}
+async function build(){
+  try {
+    state.urls.forEach(URL.revokeObjectURL);
+    state.urls = [];
+    ["outputLink","auditLink","issuesLink"].forEach(id => document.getElementById(id).classList.remove("show"));
+    setLog("读取文件中...");
+
+    const [templateBook, mappingBook, inventoryBook] = await Promise.all([
+      readWorkbook(state.template),
+      readWorkbook(state.mapping),
+      readWorkbook(state.inventory),
+    ]);
+    const templateRows = sheetRows(templateBook, templateBook.SheetNames[0]);
+    const templateHeader = Object.keys(templateRows[0] || {});
+    const skuSheet = firstSheet(mappingBook, name => name.toUpperCase().includes("SKU"), 0);
+    const warehouseSheet = firstSheet(mappingBook, name => name.includes("仓库"), mappingBook.SheetNames.length - 1);
+    const skuRows = sheetRows(mappingBook, skuSheet);
+    const warehouseRows = sheetRows(mappingBook, warehouseSheet);
+    const inventoryRows = sheetRows(inventoryBook, inventoryBook.SheetNames[0]);
+
+    const supplierIdCol = findColumn(templateRows, ["Supplier ID","Warehouse ID"], "模板 Supplier ID");
+    const templateSkuCol = findColumn(templateRows, ["Supplier Part#","Supplier Part Number","Wayfair SKU","供应商SKU"], "模板 SKU");
+    const qtyCol = findColumn(templateRows, ["In Stock","Quantity","库存"], "模板库存");
+    const skuMap = buildSkuMap(skuRows);
+    const warehouseMap = buildWarehouseMap(warehouseRows);
+    const inventory = buildInventoryLookup(inventoryRows);
+
+    const outputRows = templateRows.map(row => ({...row}));
+    const auditRows = [];
+    outputRows.forEach(row => {
+      const supplierId = cleanSupplierId(row[supplierIdCol]);
+      const wayfairSku = normKey(row[templateSkuCol]);
+      const warehouse = warehouseMap.map.get(supplierId) || "";
+      const mappedSkus = skuMap.map.get(wayfairSku) || [];
+      let status = "OK";
+      let qty = 0;
+      if (!mappedSkus.length && !warehouse) status = "MISSING_SKU_AND_WAREHOUSE_MAPPING";
+      else if (!mappedSkus.length) status = "MISSING_SKU_MAPPING";
+      else if (!warehouse) status = "MISSING_WAREHOUSE_MAPPING";
+      else {
+        qty = lookupQty(mappedSkus, warehouse, inventory.lookup);
+        status = qty > 0 || hasInventory(mappedSkus, warehouse, inventory.lookup) ? "OK" : "MISSING_INVENTORY";
+      }
+      row[qtyCol] = qty;
+      auditRows.push({
+        "Supplier ID": supplierId,
+        "Supplier Part#": text(row[templateSkuCol]),
+        "Lingxing Warehouse": warehouse,
+        "Lingxing SKU": mappedSkus.join(";"),
+        "Output In Stock": qty,
+        "Status": status,
+      });
+    });
+
+    const issues = auditRows.filter(row => row.Status !== "OK");
+    const summary = {
+      rows: outputRows.length,
+      ok: auditRows.filter(row => row.Status === "OK").length,
+      missingSku: auditRows.filter(row => row.Status === "MISSING_SKU_MAPPING").length,
+      missingInventory: auditRows.filter(row => row.Status === "MISSING_INVENTORY").length,
+      totalQty: outputRows.reduce((sum, row) => sum + (Number(row[qtyCol]) || 0), 0),
+    };
+
+    document.getElementById("rowsStat").textContent = summary.rows;
+    document.getElementById("okStat").textContent = summary.ok;
+    document.getElementById("missingSkuStat").textContent = summary.missingSku;
+    document.getElementById("missingInvStat").textContent = summary.missingInventory;
+    document.getElementById("qtyStat").textContent = summary.totalQty;
+
+    const datePart = new Date().toISOString().slice(0,10);
+    downloadUrl("outputLink", `Wayfair_Inventory_${datePart}_generated.csv`, toCsv(outputRows, templateHeader));
+    downloadUrl("auditLink", `Wayfair_Inventory_${datePart}_audit.csv`, toCsv(auditRows, Object.keys(auditRows[0] || {})));
+    downloadUrl("issuesLink", `Wayfair_Inventory_${datePart}_issues.csv`, toCsv(issues, Object.keys(auditRows[0] || {})));
+    document.getElementById("downloadHint").textContent = "已生成";
+    renderIssues(issues);
+    setLog([
+      `模板：${state.template.name}`,
+      `映射表：${state.mapping.name}（${skuSheet} / ${warehouseSheet}）`,
+      `库存表：${state.inventory.name}`,
+      `识别字段：${supplierIdCol}, ${templateSkuCol}, ${qtyCol}; ${inventory.skuCol}, ${inventory.warehouseCol}, ${inventory.qtyCol}`,
+      `结果：${summary.ok} 行正常，${issues.length} 行需要复核。`
+    ]);
+  } catch (error) {
+    setLog(`生成失败：${error.message}`);
+    throw error;
+  }
+}
+function renderIssues(issues){
+  const body = document.getElementById("issuesBody");
+  body.innerHTML = "";
+  if (!issues.length) {
+    body.innerHTML = '<tr><td colspan="6">暂无缺口。</td></tr>';
+    return;
+  }
+  issues.slice(0,80).forEach(row => {
+    const tr = document.createElement("tr");
+    const statusClass = row.Status.includes("MISSING_SKU") ? "status-bad" : "status-warn";
+    tr.innerHTML = `<td class="${statusClass}">${row.Status}</td><td>${row["Supplier ID"]}</td><td>${row["Supplier Part#"]}</td><td>${row["Lingxing SKU"]}</td><td>${row["Lingxing Warehouse"]}</td><td>${row["Output In Stock"]}</td>`;
+    body.appendChild(tr);
+  });
+  document.getElementById("issueHint").textContent = `共 ${issues.length} 行，显示前 80 行`;
+}
+</script>
+</body>
+</html>

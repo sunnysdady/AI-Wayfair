@@ -99,6 +99,25 @@ python3 -m http.server 8787 --directory reports
 
 ---
 
+## 每日 Wayfair 库存文件
+
+使用 `scripts/build_wayfair_inventory.py` 将领星海外仓库存明细转换成 Wayfair 每日库存 CSV。输出以 Wayfair 库存模板的 `Supplier ID + Supplier Part#` 行为准，只更新 `In Stock`；无 SKU 映射、无仓库映射或领星无库存记录的行，库存填 `0`，并写入审计清单。
+
+```bash
+.venv/bin/python scripts/build_wayfair_inventory.py \
+  --template "/path/to/Inventory_YYYY-MM-DD.csv" \
+  --mapping "/path/to/YB-映射关系表.xlsx" \
+  --lingxing "/path/to/库存明细-仓库库存-YYYYMMDD.xlsx" \
+  --output outputs/Wayfair_Inventory_YYYY-MM-DD_generated.csv \
+  --audit-output outputs/Wayfair_Inventory_YYYY-MM-DD_audit.csv \
+  --issues-output outputs/Wayfair_Inventory_YYYY-MM-DD_issues.csv \
+  --summary-output outputs/Wayfair_Inventory_YYYY-MM-DD_summary.json
+```
+
+字段会自动识别：模板 `Supplier ID / Supplier Part# / In Stock`，映射表 `Supplier Part# / 领星SKU` 和 `云仓仓库ID / BZ领星仓库`，领星库存 `SKU / 仓库 / 可用量`。如果以后导出表头变化，可用脚本里的 `--*-col` 参数显式指定列名。
+
+---
+
 ## 定价体检口径
 
 定价体检表当前数据来源：
