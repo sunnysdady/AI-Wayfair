@@ -16,13 +16,21 @@ def find_repo_root() -> Path:
 ROOT = find_repo_root()
 REPORTS = ROOT / "reports"
 
-TASK_PAGES = [
-    "Wayfair_SKU任务清单_20260605.html",
-    "Wayfair_运营执行中心_20260605.html",
+def latest(pattern: str) -> str:
+    """同名报告取日期最新版，文件名不再硬编码日期。"""
+    files = sorted(REPORTS.glob(pattern))
+    if not files:
+        sys.exit(f"no file matches {pattern}")
+    return files[-1].name
+
+
+TASK_PAGE_PATTERNS = [
+    "Wayfair_SKU任务清单_*.html",
+    "Wayfair_运营执行中心_*.html",
 ]
-WALL_PAGES = {
-    "Wayfair_SKU经营档案_20260605.html": r"(<p>)\s*([^<>]{60,})\s*(</p>)",
-    "Wayfair_6月SKU分层与促销准入清单_20260604.html": r"(<td>)\s*([^<>]{60,})\s*(</td>)",
+WALL_PAGE_PATTERNS = {
+    "Wayfair_SKU经营档案_*.html": r"(<p>)\s*([^<>]{60,})\s*(</p>)",
+    "Wayfair_*SKU分层与促销准入清单_*.html": r"(<td>)\s*([^<>]{60,})\s*(</td>)",
 }
 
 
@@ -106,10 +114,10 @@ def main() -> None:
     if not REPORTS.exists():
         print(f"reports not found: {REPORTS}", file=sys.stderr)
         sys.exit(1)
-    for name in TASK_PAGES:
-        tidy_task_page(REPORTS / name)
-    for name, pattern in WALL_PAGES.items():
-        tidy_wall_page(REPORTS / name, pattern)
+    for glob_pat in TASK_PAGE_PATTERNS:
+        tidy_task_page(REPORTS / latest(glob_pat))
+    for glob_pat, pattern in WALL_PAGE_PATTERNS.items():
+        tidy_wall_page(REPORTS / latest(glob_pat), pattern)
 
 
 if __name__ == "__main__":

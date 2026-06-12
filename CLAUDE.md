@@ -19,6 +19,8 @@
 
 - 信息架构五分组：今日工作 / 执行清单 / 分析与档案 / 数据与工具 / 规则与背景；执行中心是唯一工作入口
 - 任务执行状态存 localStorage（key：`wf2:<taskId>`），执行中心与任务清单共享
-- 报告重新生成后必须依次跑：`tidy_report_tables.py` → `apply_dashboard_shell.py`，然后跑 SOP 里的审计脚本
+- 报告重新生成后跑一键流水线：`bash scripts/build_all.sh`（= tidy → shell → audit_site，任一步失败即停）
+- 任务清单换版本时：更新 `audit_site.py` 的 EXPECT_TASK_ROWS 期望行数，并更新任务页内的 `WF_TASKS_GEN`（旧标记会自动按过期处理）
+- KPI 数字只改 `apply_dashboard_shell.py` 的 KPIS/KPI_AS_OF（index 与全部报告页共用）
 - 不重命名已发布的 HTML 文件（线上有外链）
 - Cost Stack 口径：平台空间 = Retail Price Net − Total Cost

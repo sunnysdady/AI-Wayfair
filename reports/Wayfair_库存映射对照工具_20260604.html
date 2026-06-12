@@ -32,13 +32,35 @@
     <div class="wf-side-foot"><b>Production</b><small>ai-wayfair.vercel.app</small></div>
   </aside>
   <main class="wf-main">
-    <div class="wf-topbar"><div class="wf-search">搜索报告、SKU、库存、广告动作</div><div class="wf-top-actions"><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <div class="wf-topbar"><a class="wf-search" href="./Wayfair_帮助中心.html#help-q">搜索帮助、操作说明、口径规则…</a><div class="wf-top-actions"><span class="wf-chip">数据截至 2026-06-05</span><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
     <section class="wf-hero">
       <div class="wf-title-card"><div class="wf-eyebrow">Inventory check</div><h1>Wayfair 库存映射对照工具</h1><div class="wf-actions"><a class="wf-btn primary" href="./Wayfair_运营执行中心_20260605.html">执行中心</a><a class="wf-btn green" href="./Wayfair_库存映射对照工具_20260604.html">查库存</a><a class="wf-btn light" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html">促销准入</a></div></div>
       <aside class="wf-next-card"><h2>最短路径</h2><a href="./Wayfair_运营执行中心_20260605.html"><span>1. 本周做什么</span><small>执行中心</small></a><a href="./Wayfair_库存映射对照工具_20260604.html"><span>2. 动手前查库存</span><small>库存映射</small></a><a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span>3. 判断能不能促</span><small>促销准入</small></a></aside>
     </section>
-    <section class="wf-kpis"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
-    <main id="content" class="wf-content">
+    <section class="wf-kpis" title="数据截至 2026-06-05"><div class="wf-kpi"><div class="value">5月</div><span class="label">有效 Cost Stack</span></div><div class="wf-kpi"><div class="value">686</div><span class="label">库存明细行</span></div><div class="wf-kpi"><div class="value">11</div><span class="label">A 级 SKU</span></div><div class="wf-kpi"><div class="value">准入</div><span class="label">促销判断已生成</span></div></section>
+    <div id="content" class="wf-content">
+<div class='inv-filter'><input id='inv-q' type='search' placeholder='输入 SKU / 名称关键词过滤 686 行…' aria-label='过滤库存行'><small id='inv-count'></small></div>
+<style>.inv-filter{display:flex;gap:10px;align-items:center;margin:0 0 12px}.inv-filter input{flex:1;max-width:460px;height:40px;border:1px solid #d8e0ec;border-radius:999px;padding:0 16px;font:14px Arial,"Microsoft YaHei",sans-serif;outline:none}.inv-filter input:focus{border-color:#2870e8}.inv-filter small{color:#667085}</style>
+<script>
+(function(){
+  document.addEventListener('DOMContentLoaded',function(){
+    var q=document.getElementById('inv-q');
+    if(!q)return;
+    var rows=Array.prototype.slice.call(document.querySelectorAll('.wf-content tbody tr, .wf-content table tr')).filter(function(r){return r.querySelector('td');});
+    var count=document.getElementById('inv-count');
+    q.addEventListener('input',function(){
+      var terms=q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      var shown=0;
+      rows.forEach(function(r){
+        var hay=r.textContent.toLowerCase();
+        var ok=!terms.length||terms.every(function(t){return hay.indexOf(t)>-1;});
+        r.style.display=ok?'':'none'; if(ok)shown++;
+      });
+      count.textContent=terms.length?('匹配 '+shown+' 行'):'';
+    });
+  });
+})();
+</script>
 <header><h1>Wayfair 库存映射对照工具</h1><div class="meta">生成日期：2026-06-04 ｜ 库存明细 686 行 ｜ YB 产品上架 169 行 ｜ 6月 Cost Stack 已收到但为空，暂用上次有效 Cost Stack 口径</div></header>
 <div class="wrap"><p><a href="../index.html">返回项目导航</a></p><div class="grid"><a class='card' href='#conf-高'><div class='label'>高</div><div class='num'>57</div><div class='small'>可用 13155 / 在途 11643</div></a><a class='card' href='#conf-中'><div class='label'>中</div><div class='num'>29</div><div class='small'>可用 3739 / 在途 2159</div></a><a class='card' href='#conf-低'><div class='label'>低</div><div class='num'>14</div><div class='small'>可用 2194 / 在途 3946</div></a><a class='card' href='#conf-未匹配'><div class='label'>未匹配</div><div class='num'>106</div><div class='small'>可用 13119 / 在途 19569</div></a></div>
 <div class="note">Cost Stack 状态：6月导出文件已收到，但只有表头、0条数据；本轮库存映射不依赖该空表，价格/平台空间复核暂沿用上次有效 Cost Stack，待6月有效数据出来后替换。<br><br>用途：把仓库库存 SKU 配对到 Wayfair YB 工具表中的店铺 SKU / Supplier Part。高置信可直接用于库存-Listing 对照；中/低置信建议人工复核；未匹配不要直接用于补货或广告决策。</div>
@@ -260,9 +282,7 @@
 <tr><td><span class='pill bad'>未匹配</span></td><td>B02UR-022BM<div class='small'>黑色金属4层01网格置物架</div></td><td class='right'>0<div class='small'>锁 0 / 在途 42</div></td><td><div class='small'></div></td><td></td><td></td><td class='right'>1</td><td>未找到可靠规则或中文名匹配</td></tr>
 <tr><td><span class='pill bad'>未匹配</span></td><td>B03AM-006WM<div class='small'>白色金属单开门百叶小衣柜</div></td><td class='right'>0<div class='small'>锁 0 / 在途 85</div></td><td><div class='small'></div></td><td></td><td></td><td class='right'>2</td><td>未找到可靠规则或中文名匹配</td></tr>
 </tbody></table></div>
-
-</div>
-    </main>
+    </div>
   </main>
 </div></div>
 <script src="./assets/dashboard-shell.js"></script>
