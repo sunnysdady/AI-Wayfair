@@ -53,16 +53,31 @@ def tag(level: str) -> str:
     return f'<span class="review-tag {cls}">{esc(level)}</span>'
 
 
+def type_tag(t: str) -> str:
+    if not t:
+        return ""
+    cls = "ok" if t in ("放量", "维持", "进攻") else "p1" if t in ("验证", "别误杀", "缩减") else "p0" if t == "止损" else "info"
+    return f'<span class="review-tag {cls}">{esc(t)}</span>'
+
+
+def result_cell(r: dict[str, str]) -> str:
+    res = (r.get("result") or "").strip()
+    if res:
+        return f'<b>{esc(res)}</b>'
+    return '<span class="review-tag info">待回填</span>'
+
+
 def action_ledger() -> str:
     data = rows()
     weekly = [r for r in data if r["cadence"] == "Weekly"]
     pending = [r for r in data if r["status"] == "Pending"]
     body_rows = "\n".join(
         "<tr>"
-        f"<td>{tag(r['level'])}<br><small>{esc(r['action_id'])}</small></td>"
+        f"<td>{tag(r['level'])} {type_tag(r.get('type',''))}<br><small>{esc(r['action_id'])}</small></td>"
         f"<td><b>{esc(r['object'])}</b><br><small>{esc(r['cycle'])}</small></td>"
         f"<td><b>{esc(r['decision'])}</b><br>{esc(r['reason'])}</td>"
         f"<td>{esc(r['expected_metric'])}<br><small>Next: {esc(r['next_check'])}</small></td>"
+        f"<td>{result_cell(r)}</td>"
         f"<td>{esc(r['promote_rule'])}</td>"
         f"<td>{esc(r['stop_loss_rule'])}</td>"
         f"<td>{esc(r['owner'])}<br><span class=\"review-tag info\">{esc(r['status'])}</span></td>"
@@ -74,6 +89,7 @@ def action_ledger() -> str:
 {STYLE}
 <h1>Wayfair 复盘动作账本</h1>
 <div class="review-note"><b>用途：</b>把周复盘和月复盘的建议变成可跟踪动作。每条动作都必须回答：为什么做、谁做、什么时候复查、成功后如何推广、失败后如何止损。</div>
+<div class="review-note warn"><b>v2 口径升级（在 codex 基础上）：</b>① <b>真实订单优先于广告 14 天归因</b>——0 归因不等于该停，先看真实成交件数（DMOM1019 即被纠偏）；② <b>利润闸</b>：6 月成本未回填期间，所有"加预算"标"待毛利确认"；③ <b>库存硬门槛</b>：赢家要加预算必须库存健康，缺货先补货；④ <b>闭环结果列</b>：到 Next check 把实际结果回填到"结果"列，再触发推广或止损。</div>
 <div class="review-grid">
   <div class="review-card"><b>{len(data)}</b><small>当前动作</small></div>
   <div class="review-card"><b>{len(weekly)}</b><small>周复盘动作</small></div>
@@ -82,18 +98,18 @@ def action_ledger() -> str:
 </div>
 <h2>1. 本期动作账本</h2>
 <table class="review-table">
-  <thead><tr><th>级别</th><th>对象</th><th>动作与原因</th><th>复盘指标</th><th>推广规则</th><th>止损规则</th><th>负责人</th></tr></thead>
+  <thead><tr><th>级别 / 类型</th><th>对象</th><th>动作与原因</th><th>复盘指标</th><th>结果</th><th>推广规则</th><th>止损规则</th><th>负责人</th></tr></thead>
   <tbody>{body_rows}</tbody>
 </table>
 <h2>2. 闭环规则</h2>
 <div class="review-flow">
   <div><span>1</span><b>发现问题</b><small>订单、WSP 或月报触发异常。</small></div>
   <div><span>2</span><b>定位对象</b><small>落到账号、类目、Listing、SKU 或关键词。</small></div>
-  <div><span>3</span><b>给动作</b><small>只保留止损、修复、验证、推广四类动作。</small></div>
-  <div><span>4</span><b>复查结果</b><small>下个周期看指标是否达到预期。</small></div>
+  <div><span>3</span><b>给动作</b><small>止损、修复、验证、放量、进攻五类动作。</small></div>
+  <div><span>4</span><b>回填结果</b><small>到 Next check 把实际指标写进"结果"列。</small></div>
   <div><span>5</span><b>推广/止损</b><small>成功沉淀打法，失败停止消耗。</small></div>
 </div>
-<div class="review-note warn">周复盘不做结构性定论，只做快速止损和小预算验证。月复盘才决定长期 SKU 分层、Listing 修复优先级和类目策略。</div>
+<div class="review-note warn">周复盘不做结构性定论，只做快速止损和小预算验证；且优先看真实订单而非广告归因。月复盘才决定长期 SKU 分层、Listing 修复优先级和类目策略。周动作到 Next check 未回填结果的，下次自动进入月复盘重审，避免临时止损悄悄变永久。</div>
 </body></html>"""
 
 
@@ -103,6 +119,7 @@ def monthly_template() -> str:
 {STYLE}
 <h1>Wayfair 月复盘模板：账号 -> 类目 -> SKU -> 动作</h1>
 <div class="review-note"><b>目标：</b>让运营从店铺全盘看清问题，把增长、修复、止损和复制打法拆到 SKU 级别。月复盘只使用有效完整月报；空表、To Date 少量行、字段不完整的数据不得进入结构判断。</div>
+<div class="review-note warn"><b>四道闸（v2，进入 SKU 四象限前先过）：</b>① <b>真实订单闸</b>——以真实成交件数为主信号，广告 14 天归因只作辅助，0 归因但有真实单的不判止损；② <b>利润闸</b>——YB 成本/回款回填后用真实毛利重算 ROAS，未回填前所有"放量"只是候选；③ <b>库存闸</b>——放量前库存必须健康，缺货先补货不加预算；④ <b>闭环闸</b>——上期周/月动作的"结果"必须先回填，验证成功才推广、失败才止损。</div>
 <h2>1. 月复盘总览</h2>
 <div class="review-grid">
   <div class="review-card"><b>Revenue</b><small>MoM / YoY / vs category</small></div>

@@ -81,6 +81,7 @@
   <div class="ins">
     <div><label>① WSP Product Report（.csv）</label><input id="wrevProd" type="file" accept=".csv"></div>
     <div><label>② 订单明细（.xlsx，需含 SKU / 数量列）</label><input id="wrevOrd" type="file" accept=".xlsx,.xls"></div>
+    <div><label>③ Search Term Research（.csv，可选→进攻机会）</label><input id="wrevSt" type="file" accept=".csv"></div>
   </div>
   <button class="go" id="wrevGo" disabled>一键生成周复盘</button>
   <div class="log" id="wrevLog"></div>
@@ -101,6 +102,7 @@
 <script>
 (function(){
   var prodEl=document.getElementById("wrevProd"),ordEl=document.getElementById("wrevOrd"),
+      stEl=document.getElementById("wrevSt"),
       go=document.getElementById("wrevGo"),log=document.getElementById("wrevLog"),out=document.getElementById("wrevOut");
   if(!go)return;
   function L(m){log.classList.add("show");log.textContent+=(log.textContent?"\n":"")+m;log.scrollTop=log.scrollHeight;}
@@ -129,19 +131,25 @@
       var invMap={},stockMap={};
       invRows.forEach(function(r){var wf=(r["Wayfair店铺SKU"]||"").trim(),wh=(r["仓库SKU"]||"").trim(),sp=(r["SupplierPart"]||"").trim();
         if(wh)invMap[wh]=wf;if(sp)invMap[sp]=wf;if(wf)stockMap[wf]=(stockMap[wf]||0)+(parseFloat(r["可用量"])||0);});
+      var searchTerms=[];
+      if(stEl.files.length){L("读取 Search Term Research…");
+        var raw=(await readText(stEl.files[0])).split("\n");
+        // 跳过 Wayfair 导出的第 2 行字段描述
+        if(raw[1]&&/A 'Brand Catalog'|The term the customer/.test(raw[1]))raw.splice(1,1);
+        searchTerms=parseCSV(raw.join("\n"));}
       L("运行周复盘引擎…");
-      var res=window.WFWeeklyReview.compute({product:product,orders:orders,inventoryMap:invMap,stockMap:stockMap});
+      var res=window.WFWeeklyReview.compute({product:product,orders:orders,inventoryMap:invMap,stockMap:stockMap,searchTerms:searchTerms});
       document.getElementById("wkUnits").textContent=res.kpis.realUnits;
       document.getElementById("wkSpend").textContent="$"+res.kpis.adSpend;
       document.getElementById("wkSave").textContent="$"+res.kpis.burnSave;
       document.getElementById("wkWin").textContent=res.kpis.sellers;
       var tb=document.getElementById("wrevRows");tb.innerHTML="";
       res.ledger.forEach(function(l){var tr=document.createElement("tr");
-        tr.innerHTML="<td><span class='wrev-tag "+esc(l.level)+"'>"+esc(l.level)+"</span></td><td><b>"+esc(l.object)+"</b></td>"
+        tr.innerHTML="<td><span class='wrev-tag "+esc(l.level)+"'>"+esc(l.level)+"</span> <small>"+esc(l.type||"")+"</small></td><td><b>"+esc(l.object)+"</b></td>"
          +"<td><b>"+esc(l.decision)+"</b><div style='color:#667085'>"+esc(l.reason)+"</div></td><td style='color:#667085'>"+esc(l.expected_metric)+"</td>";
         tb.appendChild(tr);});
       // 下载 CSV（codex 14 字段结构）
-      var cols=["action_id","cycle","cadence","object","level","decision","reason","owner","due_date","expected_metric","next_check","status","promote_rule","stop_loss_rule"];
+      var cols=["action_id","cycle","cadence","object","level","type","decision","reason","owner","due_date","expected_metric","next_check","status","result","promote_rule","stop_loss_rule"];
       var csv=cols.join(",")+"\n"+res.ledger.map(function(l){return cols.map(function(c){return '"'+String(l[c]||"").replace(/"/g,'""')+'"';}).join(",");}).join("\n");
       var dl=document.getElementById("wrevDl");dl.style.display="inline-block";
       dl.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}));dl.download="Wayfair_周复盘动作账本_自动.csv";
