@@ -539,9 +539,9 @@ def kpi_section() -> str:
 def data_alert() -> str:
     upload = first_matching("数据上传中心")
     return f"""<section class="wf-data-alert">
-      <div><b>数据提醒</b><div class="stamp">需更新</div></div>
-      <div><p>当前页面订单和固定成本已补到 <b>{KPI_AS_OF}</b>。截至 {DATA_REFRESH_DATE}，若要做本周执行、促销、补货或广告判断，还需要补齐 <b>{DATA_REFRESH_WINDOW}</b> 的广告、库存、客诉和促销资料。</p>
-      <ul><li>优先提交：6月 Cost Stack、促销/折扣、最新库存、Listing Health、WSP、订单与客诉。</li><li><a href="{upload}">去数据上传中心</a></li></ul></div>
+      <div><b>周复盘口径</b><div class="stamp">订单+广告</div></div>
+      <div><p>当前页面订单和固定成本已补到 <b>{KPI_AS_OF}</b>。截至 {DATA_REFRESH_DATE}，本周复盘只强依赖 <b>{DATA_REFRESH_WINDOW}</b> 的订单数据和广告数据；Report Center 6 月 To Date 资料少且可能为空表，下载后必须验行数和字段，不能作为全量周更前提。</p>
+      <ul><li>每周必需：本周订单、WSP/广告花费、转化和 ROAS。</li><li>月度或有效时纳入：Report Center、Listing Health、Cost Stack、Product Catalog、客诉/促销清单；5 月完整报告继续作为结构基线。</li><li><a href="{upload}">去数据上传中心</a></li></ul></div>
     </section>"""
 
 

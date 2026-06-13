@@ -1169,11 +1169,11 @@ def render_execution_center(profiles: pd.DataFrame, tasks: pd.DataFrame) -> None
   <a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><b>3. 决定流量/转化动作</b><small>盈利款放量，腰部款修短板，尾部无销量先观察。</small></a>
   <a href="./Wayfair_SKU任务清单_20260605.html"><b>4. 管理盘复盘</b><small>按 P0/P1/P2 跟进执行状态，下次用结果修正模型。</small></a>
 </div></div>
-<div class="section"><h2>2. 本周先做什么</h2><p>先按店铺经营价值排序：当前盈利款和可盈利候选款优先，尾部无销量产品不进入本周核心池。</p><div class='week-progress'>本周已执行 <b id='done-count'>0</b> / <span id='total-count'>20</span><div class='pbar'><i id='progress-bar'></i></div></div>{task_table(weekly, 20)}</div>
+<div class="section"><h2>2. 本周先做什么</h2><p>周复盘只强依赖订单和广告数据：先看本周订单增量、花费、ROAS/转化和真实毛利，再决定止损、保守测试或加预算；Report Center 月报只在有效导出后做结构复盘。</p><div class="card"><b>本周复盘输入</b><p>必需：订单数据 + WSP/广告数据。非阻塞：6 月 Report Center 少量报告或空表、Listing Health、Cost Stack、Customer Feedback，这些等有效月报后重跑结构结论。</p></div><div class='week-progress'>本周已执行 <b id='done-count'>0</b> / <span id='total-count'>20</span><div class='pbar'><i id='progress-bar'></i></div></div>{task_table(weekly, 20)}</div>
 <div class="section"><h2>3. 问题类型分布</h2><div class="grid">
 {''.join(f"<div class='card'><div class='num'>{int(v)}</div><b>{esc(k)}</b></div>" for k, v in type_counts.items())}
 </div></div>
-<div class="section"><h2>4. 等数据 / 需确认</h2>{task_table(wait_data, 20) if not wait_data.empty else '<div class="card">当前没有单独的数据缺口任务；仍需关注有效 6 月 Cost Stack 和当前促销折扣清单。</div>'}</div>
+<div class="section"><h2>4. 等数据 / 需确认</h2>{task_table(wait_data, 20) if not wait_data.empty else '<div class="card">当前没有阻塞本周复盘的数据缺口；周复盘以订单+广告为准，Report Center、Cost Stack、Listing 等月度资料等有效导出后再重跑结构结论。</div>'}</div>
 <div class="section"><h2>5. 全量任务入口</h2><div class="grid"><a class="linkcard" href="./Wayfair_SKU任务清单_20260605.html"><h3>SKU 任务清单</h3><p>全量 178 条任务，按 P0/P1/P2 筛选和标记进度。</p></a><a class="linkcard" href="./Wayfair_SKU经营档案_20260605.html"><h3>SKU 经营档案</h3><p>单 SKU 成本、库存、广告、促销和 Listing 证据。</p></a></div></div>
 """
     OUT_EXEC_CENTER.write_text(page("Wayfair 运营执行中心", body), encoding="utf-8")

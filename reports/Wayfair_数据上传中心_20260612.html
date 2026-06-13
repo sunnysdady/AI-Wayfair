@@ -44,6 +44,7 @@
 <h1>Wayfair 数据上传中心</h1>
 
 <h2>1. 上传频率与资料入口</h2>
+<div class="callout warn"><b>周复盘资料口径：</b>每周必须更新的是订单数据和广告数据，用来判断本周订单变化、花费、ROAS、止损和加预算。不要把“每周上传”理解成 6 月所有 Report Center 报告都必须有当月版；6 月 To Date 只开放少量报告，且下载后可能只有表头或没有有效数据。当前结构判断以 5 月完整月报为稳定基线，6 月资料只在“可下载 + 有数据行 + 字段有效”后才纳入复算。</div>
 <div class="upload-grid">
   <div class="upload-card" data-slot="daily_inventory">
     <span class="freq">每日 / 高频</span>
@@ -53,30 +54,30 @@
     <div class="upload-meta">未选择</div>
   </div>
   <div class="upload-card" data-slot="weekly_listing">
-    <span class="freq week">每周</span>
+    <span class="freq month">月度 / 有效时</span>
     <h3>Listing Health / Option Drill Down</h3>
-    <small>用于 SKU 经营档案、价值分级、评分评论体检。</small>
+    <small>Report Center 6 月若没有有效当月数据，继续沿用 5 月完整报告做结构基线。</small>
     <input type="file" multiple accept=".csv,.xlsx,.xls">
     <div class="upload-meta">未选择</div>
   </div>
   <div class="upload-card" data-slot="weekly_ads">
-    <span class="freq week">每周</span>
+    <span class="freq week">周复盘必需</span>
     <h3>WSP Keyword / Campaign / Targeting</h3>
-    <small>用于广告调整、关键词调整、执行中心广告动作。</small>
+    <small>每周广告判断的核心输入；只上传有数据内容的导出，空表不进入广告动作判断。</small>
     <input type="file" multiple accept=".csv,.xlsx,.xls">
     <div class="upload-meta">未选择</div>
   </div>
   <div class="upload-card" data-slot="monthly_cost">
     <span class="freq month">月度</span>
     <h3>Cost Stack / Product Catalog</h3>
-    <small>用于定价体检、Catalog 定价、利润空间复核。</small>
+    <small>5 月 Cost Stack 当前有效；6 月 To Date 下载后必须先验行数，空表不用。</small>
     <input type="file" multiple accept=".csv,.xlsx,.xls">
     <div class="upload-meta">未选择</div>
   </div>
   <div class="upload-card" data-slot="weekly_order">
-    <span class="freq week">每周</span>
+    <span class="freq week">周复盘必需</span>
     <h3>订单 / 客诉扣款 / 促销清单</h3>
-    <small>用于促销准入、SKU 价值分级、利润复盘。</small>
+    <small>订单是周复盘必需；客诉/促销如无 6 月有效导出，不强行补空文件。</small>
     <input type="file" multiple accept=".csv,.xlsx,.xls">
     <div class="upload-meta">未选择</div>
   </div>
@@ -110,9 +111,10 @@
   <thead><tr><th>频率</th><th>资料</th><th>当前用途</th><th>缺失时的风险</th></tr></thead>
   <tbody>
     <tr><td>每日 / 高频</td><td>库存模板、领星海外仓库存、YB 映射表</td><td>生成 Wayfair 库存文件</td><td>库存为 0 或仓库错配，影响可售与广告动作</td></tr>
-    <tr><td>每周</td><td>Listing Health、Option Drill Down、WSP Keyword</td><td>更新执行中心与广告清单</td><td>仍按旧转化、旧流量、旧广告建议执行</td></tr>
-    <tr><td>每周</td><td>订单、客诉扣款、促销/折扣清单</td><td>重算 SKU 价值和促销准入</td><td>P0/P1 排序会偏旧，利润判断滞后</td></tr>
-    <tr><td>月度</td><td>Cost Stack、Product Catalog</td><td>定价体检和利润空间复核</td><td>Base、平台空间、毛利建议失真</td></tr>
+    <tr><td>每周必需</td><td>订单数据、本周 WSP/广告数据</td><td>周复盘、广告止损/加预算、P0/P1 动作确认</td><td>缺任一项时，只能做库存/价格维护，不做广告加码结论</td></tr>
+    <tr><td>月度 / 有效时</td><td>Report Center 完整月报：Listing、Option、Customer Feedback、Cancellations、Cost Stack 等</td><td>结构性复盘、评分评论、Listing 和长期分层</td><td>6 月 To Date 少量报告或空表不算周复盘缺口，不阻塞本周动作</td></tr>
+    <tr><td>有效时</td><td>客诉扣款、促销/折扣清单</td><td>重算 SKU 价值和促销准入</td><td>不要上传空文件；等有效导出后再重排 P0/P1</td></tr>
+    <tr><td>月度</td><td>Cost Stack、Product Catalog</td><td>定价体检和利润空间复核</td><td>5 月 Cost Stack 当前有效；6 月空表不用于价格结论</td></tr>
   </tbody>
 </table>
 
