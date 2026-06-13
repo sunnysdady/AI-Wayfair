@@ -44,6 +44,90 @@
     <div id="content" class="wf-content">
 <h1>Wayfair 数据上传中心</h1>
 
+<style>
+.run-panel{border:1px solid #d8e0ec;border-radius:14px;background:#fbfdff;padding:18px;margin:6px 0 20px}
+.run-panel h2{margin:0 0 4px}
+.run-sub{color:#667085;font-size:13px;margin:0 0 14px}
+.run-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.run-file{flex:1;min-width:260px;padding:10px;border:1px dashed #b9c6d8;border-radius:10px;background:#fff}
+.run-btn{border:0;border-radius:10px;padding:11px 18px;font-weight:900;cursor:pointer;background:#152033;color:#fff}
+.run-btn:disabled{opacity:.5;cursor:not-allowed}
+.run-log{margin:14px 0 0;background:#0f1626;color:#cde3ff;border-radius:10px;padding:12px 14px;font:12px/1.7 ui-monospace,Menlo,monospace;white-space:pre-wrap;max-height:200px;overflow:auto;display:none}
+.run-log.show{display:block}
+.run-out{display:none;margin-top:16px}
+.run-out.show{display:block}
+.run-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.run-kpi{background:#fff;border:1px solid #e4e9f2;border-radius:12px;padding:12px}
+.run-kpi b{display:block;font-size:24px;line-height:1.1}
+.run-kpi small{color:#667085;font-weight:800}
+.run-dl{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.run-dl a{text-decoration:none;background:#e9f8ef;color:#166534;border-radius:10px;padding:9px 13px;font-weight:900}
+.run-note{color:#667085;font-size:12px;line-height:1.6;margin-top:10px}
+.run-tbl-wrap{max-height:340px;overflow:auto;border:1px solid #e4e9f2;border-radius:12px}
+.run-tbl{width:100%;border-collapse:collapse;background:#fff;font-size:12px}
+.run-tbl th,.run-tbl td{padding:7px 9px;border-bottom:1px solid #eef1f6;text-align:left;vertical-align:top}
+.run-tbl th{position:sticky;top:0;background:#eef2f7;font-weight:900}
+.run-p0{color:#b42318;font-weight:900}.run-p1{color:#b45309;font-weight:900}
+</style>
+
+<section class="run-panel">
+  <h2>0. 上传并当场重算分析</h2>
+  <p class="run-sub">选月度 YB 工具表 xlsx → 浏览器里直接跑真分析（定价体检 + 全量任务），当场预览并下载重算后的 CSV。无需后端、文件不离开你的电脑。<b>注意：这一步只生成结果给你看/下载，不会改动线上网站</b>——让线上自动更新属于后端方案（见页尾说明）。</p>
+  <div class="run-row">
+    <input class="run-file" id="ybFile" type="file" accept=".xlsx,.xls" aria-label="上传 YB 工具表">
+    <button class="run-btn" id="runBtn" disabled>运行分析</button>
+  </div>
+  <div class="run-log" id="runLog"></div>
+  <div class="run-out" id="runOut">
+    <div class="run-kpis">
+      <div class="run-kpi"><b id="kpiTasks">—</b><small>生成任务</small></div>
+      <div class="run-kpi"><b id="kpiP0">—</b><small>P0 待办</small></div>
+      <div class="run-kpi"><b id="kpiPricing">—</b><small>定价体检 SKU</small></div>
+    </div>
+    <div class="run-dl" id="runDl"></div>
+    <div class="run-tbl-wrap">
+      <table class="run-tbl"><thead><tr><th>优先级</th><th>SKU</th><th>类型</th><th>触发原因</th><th>建议动作</th></tr></thead>
+      <tbody id="runRows"></tbody></table>
+    </div>
+    <p class="run-note">想把这些结果变成线上正式版本：把下载的 CSV 交维护者跑 <code>build_all.sh</code> 部署，或推进"后端自动分析"（见下方架构说明）。</p>
+  </div>
+</section>
+<script src="./assets/analysis-engine.js"></script>
+<script>
+(function(){
+  var fileEl=document.getElementById("ybFile"),btn=document.getElementById("runBtn"),
+      log=document.getElementById("runLog"),out=document.getElementById("runOut");
+  if(!fileEl||!btn)return;
+  function append(m){log.classList.add("show");log.textContent+=(log.textContent?"\n":"")+m;log.scrollTop=log.scrollHeight;}
+  fileEl.addEventListener("change",function(){btn.disabled=!fileEl.files.length;});
+  btn.addEventListener("click",async function(){
+    if(!fileEl.files.length)return;
+    btn.disabled=true;log.textContent="";out.classList.remove("show");
+    try{
+      var res=await window.WFAnalysis.run(fileEl.files[0],{onLog:append});
+      var rows=res.taskRows||[];
+      document.getElementById("kpiTasks").textContent=res.taskCount||rows.length;
+      document.getElementById("kpiP0").textContent=rows.filter(function(r){return r.priority==="P0";}).length;
+      var pc=(res.pricingCsv||"").trim().split("\n").length-1;
+      document.getElementById("kpiPricing").textContent=pc>0?pc:"—";
+      var dl=document.getElementById("runDl");dl.innerHTML="";
+      [["产品定价体检表.csv",res.pricingCsv],["运营任务清单.csv",res.tasksCsv],["SKU经营档案.csv",res.profilesCsv]]
+        .forEach(function(p){if(!p[1])return;var a=document.createElement("a");
+          var blob=new Blob(["﻿"+p[1]],{type:"text/csv;charset=utf-8"});
+          a.href=URL.createObjectURL(blob);a.download="Wayfair_"+p[0];a.textContent="下载 "+p[0];dl.appendChild(a);});
+      var tb=document.getElementById("runRows");tb.innerHTML="";
+      rows.slice(0,80).forEach(function(r){var tr=document.createElement("tr");
+        var cls=r.priority==="P0"?"run-p0":(r.priority==="P1"?"run-p1":"");
+        tr.innerHTML="<td class='"+cls+"'>"+esc(r.priority)+"</td><td>"+esc(r.sku)+"</td><td>"+esc(r.type)+"</td><td>"+esc(r.reason)+"</td><td>"+esc(r.action)+"</td>";
+        tb.appendChild(tr);});
+      out.classList.add("show");
+    }catch(e){append("✗ 出错："+(e&&e.message?e.message:e));}
+    finally{btn.disabled=false;}
+  });
+  function esc(s){return String(s==null?"":s).replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
+})();
+</script>
+
 <h2>1. 上传频率与资料入口</h2>
 <div class="upload-grid">
   <div class="upload-card" data-slot="daily_inventory">

@@ -4,5 +4,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 python3 scripts/tidy_report_tables.py
 python3 scripts/apply_dashboard_shell.py
+python3 scripts/refresh_browser_baselines.py
 python3 scripts/audit_site.py
 echo "build_all OK"
