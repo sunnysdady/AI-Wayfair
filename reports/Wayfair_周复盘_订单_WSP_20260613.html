@@ -53,6 +53,105 @@
     <section class="mast">
       <div class="eyebrow">Weekly Business Review</div>
       <h1>Wayfair 周复盘报告：订单 + WSP 广告</h1>
+
+<style>
+.wrev{border:1px solid #d8e0ec;border-radius:14px;background:#fbfdff;padding:18px;margin:14px 0 8px}
+.wrev h2{margin:0 0 4px;display:block}
+.wrev .sub{color:#667085;font-size:13px;margin:0 0 14px}
+.wrev .ins{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.wrev .ins label{display:block;font-size:12px;font-weight:800;color:#344054;margin-bottom:5px}
+.wrev .ins input{width:100%;padding:9px;border:1px dashed #b9c6d8;border-radius:10px;background:#fff;font-size:13px}
+.wrev .go{border:0;border-radius:10px;padding:11px 18px;font-weight:900;cursor:pointer;background:#152033;color:#fff}
+.wrev .go:disabled{opacity:.5;cursor:not-allowed}
+.wrev .log{margin-top:12px;background:#0f1626;color:#cde3ff;border-radius:10px;padding:11px 13px;font:12px/1.7 ui-monospace,Menlo,monospace;white-space:pre-wrap;max-height:170px;overflow:auto;display:none}
+.wrev .log.show{display:block}
+.wrev-out{display:none;margin-top:14px}.wrev-out.show{display:block}
+.wrev-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.wrev-kpi{background:#fff;border:1px solid #e4e9f2;border-radius:12px;padding:12px}.wrev-kpi b{display:block;font-size:22px}.wrev-kpi small{color:#667085;font-weight:800}
+.wrev-led{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;font-size:13px;margin:8px 0}
+.wrev-led th,.wrev-led td{padding:8px 10px;border-bottom:1px solid #eef1f6;text-align:left;vertical-align:top}
+.wrev-led th{background:#f1f5f9;font-weight:800}
+.wrev-tag{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:900}
+.wrev-tag.P0{background:#fee2e2;color:#b42318}.wrev-tag.P1{background:#fef3c7;color:#92400e}
+.wrev-dl{display:inline-block;text-decoration:none;background:#e9f8ef;color:#166534;border-radius:10px;padding:9px 13px;font-weight:900;margin-top:6px}
+</style>
+<section class="wrev">
+  <h2>⚡ 上传数据 · 一键生成本周复盘（不用跑脚本）</h2>
+  <p class="sub">上传本周 <b>Product Report CSV</b> + <b>订单明细 xlsx</b> → 点按钮 → 浏览器当场跑「广告花费 × 真实订单」交叉，自动产出动作账本（止损/保护/验证/缩减）并可下载 CSV。库存映射随页面附带，文件不离开你的电脑、不改动线上。</p>
+  <div class="ins">
+    <div><label>① WSP Product Report（.csv）</label><input id="wrevProd" type="file" accept=".csv"></div>
+    <div><label>② 订单明细（.xlsx，需含 SKU / 数量列）</label><input id="wrevOrd" type="file" accept=".xlsx,.xls"></div>
+  </div>
+  <button class="go" id="wrevGo" disabled>一键生成周复盘</button>
+  <div class="log" id="wrevLog"></div>
+  <div class="wrev-out" id="wrevOut">
+    <div class="wrev-kpis">
+      <div class="wrev-kpi"><b id="wkUnits">—</b><small>真实成交件</small></div>
+      <div class="wrev-kpi"><b id="wkSpend">—</b><small>广告花费</small></div>
+      <div class="wrev-kpi"><b id="wkSave">—</b><small>可省(0单组)</small></div>
+      <div class="wrev-kpi"><b id="wkWin">—</b><small>赢家SKU</small></div>
+    </div>
+    <table class="wrev-led"><thead><tr><th>级别</th><th>对象</th><th>决策与原因</th><th>复盘指标</th></tr></thead><tbody id="wrevRows"></tbody></table>
+    <a class="wrev-dl" id="wrevDl" style="display:none">下载动作账本 CSV</a>
+    <p class="sub" style="margin-top:10px">这是当场算的结果，仅供你看和下载；要进线上正式动作账本，把 CSV 交维护者跑 build_all。口径同 codex 周复盘：只做止损 + 小预算验证，不下结构性定论。</p>
+  </div>
+</section>
+<script src="./assets/xlsx.full.min.js"></script>
+<script src="./assets/weekly-review-engine.js"></script>
+<script>
+(function(){
+  var prodEl=document.getElementById("wrevProd"),ordEl=document.getElementById("wrevOrd"),
+      go=document.getElementById("wrevGo"),log=document.getElementById("wrevLog"),out=document.getElementById("wrevOut");
+  if(!go)return;
+  function L(m){log.classList.add("show");log.textContent+=(log.textContent?"\n":"")+m;log.scrollTop=log.scrollHeight;}
+  function chk(){go.disabled=!(prodEl.files.length&&ordEl.files.length);}
+  prodEl.addEventListener("change",chk);ordEl.addEventListener("change",chk);
+  function parseCSV(t){var rows=[],row=[],cur="",q=false;
+    for(var i=0;i<t.length;i++){var c=t[i];
+      if(q){if(c=='"'&&t[i+1]=='"'){cur+='"';i++;}else if(c=='"')q=false;else cur+=c;}
+      else{if(c=='"')q=true;else if(c==","){row.push(cur);cur="";}
+        else if(c=="\n"){row.push(cur);rows.push(row);row=[];cur="";}
+        else if(c!="\r")cur+=c;}}
+    if(cur.length||row.length){row.push(cur);rows.push(row);}
+    var h=rows[0];return rows.slice(1).filter(function(r){return r.length>1;}).map(function(r){var o={};h.forEach(function(k,i){o[k]=r[i];});return o;});}
+  function readText(f){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result);};r.onerror=rej;r.readAsText(f);});}
+  function readBuf(f){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result);};r.onerror=rej;r.readAsArrayBuffer(f);});}
+  go.addEventListener("click",async function(){
+    go.disabled=true;log.textContent="";out.classList.remove("show");
+    try{
+      L("读取 Product Report…");
+      var product=parseCSV(await readText(prodEl.files[0]));
+      L("读取订单 xlsx…");
+      var wb=XLSX.read(new Uint8Array(await readBuf(ordEl.files[0])),{type:"array"});
+      var orders=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
+      L("加载库存映射基线…");
+      var invRows=parseCSV(await (await fetch("./assets/baseline/inventory_map.csv.txt",{cache:"no-cache"})).text());
+      var invMap={},stockMap={};
+      invRows.forEach(function(r){var wf=(r["Wayfair店铺SKU"]||"").trim(),wh=(r["仓库SKU"]||"").trim(),sp=(r["SupplierPart"]||"").trim();
+        if(wh)invMap[wh]=wf;if(sp)invMap[sp]=wf;if(wf)stockMap[wf]=(stockMap[wf]||0)+(parseFloat(r["可用量"])||0);});
+      L("运行周复盘引擎…");
+      var res=window.WFWeeklyReview.compute({product:product,orders:orders,inventoryMap:invMap,stockMap:stockMap});
+      document.getElementById("wkUnits").textContent=res.kpis.realUnits;
+      document.getElementById("wkSpend").textContent="$"+res.kpis.adSpend;
+      document.getElementById("wkSave").textContent="$"+res.kpis.burnSave;
+      document.getElementById("wkWin").textContent=res.kpis.sellers;
+      var tb=document.getElementById("wrevRows");tb.innerHTML="";
+      res.ledger.forEach(function(l){var tr=document.createElement("tr");
+        tr.innerHTML="<td><span class='wrev-tag "+esc(l.level)+"'>"+esc(l.level)+"</span></td><td><b>"+esc(l.object)+"</b></td>"
+         +"<td><b>"+esc(l.decision)+"</b><div style='color:#667085'>"+esc(l.reason)+"</div></td><td style='color:#667085'>"+esc(l.expected_metric)+"</td>";
+        tb.appendChild(tr);});
+      // 下载 CSV（codex 14 字段结构）
+      var cols=["action_id","cycle","cadence","object","level","decision","reason","owner","due_date","expected_metric","next_check","status","promote_rule","stop_loss_rule"];
+      var csv=cols.join(",")+"\n"+res.ledger.map(function(l){return cols.map(function(c){return '"'+String(l[c]||"").replace(/"/g,'""')+'"';}).join(",");}).join("\n");
+      var dl=document.getElementById("wrevDl");dl.style.display="inline-block";
+      dl.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}));dl.download="Wayfair_周复盘动作账本_自动.csv";
+      out.classList.add("show");L("完成：生成 "+res.ledger.length+" 条动作。");
+    }catch(e){L("✗ 出错："+(e&&e.message?e.message:e));}
+    finally{go.disabled=false;}
+  });
+  function esc(s){return String(s==null?"":s).replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
+})();
+</script>
       <div class="meta">模拟报告日期：2026-06-13。核心用途：用订单数据和 WSP 五类广告报表完成本周动作复盘，输出止损、保留、降 bid、放量验证清单。</div>
       <div class="toolbar">
         <span class="pill">订单：2026-06-01 至 2026-06-12</span>
