@@ -97,6 +97,46 @@ body.wf-app-body{background:#f5f6fa;color:#202224;font-family:"Nunito Sans","Pin
 .wf-content .panel,.wf-content .drop,.wf-content .stat,.wf-content .log{border:1px solid #edf0f6;border-radius:16px;background:#fff;box-shadow:var(--shadow)}.wf-content .panel{padding:18px;margin:0 0 16px}.wf-content .panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.wf-content .panel-head h2,.wf-content .drop h2{margin:0!important;color:#202224;font-size:17px!important}.wf-content .panel-head small,.wf-content .drop small{color:#8b95a5;font-weight:800}.wf-content .drop{min-height:150px;padding:18px;display:grid;align-content:start;gap:11px;border-style:dashed}.wf-content .drop.ok{border-color:#c8f6ea;background:#f7fffc}.wf-content .drop input,.wf-content input[type="file"]{width:100%;border:1px solid #edf0f6;border-radius:10px;background:#f8f9fc;padding:9px}.wf-content .file-meta{color:#00a88e;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wf-content .stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}.wf-content .stat{padding:16px;box-shadow:none}.wf-content .stat b{display:block;color:#202224;font-size:28px;line-height:1.1}.wf-content .stat small{color:#8b95a5;font-weight:900}.wf-content .actions,.wf-content .downloads{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.wf-content .btn,.wf-content .download{border:0;border-radius:10px;padding:10px 14px;font-weight:950;text-decoration:none;cursor:pointer}.wf-content .btn.primary{background:#4880ff;color:#fff;box-shadow:0 8px 18px rgba(72,128,255,.2)}.wf-content .btn.light{background:#f4f7ff;color:#3567d6}.wf-content .btn:disabled{opacity:.45;cursor:not-allowed}.wf-content .download{display:none;background:#e9fff8;color:#00a88e}.wf-content .download.show{display:inline-flex}.wf-content .log{min-height:78px;padding:14px;color:#596579;white-space:pre-wrap;box-shadow:none}.wf-content .table-wrap{max-height:420px;overflow:auto;border:1px solid #edf0f6;border-radius:14px;background:#fff;box-shadow:var(--shadow)}.wf-content .table{width:100%;border-collapse:collapse;background:#fff}.wf-content .table th,.wf-content .table td{padding:11px 12px;border-bottom:1px solid #edf0f6;text-align:left;white-space:nowrap}.wf-content .table th{position:sticky;top:0;background:#fafbfe;color:#596579}.wf-content .status-ok{color:#00a88e;font-weight:950}.wf-content .status-warn{color:#d97706;font-weight:950}.wf-content .status-bad{color:#ef3826;font-weight:950}
 @media(max-width:900px){.wf-content .stats{grid-template-columns:1fr 1fr}.wf-content .actions,.wf-content .downloads{display:grid}.wf-content .btn,.wf-content .download{justify-content:center;width:100%}}@media(max-width:620px){.wf-content .stats{grid-template-columns:1fr}.wf-content .panel{padding:14px}.wf-content .drop{min-height:130px}}
 @media(max-width:1100px){.wf-app{grid-template-columns:1fr}.wf-side{height:auto;box-shadow:none}.wf-main{padding:18px}.wf-topbar{margin:-18px -18px 18px;padding:12px 18px}.wf-reader-tools,.profile-toolbar{top:64px}}@media(max-width:680px){.wf-topbar{display:block}.wf-top-actions{margin-top:10px}.wf-title-card{border-radius:14px}.wf-title-card h1{font-size:22px}.wf-app{width:100%}}
+/* ===== Linear theme overlay (放最后，统一全站为 Linear 风) ===== */
+:root{--bg:#f7f8f9;--surface:#fff;--ink:#16171a;--muted:#6b6f76;--line:#ebecef;--blue:#5e6ad2;--green:#3fa46a;--amber:#bd7b1e;--red:#d2483f;--shadow:0 1px 2px rgba(16,17,26,.04),0 1px 3px rgba(16,17,26,.03)}
+body.wf-app-body{background:#f7f8f9;color:#16171a;font-family:"Inter",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.006em}
+.wf-page{padding:0}.wf-app{background:#f7f8f9;border:0;border-radius:0;box-shadow:none;max-width:1320px;margin:0 auto}
+.wf-side{background:#fbfbfc;border-right:1px solid #ebecef}
+.wf-nav-label,.wf-nav-group summary{color:#8a8f98!important;font-weight:600!important;letter-spacing:.02em}
+.wf-side a{color:#3c3f45;font-weight:500;border-radius:6px}
+.wf-side a:hover{background:#f1f2f4;color:#16171a}
+.wf-side a.active{background:#eef0fb!important;color:#5e6ad2!important;font-weight:600}
+.wf-mark{background:#5e6ad2;color:#fff;border-radius:7px}.wf-brand small{color:#8a8f98}
+.wf-side-foot{background:#f3faf5;border-color:#cde9d6;color:#2c7a4d}
+.wf-topbar{background:rgba(247,248,249,.85);backdrop-filter:blur(8px);border-bottom:1px solid #ebecef}
+.wf-search,.wf-global-search input,.wf-topbar-note{border:1px solid #ebecef!important;border-radius:7px!important;background:#fff!important;color:#8a8f98}
+.wf-chip{border:1px solid #ebecef;border-radius:7px;background:#fff;color:#3c3f45;font-weight:500}
+.wf-chip.live{color:#3fa46a;background:#e9f6ee;border-color:#cde9d6}
+.wf-title-card,.wf-next-card,.wf-kpi{border:1px solid #ebecef!important;border-radius:10px;box-shadow:0 1px 2px rgba(16,17,26,.04)!important}
+.wf-title-card h1{font-weight:600;letter-spacing:-.02em;color:#16171a}
+.wf-eyebrow{color:#5e6ad2;font-weight:600;letter-spacing:.01em}
+.wf-next-card{background:#16171a;border-color:#16171a!important}.wf-next-card a{background:#26272b;border-color:#34353a}
+.wf-btn{border-radius:7px;font-weight:500;font-size:13px;box-shadow:none}
+.wf-btn.primary{background:#5e6ad2;color:#fff}.wf-btn.green{background:#e9f6ee;color:#3fa46a}.wf-btn.light{background:#eef0fb;color:#5e6ad2}
+.wf-kpi .value{font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.wf-kpi .label{color:#6b6f76;font-weight:500}
+.wf-data-alert{border-radius:10px;border-color:#f1d9ad}
+.wf-content h2{font-weight:600!important;letter-spacing:-.01em;color:#16171a}
+.wf-panel,.wf-content .card,.wf-content .section,.wf-content .panel,.wf-content .stat,.wf-content .callout,.wf-content .mini,.wf-content .linkcard,.wf-content .jumpcard,.wf-table-wrap,.wf-content table,.wf-content .drop,.wf-content .log,.wf-content .table-wrap{border-color:#ebecef!important;border-radius:8px!important;box-shadow:0 1px 2px rgba(16,17,26,.04)!important}
+.wf-panel>h2:first-child:before{background:#5e6ad2}
+.wf-content th,.wf-content .table th{background:#fcfcfd!important;color:#8a8f98!important;font-size:11px!important;font-weight:600!important;text-transform:uppercase;letter-spacing:.02em;border-bottom:1px solid #ebecef!important}
+.wf-content td,.wf-content .table td{border-bottom:1px solid #f1f2f4!important;color:#3c3f45}
+.wf-content tbody tr:nth-child(even) td{background:#fff}.wf-content tbody tr:hover td{background:#fafbfc}
+.wf-content a{color:#5e6ad2}
+.wf-content .tag,.wf-content .pill,.review-tag{border-radius:6px!important;font-weight:600!important;font-size:11.5px!important}
+.wf-content .tag.blue,.wf-content .pill.blue,.review-tag.info{background:#eaf1fc!important;color:#3d6fd1!important}
+.wf-content .tag.green,.wf-content .pill.green,.review-tag.ok{background:#e9f6ee!important;color:#3fa46a!important}
+.wf-content .tag.amber,.wf-content .pill.amber,.wf-content .tag.todo,.review-tag.p1{background:#fbf2e2!important;color:#bd7b1e!important}
+.wf-content .tag.red,.wf-content .pill.red,.review-tag.p0{background:#fbeceb!important;color:#d2483f!important}
+.wf-content .tag.purple,.wf-content .pill.purple{background:#eef0fb!important;color:#5e6ad2!important}
+.wf-content .btn.primary{background:#5e6ad2!important;box-shadow:none!important}.wf-content .btn.light{background:#eef0fb!important;color:#5e6ad2!important}
+.review-table th{background:#fcfcfd!important;color:#8a8f98!important;text-transform:uppercase;font-size:11px}
+.review-note{border-color:#5e6ad2;background:#f6f7fd}.review-note.warn{border-color:#bd7b1e;background:#fbf7ee}
+.state-btn{border-color:rgba(94,106,210,.25)!important}
 """
 
 TASK_JS = """
@@ -587,6 +627,7 @@ def shell(title: str, body: str, filename: str) -> str:
   <link rel="icon" href="data:,">
   <title>{html.escape(title)}</title>
 {extra_head}\
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./assets/dashboard-shell.css">
 </head>
 <body class="wf-app-body">
