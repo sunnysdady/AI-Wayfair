@@ -46,10 +46,31 @@
   <div class="meta">更新时间：2026-06-04 ｜ 口径：已完成 Cost Stack 校准，平台空间看 <b>Retail Price Net - Total Cost</b></div>
 
   <div class="note">
-    <b>总判断：</b>店铺不是没有产品，而是 SKU 分层、广告准入、促销准入和 Listing 承接没有形成闭环。5 月下滑主要来自 CVR 和 AOV 下降；6 月先把 WSP 低效花费止住，再补齐库存、Cost Stack、Listing Health、Review 和客诉数据。
+    <b>总判断：</b>店铺不是没有产品，而是 SKU 分层、广告准入、促销准入和 Listing 承接没有形成闭环。5 月下滑主要来自 CVR 和 AOV 下降；6 月周复盘先用订单 + WSP/广告数据止损和确认动作，Report Center 月报只在有效导出后用于结构诊断。
   </div>
 
-  <h2>1. 店铺核心体征</h2>
+  <h2>1. 培训课复盘模型</h2>
+  <div class="note ok">
+    照片 121-132 的核心方法：业绩 = 流量 × 转化 × 客单价。先看账号总体，再下钻类目，再看 SKU / Parts；不要一次追太多问题，每次复盘最多落 3 个重点动作。
+  </div>
+  <table>
+    <tr><th>诊断层级</th><th>主要工具</th><th>看什么</th><th>诊断动作</th></tr>
+    <tr><td>账号维度</td><td>Business Performance、Account Overview</td><td>Revenue、Units、Orders、Customer Visits、CVR、AOV、MoM / YoY</td><td>判断下滑来自流量、转化还是客单价；若 CVR/AOV 下滑，不能只加广告。</td></tr>
+    <tr><td>类目维度</td><td>Sales Dashboard</td><td>Category Revenue、Units Sold、产品数、YoY Trend</td><td>判断类目涨跌是否与大盘一致；下滑类目先查流量与转化是否同跌。</td></tr>
+    <tr><td>SKU / Parts 维度</td><td>Option Drill Down、Detailed Listing Health</td><td>Total Revenue、MoM / YoY、Sessions、CVR、TAG、图片、价格、配送、评价</td><td>优先修高价值 SKU；Required Tags 必须 100%，推荐 Tags 至少 50%，目标进入 Green。</td></tr>
+    <tr><td>经营能力</td><td>库存、广告、促销、履约、客诉</td><td>健康库存、促销、广告引流、准时配送、无损交付、客户评价</td><td>判断转化短板来自价格、图文、配送、评价、库存还是客诉。</td></tr>
+  </table>
+  <div class="card">
+    <b>复盘输出规则</b>
+    <ol>
+      <li>先判断销售额与流量的涨跌是否成正比，再看转化率是否大幅下降。</li>
+      <li>做 MoM、YoY，并和类目大盘趋势对比，避免把行业下滑误判成单店问题。</li>
+      <li>异常只归因到一个主因：流量不足、转化承接差、客单价下降、库存/配送/客诉、广告消耗。</li>
+      <li>每次只输出最多 3 个动作，并写清负责人、截止时间和复盘指标。</li>
+    </ol>
+  </div>
+
+  <h2>2. 店铺核心体征</h2>
   <div class="grid">
     <div class="card kpi"><span>5月 Total Revenue</span><b>$6,699.31</b></div>
     <div class="card kpi"><span>5月 Sessions</span><b>2,852</b></div>
@@ -61,7 +82,7 @@
     <div class="card kpi"><span>已知经营利润率</span><b>9.2%</b></div>
   </div>
 
-  <h2>2. 诊断结论</h2>
+  <h2>3. 诊断结论</h2>
   <table>
     <tr><th>模块</th><th>状态</th><th>证据</th><th>诊断</th><th>动作</th></tr>
     <tr><td>流量</td><td><span class="tag amber">轻微压力</span></td><td>Sessions 2,852</td><td>不是主要矛盾。</td><td>不要单纯靠加广告解决。</td></tr>
@@ -72,7 +93,15 @@
     <tr><td>Listing</td><td><span class="tag red">待修复</span></td><td>Required Tag Coverage 70.2%</td><td>低于 80% 合格线，更低于 95% 优秀线。</td><td>先修高花费、高潜力、旧清单中的优先 SKU。</td></tr>
   </table>
 
-  <h2>3. 6月 WSP 广告体检</h2>
+  <h2>4. 诊断与放量准入</h2>
+  <table>
+    <tr><th>对象</th><th>通过条件</th><th>拦截条件</th><th>下一步</th></tr>
+    <tr><td>放量 SKU</td><td>有订单、有正毛利、库存健康、CVR 不弱于类目、广告 ROAS 可解释</td><td>库存不足、评分低、客诉未闭环、广告 0 单高消耗</td><td>只给小预算测试，7 天看订单、ROAS、库存消耗。</td></tr>
+    <tr><td>Listing 修复 SKU</td><td>有访问或历史订单，但 TAG/图片/评价/价格/配送短板明显</td><td>无流量、无库存、平台空间或真实毛利偏低</td><td>先修 Required Tags、主图/场景图、价格与配送承诺。</td></tr>
+    <tr><td>止损 SKU</td><td>连续消耗无订单，或转化/评价/客诉/库存任一项严重拖累</td><td>仍有高毛利且近期可修复的证据</td><td>暂停广告或最低预算，等修复证据后再恢复。</td></tr>
+  </table>
+
+  <h2>5. 6月 WSP 广告体检</h2>
   <div class="note ok">
     WSS Campaign / Product 报表均为 0 行，按未投放或无数据处理。6 月当前先诊断 WSP。两个 Keyword 报告实际日期为 2026-05-01 至 2026-05-31，不能作为 6 月停词最终依据。
   </div>
@@ -88,7 +117,7 @@
     <tr><td>DMOM1017</td><td>3T-B, 3T-W</td><td class="num">$9.21</td><td class="num">$0</td><td class="num">0</td><td class="num">0</td><td class="num">$9.42</td><td><span class="tag red">暂停，平台空间偏低</span></td></tr>
   </table>
 
-  <h2>4. SKU 分层方向</h2>
+  <h2>6. SKU 分层方向</h2>
   <table>
     <tr><th>层级</th><th>SKU / Listing</th><th>动作</th></tr>
     <tr><td><span class="tag green">保留观察</span></td><td>DMOM1020、DMOM1018、DMOM1003</td><td>保留小预算；补库存、卖家真实利润、客诉后再决定是否加预算。</td></tr>
@@ -97,13 +126,13 @@
     <tr><td><span class="tag blue">承接诊断</span></td><td>DMOM1000、DMOM1017、DMOM1019</td><td>有点击但不转化，查 PDP、价格、评价、库存、平台空间和卖家利润。</td></tr>
   </table>
 
-  <h2>5. 下一步</h2>
+  <h2>7. 下一步</h2>
   <div class="card">
     <ol>
       <li>执行 WSP Product/Campaign 层暂停、降预算、保留动作。</li>
-      <li>重新导出 6 月 Keyword Optimization 和 Keyword Targeting 报告。</li>
-      <li>补最新 Cost Stack、库存、Detailed Listing Health、Review、客诉/退货/扣款。</li>
-      <li>用补齐数据生成促销准入、SKU 分层和 Listing 修复清单。</li>
+      <li>每周只强制补订单与 WSP/广告数据；Report Center 空表不进入分析。</li>
+      <li>月度有效报告到齐后，按账号、类目、SKU 三层重跑诊断和复盘。</li>
+      <li>每次复盘只输出 3 个动作：止损、修承接、放量验证。</li>
     </ol>
   </div>
     </div>
