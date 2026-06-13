@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Wayfair 周复盘报告 - 订单 + WSP 20260613</title>
+  <link rel="stylesheet" href="./assets/dashboard-shell.css">
+  <style>
+    :root{
+      --ink:#172033;
+      --muted:#667085;
+      --line:#d8e0ec;
+      --paper:#ffffff;
+      --soft:#f5f7fb;
+      --blue:#2f6df6;
+      --green:#13795b;
+      --amber:#a15c00;
+      --red:#b42318;
+      --violet:#5b2b86;
+    }
+    body{margin:0;background:#eef2f7;color:var(--ink);font:14px/1.55 "Avenir Next","Segoe UI","Microsoft YaHei",sans-serif}
+    .report{max-width:1220px;margin:0 auto;padding:28px}
+    .mast{background:#111827;color:#fff;border-radius:10px;padding:28px;position:relative;overflow:hidden}
+    .mast:after{content:"";position:absolute;inset:auto -80px -120px auto;width:380px;height:260px;background:radial-gradient(circle,#2f6df6 0,#2f6df600 70%);opacity:.5}
+    .eyebrow{letter-spacing:.14em;text-transform:uppercase;color:#b6c7ff;font-size:12px;font-weight:800}
+    h1{margin:8px 0 8px;font-size:30px;line-height:1.18;letter-spacing:0}
+    h2{margin:28px 0 12px;font-size:20px;letter-spacing:0}
+    h3{margin:0 0 8px;font-size:15px}
+    .meta{color:#d0d5dd;max-width:880px}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+    .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #344054;background:#1f2937;color:#fff;border-radius:999px;padding:8px 12px;font-size:12px}
+    .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0}
+    .card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;box-shadow:0 14px 30px rgba(21,32,51,.06)}
+    .kpi b{display:block;font-size:26px;line-height:1;margin:7px 0;color:var(--ink)}
+    .kpi span{color:var(--muted);font-size:12px}
+    .kpi small{color:var(--muted)}
+    .section{background:var(--paper);border:1px solid var(--line);border-radius:10px;margin:16px 0;padding:18px}
+    .section>p{color:#475467;margin-top:0}
+    .note{border-left:4px solid var(--blue);background:#f2f6ff;border-radius:8px;padding:12px 14px;color:#263247;margin:12px 0}
+    .note.warn{border-color:var(--amber);background:#fff7ed}
+    .note.danger{border-color:var(--red);background:#fff1f0}
+    table{width:100%;max-width:100%;display:block;overflow-x:auto;box-sizing:border-box;border-collapse:separate;border-spacing:0;margin:10px 0;border:1px solid var(--line);border-radius:8px}
+    thead,tbody{display:table;width:max-content;min-width:100%}
+    th,td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
+    th{background:#f8fafc;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#344054}
+    tr:last-child td{border-bottom:0}
+    .num{text-align:right;font-variant-numeric:tabular-nums}
+    .tag{display:inline-flex;border-radius:999px;padding:3px 8px;font-size:12px;font-weight:800}
+    .tag.red{background:#fee4e2;color:var(--red)}
+    .tag.amber{background:#fef0c7;color:var(--amber)}
+    .tag.green{background:#dcfae6;color:var(--green)}
+    .tag.blue{background:#dbeafe;color:#1d4ed8}
+    .actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .action{border-radius:10px;padding:14px;border:1px solid var(--line);background:#fff}
+    .action strong{display:block;font-size:16px;margin:6px 0}
+    .action ul{padding-left:18px;margin:8px 0 0}
+    .bars{display:grid;gap:10px;margin:12px 0}
+    .bar{display:grid;grid-template-columns:150px 1fr 90px;gap:10px;align-items:center}
+    .bar i{display:block;height:12px;border-radius:999px;background:linear-gradient(90deg,var(--blue),#8ab4ff)}
+    .bar span{font-size:12px;color:#475467}
+    .two{display:grid;grid-template-columns:1.05fr .95fr;gap:12px}
+    .grid>*,.actions>*,.two>*,.checklist>*{min-width:0}
+    .checklist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .check{border:1px dashed #b8c2d2;border-radius:10px;padding:12px;background:#fbfcff}
+    .footer{color:var(--muted);font-size:12px;margin:24px 0 6px}
+    @media (max-width:900px){.grid,.actions,.two,.checklist{grid-template-columns:1fr}.bar{grid-template-columns:1fr}.report{padding:14px}h1{font-size:24px}}
+  </style>
+</head>
+<body>
+  <main class="report">
+    <section class="mast">
+      <div class="eyebrow">Weekly Business Review</div>
+      <h1>Wayfair 周复盘报告：订单 + WSP 广告</h1>
+      <div class="meta">模拟报告日期：2026-06-13。核心用途：用订单数据和 WSP 五类广告报表完成本周动作复盘，输出止损、保留、降 bid、放量验证清单。</div>
+      <div class="toolbar">
+        <span class="pill">订单：2026-06-01 至 2026-06-12</span>
+        <span class="pill">广告：2026-05-31 至 2026-06-12</span>
+        <span class="pill">复盘窗口：2026-06-06 至 2026-06-12</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card kpi"><span>本周订单销售额</span><b>$2,826.50</b><small>6/6-6/12，25 单 / 26 件</small></div>
+      <div class="card kpi"><span>本周 AOV</span><b>$113.06</b><small>按订单行销售收益估算</small></div>
+      <div class="card kpi"><span>后半周广告 ROAS</span><b>3.27</b><small>6/7-6/12，Campaign 口径</small></div>
+      <div class="card kpi"><span>建议立即止损</span><b>$102.70</b><small>5 个无归因订单广告组合</small></div>
+    </section>
+
+    <section class="section">
+      <h2>1. 结论先行</h2>
+      <div class="note danger"><b>本周不是没有订单，而是广告效率明显走弱。</b> Campaign 口径 ROAS 从 5/31-6/6 的 7.42 降到 6/7-6/12 的 3.27。订单仍集中在 DMOM1021、DMOM1020、DMOM1019、DMOM1003，但部分广告组合继续消耗却没有归因订单。</div>
+      <div class="actions">
+        <div class="action">
+          <span class="tag red">P0 止损</span>
+          <strong>暂停 5 个低效组合</strong>
+          <ul>
+            <li>DMOM1025、DMOM1022、DMOM1000、DMOM1019、DMOM1042。</li>
+            <li>这些组合在 6/7-6/12 有花费但广告归因 0 单。</li>
+          </ul>
+        </div>
+        <div class="action">
+          <span class="tag amber">P1 保核心</span>
+          <strong>DMOM1021 保留不加预算</strong>
+          <ul>
+            <li>DMOM1021 本周实际订单强，但广告 ROAS 只有 4.37。</li>
+            <li>先控预算，观察订单和广告归因是否恢复。</li>
+          </ul>
+        </div>
+        <div class="action">
+          <span class="tag green">P1 验证</span>
+          <strong>小预算验证 4 个机会</strong>
+          <ul>
+            <li>DMOM1003、DMOM1017、DMOM1029 保留小预算。</li>
+            <li>DMOM1020 恢复/保留小预算测试。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>2. 数据口径</h2>
+      <div class="two">
+        <div>
+          <table>
+            <thead><tr><th>数据源</th><th>文件</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td>订单</td><td>平台订单列表2026-06-13</td><td>实际订单、销售收益、SKU/Listing 聚合</td></tr>
+              <tr><td>Campaign</td><td>_Campaign Report 6.13.csv</td><td>广告总盘、Campaign 停降保留</td></tr>
+              <tr><td>Product</td><td>Product Report 6.13.csv</td><td>Listing / Product 层止损和验证</td></tr>
+              <tr><td>Keyword</td><td>Keyword Targeting / Optimization</td><td>降 bid、暂停组合、保留成交词</td></tr>
+              <tr><td>Search Term</td><td>Search Term Research</td><td>30 天搜索词机会和 Top 8 缺口</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note warn">
+          <b>重要口径提醒：</b>广告销售额是 WSP 14 天归因口径，订单表是实际订单口径，两者不能直接一比一核对。Search Term Research 是近 30 天搜索词机会，不等同于本周投放结果。
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>3. 广告效率变化</h2>
+      <table>
+        <thead><tr><th>周期</th><th class="num">Spend</th><th class="num">广告销售额</th><th class="num">广告订单</th><th class="num">Clicks</th><th class="num">ROAS</th></tr></thead>
+        <tbody>
+          <tr><td>2026-05-31 至 2026-06-06</td><td class="num">$529.71</td><td class="num">$3,929.49</td><td class="num">20</td><td class="num">688</td><td class="num">7.42</td></tr>
+          <tr><td>2026-06-07 至 2026-06-12</td><td class="num">$417.92</td><td class="num">$1,364.92</td><td class="num">8</td><td class="num">538</td><td class="num">3.27</td></tr>
+        </tbody>
+      </table>
+      <div class="bars">
+        <div class="bar"><span>ROAS 5/31-6/6</span><i style="width:100%"></i><b>7.42</b></div>
+        <div class="bar"><span>ROAS 6/7-6/12</span><i style="width:44%"></i><b>3.27</b></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>4. 订单集中度</h2>
+      <p>本周订单仍集中在文件柜核心 SKU，说明产品不是完全失去需求。广告动作要优先避免低效消耗，而不是全盘收缩。</p>
+      <table>
+        <thead><tr><th>Listing</th><th class="num">订单行</th><th class="num">件数</th><th class="num">销售收益</th><th>判断</th></tr></thead>
+        <tbody>
+          <tr><td>DMOM1021</td><td class="num">8</td><td class="num">8</td><td class="num">$858.00</td><td><span class="tag amber">主力，保留不加预算</span></td></tr>
+          <tr><td>DMOM1020</td><td class="num">5</td><td class="num">6</td><td class="num">$594.00</td><td><span class="tag green">恢复小预算验证</span></td></tr>
+          <tr><td>DMOM1019</td><td class="num">4</td><td class="num">4</td><td class="num">$432.00</td><td><span class="tag amber">自然单有，广告先停</span></td></tr>
+          <tr><td>DMOM1003</td><td class="num">3</td><td class="num">3</td><td class="num">$371.00</td><td><span class="tag green">保留小预算</span></td></tr>
+          <tr><td>DMOM1025</td><td class="num">2</td><td class="num">2</td><td class="num">$279.00</td><td><span class="tag red">广告无归因，先停广告</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>5. Product 层动作清单</h2>
+      <table>
+        <thead><tr><th>Listing</th><th>Parts</th><th class="num">Spend</th><th class="num">广告销售额</th><th class="num">广告订单</th><th class="num">ROAS</th><th>动作</th></tr></thead>
+        <tbody>
+          <tr><td>DMOM1025</td><td>LFC-3B, LFC-3W</td><td class="num">$35.22</td><td class="num">$0.00</td><td class="num">0</td><td class="num">0.00</td><td><span class="tag red">暂停/最低预算</span></td></tr>
+          <tr><td>DMOM1022</td><td>MFC-D3-B, MFC-D3-W</td><td class="num">$31.76</td><td class="num">$0.00</td><td class="num">0</td><td class="num">0.00</td><td><span class="tag red">暂停</span></td></tr>
+          <tr><td>DMOM1000</td><td>货架系列</td><td class="num">$16.18</td><td class="num">$0.00</td><td class="num">0</td><td class="num">0.00</td><td><span class="tag red">暂停</span></td></tr>
+          <tr><td>DMOM1019</td><td>VFC-3B, VFC-3W</td><td class="num">$11.25</td><td class="num">$0.00</td><td class="num">0</td><td class="num">0.00</td><td><span class="tag red">停广告，保留自然单观察</span></td></tr>
+          <tr><td>DMOM1042</td><td>PT03-WH</td><td class="num">$8.29</td><td class="num">$0.00</td><td class="num">0</td><td class="num">0.00</td><td><span class="tag red">暂停</span></td></tr>
+          <tr><td>DMOM1021</td><td>LFC-2B-680, LFC-2W-680</td><td class="num">$75.99</td><td class="num">$331.98</td><td class="num">2</td><td class="num">4.37</td><td><span class="tag amber">保留不加预算</span></td></tr>
+          <tr><td>DMOM1003</td><td>4T-Kayak</td><td class="num">$18.22</td><td class="num">$185.99</td><td class="num">1</td><td class="num">10.21</td><td><span class="tag green">保留小预算</span></td></tr>
+          <tr><td>DMOM1017</td><td>3T-B, 3T-W</td><td class="num">$10.82</td><td class="num">$92.99</td><td class="num">1</td><td class="num">8.59</td><td><span class="tag green">保留小预算</span></td></tr>
+          <tr><td>DMOM1029</td><td>VF-ZH-4B, VF-ZH-4W</td><td class="num">$9.02</td><td class="num">$256.99</td><td class="num">1</td><td class="num">28.49</td><td><span class="tag green">保留小预算验证</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>6. Keyword / Search Term 动作</h2>
+      <div class="two">
+        <div>
+          <h3>需要降 bid 或暂停的组合</h3>
+          <table>
+            <thead><tr><th>Keyword + Listing</th><th class="num">Spend</th><th class="num">订单</th><th>动作</th></tr></thead>
+            <tbody>
+              <tr><td>filing cabinets + DMOM1019</td><td class="num">$58.85</td><td class="num">0</td><td><span class="tag red">暂停组合</span></td></tr>
+              <tr><td>filing cabinets + DMOM1025</td><td class="num">$34.54</td><td class="num">0</td><td><span class="tag red">暂停组合</span></td></tr>
+              <tr><td>filing cabinets + DMOM1021</td><td class="num">$74.18</td><td class="num">1</td><td><span class="tag amber">保留但降 bid</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h3>可保留/扩展的成交词</h3>
+          <table>
+            <thead><tr><th>Search Term</th><th class="num">Spend</th><th class="num">Sales</th><th>动作</th></tr></thead>
+            <tbody>
+              <tr><td>file cabinet</td><td class="num">$0.46</td><td class="num">$165.99</td><td><span class="tag green">保留</span></td></tr>
+              <tr><td>metal white filing cabinet</td><td class="num">$0.87</td><td class="num">$165.99</td><td><span class="tag green">加到精准词池</span></td></tr>
+              <tr><td>2 drawer / with lock / white file cabinet</td><td class="num">机会词</td><td class="num">-</td><td><span class="tag blue">修 Listing 承接</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="note">不要直接否掉 file cabinet / filing cabinet 这种主词。当前问题是 broad/smart phrase 组合太宽、部分 Listing 承接差，优先处理 Listing + Keyword 组合，而不是一刀切否词。</div>
+    </section>
+
+    <section class="section">
+      <h2>7. 下周执行检查表</h2>
+      <div class="checklist">
+        <div class="check"><b>止损执行</b><br>暂停 DMOM1025、DMOM1022、DMOM1000、DMOM1019、DMOM1042 的低效广告组合。</div>
+        <div class="check"><b>预算重排</b><br>省下预算不直接扩大总盘，转给 DMOM1003、DMOM1017、DMOM1029 小额验证。</div>
+        <div class="check"><b>核心保留</b><br>DMOM1021 保留但不加预算；观察 7 天 ROAS 是否回到 5 以上。</div>
+        <div class="check"><b>DMOM1020 复测</b><br>恢复/保留小预算 Product Targeting，验证自然订单能否被广告放大。</div>
+        <div class="check"><b>关键词整理</b><br>降低 filing cabinets 宽泛词 bid，暂停 DMOM1019/DMOM1025 的无效组合。</div>
+        <div class="check"><b>复盘指标</b><br>下周看 Spend、Orders、ROAS、订单销售额、AOV、被暂停组合节省金额。</div>
+      </div>
+    </section>
+
+    <div class="footer">
+      生成方式：基于本地订单报告与 WSP Campaign / Product / Keyword Targeting / Keyword Optimization / Search Term Research 报表手工模拟。未纳入库存、Cost Stack、客诉扣款和真实毛利，因此本报告只建议预算重排和止损，不建议大幅加预算。
+    </div>
+  </main>
+</body>
+</html>
