@@ -34,6 +34,7 @@
     const invMap = tables.inventoryMap || {};
     const stockMap = tables.stockMap || {};
     const searchTerms = tables.searchTerms || [];
+    const keywords = tables.keywords || []; // Keyword Optimization Report 行（可选）
 
     // 1) 广告按 listing 聚合（含店铺拆分、零售额用于 ROAS）
     const ad = {};
@@ -47,9 +48,22 @@
       const st = store(r.store_url); a.stores[st] = (a.stores[st] || 0) + num(r.spend_USD);
     }
 
-    // 2) 真实订单按 Wayfair SKU
+    // 2) 真实订单按 Wayfair SKU —— 只算周复盘窗口（默认订单文件内最近 7 天），
+    //    避免把上一周订单算进本周，导致赢家件数虚高。
+    const orderDate = (o) => {
+      const m = String(o["订购时间"] || o["订单时间"] || o.date || "").match(/\d{4}-\d{2}-\d{2}/);
+      return m ? m[0] : "";
+    };
+    const dates = orders.map(orderDate).filter(Boolean).sort();
+    let windowStart = tables.windowStart || "";
+    if (!windowStart && dates.length) {
+      const d = new Date(dates[dates.length - 1] + "T00:00:00Z");
+      d.setUTCDate(d.getUTCDate() - 6);
+      windowStart = d.toISOString().slice(0, 10);
+    }
+    const ordersWin = windowStart ? orders.filter((o) => { const dd = orderDate(o); return dd && dd >= windowStart; }) : orders;
     const realBySku = {};
-    for (const o of orders) {
+    for (const o of ordersWin) {
       const wf = invMap[norm(o.SKU || o.sku)] || ""; if (!wf) continue;
       realBySku[wf] = (realBySku[wf] || 0) + num(o["数量"] || o.qty || 1);
     }
@@ -85,6 +99,24 @@
         opps.push({ term, cls: norm(r.class_name || r.cls), impr, top8 });
     }
     opps.sort((x, y) => y.impr - x.impr);
+
+    // 4b) 关键词级（Keyword Optimization）：按 keyword_value 聚合
+    const kwAgg = {};
+    for (const r of keywords) {
+      const k = norm(r.keyword_value); if (!k) continue;
+      const a = kwAgg[k] || (kwAgg[k] = { spend: 0, clicks: 0, orders: 0 });
+      a.spend += num(r.spend_USD);
+      a.clicks += num(r.clicks);
+      a.orders += num(r.attributed_orders_window_view_through_Day_14);
+    }
+    const kwBurners = [], kwWinners = [];
+    for (const k of Object.keys(kwAgg)) {
+      const a = kwAgg[k];
+      if (a.spend >= 3 && a.orders === 0) kwBurners.push({ kw: k, spend: +a.spend.toFixed(2), clicks: a.clicks });
+      else if (a.orders > 0) kwWinners.push({ kw: k, spend: +a.spend.toFixed(2), orders: a.orders });
+    }
+    kwBurners.sort((x, y) => y.spend - x.spend);
+    kwWinners.sort((x, y) => y.orders - x.orders);
 
     // 5) 动作账本（codex 14 字段 + result 闭环字段）
     const cycle = "2026-06-06 to 2026-06-12";
@@ -137,6 +169,16 @@
       "高曝光但你进 top8 占比低：" + opps.slice(0, 4).map(o => `${o.term}(${o.impr}曝光/${o.top8}%)`).join("、") + "。",
       "把高流量低占位词的自然位+广告位抢回来", "占位提升且 ROAS 达标后纳入常规投放", "投放两周无转化则停词"));
 
+    if (kwBurners.length) {
+      const kwSave = kwBurners.reduce((t, b) => t + b.spend, 0);
+      ledger.push(mk("P1", "关键词清理",
+        kwBurners.slice(0, 8).map(b => b.kw).join(" / "),
+        "停词/降 bid：0 单且有花费的关键词",
+        "这些关键词有花费、0 归因订单：" + kwBurners.slice(0, 6).map(b => `${b.kw} $${b.spend}/${b.clicks}点击`).join("、") + `，合计 ~$${kwSave.toFixed(2)}。`,
+        "把预算让给已转化的赢家词" + (kwWinners.length ? "（赢家：" + kwWinners.slice(0, 5).map(w => `${w.kw} ${w.orders}单`).join("、") + "）" : ""),
+        "已验证词可适当提 bid 抢量", "长尾 0 单词直接停，避免持续消耗"));
+    }
+
     // 分店铺与挂机检查
     const storeSpend = {};
     for (const lst of Object.keys(ad)) for (const [st, sp] of Object.entries(ad[lst].stores)) storeSpend[st] = (storeSpend[st] || 0) + sp;
@@ -153,6 +195,7 @@
       sellers: sellers.length,
       storeSpend: Object.fromEntries(Object.entries(storeSpend).map(([k, v]) => [k, +v.toFixed(2)])),
       marginConfirmed: T.marginConfirmed,
+      windowStart: windowStart || "(全部)",
     };
     return { ledger, kpis, sellers, burners, protects, trims, restock, opps };
   }

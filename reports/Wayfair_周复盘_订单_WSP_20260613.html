@@ -61,6 +61,8 @@
 .wrev .ins{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
 .wrev .ins label{display:block;font-size:12px;font-weight:800;color:#344054;margin-bottom:5px}
 .wrev .ins input{width:100%;padding:9px;border:1px dashed #b9c6d8;border-radius:10px;background:#fff;font-size:13px}
+.wrev .fb{margin-top:5px;font-size:12px;font-weight:800;color:#98a2b3}
+.wrev .fb.ok{color:#166534}
 .wrev .go{border:0;border-radius:10px;padding:11px 18px;font-weight:900;cursor:pointer;background:#152033;color:#fff}
 .wrev .go:disabled{opacity:.5;cursor:not-allowed}
 .wrev .log{margin-top:12px;background:#0f1626;color:#cde3ff;border-radius:10px;padding:11px 13px;font:12px/1.7 ui-monospace,Menlo,monospace;white-space:pre-wrap;max-height:170px;overflow:auto;display:none}
@@ -79,10 +81,12 @@
   <h2>⚡ 上传数据 · 一键生成本周复盘（不用跑脚本）</h2>
   <p class="sub">上传本周 <b>Product Report CSV</b> + <b>订单明细 xlsx</b> → 点按钮 → 浏览器当场跑「广告花费 × 真实订单」交叉，自动产出动作账本（止损/保护/验证/缩减）并可下载 CSV。库存映射随页面附带，文件不离开你的电脑、不改动线上。</p>
   <div class="ins">
-    <div><label>① WSP Product Report（.csv）</label><input id="wrevProd" type="file" accept=".csv"></div>
-    <div><label>② 订单明细（.xlsx，需含 SKU / 数量列）</label><input id="wrevOrd" type="file" accept=".xlsx,.xls"></div>
-    <div><label>③ Search Term Research（.csv，可选→进攻机会）</label><input id="wrevSt" type="file" accept=".csv"></div>
+    <div><label>① WSP Product Report（.csv，<b style="color:#b42318">必传</b>）</label><input id="wrevProd" type="file" accept=".csv"><div class="fb" id="fbProd">未选择</div></div>
+    <div><label>② 订单明细（.xlsx，<b style="color:#b42318">必传</b>，需含 SKU/数量列）</label><input id="wrevOrd" type="file" accept=".xlsx,.xls"><div class="fb" id="fbOrd">未选择</div></div>
+    <div><label>③ Search Term Research（.csv，可选→进攻抢词）</label><input id="wrevSt" type="file" accept=".csv"><div class="fb" id="fbSt">未选择</div></div>
+    <div><label>④ Keyword Optimization（.csv，可选→关键词清理）</label><input id="wrevKw" type="file" accept=".csv"><div class="fb" id="fbKw">未选择</div></div>
   </div>
+  <p class="sub" style="margin:0 0 10px">只需传 ①②（+ 可选 ③④）。<b>Campaign Report、Keyword Targeting (Listing) 本工具不需要</b>，可不传。</p>
   <button class="go" id="wrevGo" disabled>一键生成周复盘</button>
   <div class="log" id="wrevLog"></div>
   <div class="wrev-out" id="wrevOut">
@@ -102,12 +106,16 @@
 <script>
 (function(){
   var prodEl=document.getElementById("wrevProd"),ordEl=document.getElementById("wrevOrd"),
-      stEl=document.getElementById("wrevSt"),
+      stEl=document.getElementById("wrevSt"),kwEl=document.getElementById("wrevKw"),
       go=document.getElementById("wrevGo"),log=document.getElementById("wrevLog"),out=document.getElementById("wrevOut");
   if(!go)return;
   function L(m){log.classList.add("show");log.textContent+=(log.textContent?"\n":"")+m;log.scrollTop=log.scrollHeight;}
-  function chk(){go.disabled=!(prodEl.files.length&&ordEl.files.length);}
-  prodEl.addEventListener("change",chk);ordEl.addEventListener("change",chk);
+  function fb(el,id){var d=document.getElementById(id);el.addEventListener("change",function(){
+    if(el.files.length){d.textContent="✓ 已选择："+el.files[0].name;d.classList.add("ok");}
+    else{d.textContent="未选择";d.classList.remove("ok");}chk();});}
+  fb(prodEl,"fbProd");fb(ordEl,"fbOrd");fb(stEl,"fbSt");fb(kwEl,"fbKw");
+  function chk(){go.disabled=!(prodEl.files.length&&ordEl.files.length);
+    go.textContent=go.disabled?"先选 ①② 必传文件":"一键生成周复盘";}
   function parseCSV(t){var rows=[],row=[],cur="",q=false;
     for(var i=0;i<t.length;i++){var c=t[i];
       if(q){if(c=='"'&&t[i+1]=='"'){cur+='"';i++;}else if(c=='"')q=false;else cur+=c;}
@@ -137,8 +145,10 @@
         // 跳过 Wayfair 导出的第 2 行字段描述
         if(raw[1]&&/A 'Brand Catalog'|The term the customer/.test(raw[1]))raw.splice(1,1);
         searchTerms=parseCSV(raw.join("\n"));}
+      var keywords=[];
+      if(kwEl.files.length){L("读取 Keyword Optimization…");keywords=parseCSV(await readText(kwEl.files[0]));}
       L("运行周复盘引擎…");
-      var res=window.WFWeeklyReview.compute({product:product,orders:orders,inventoryMap:invMap,stockMap:stockMap,searchTerms:searchTerms});
+      var res=window.WFWeeklyReview.compute({product:product,orders:orders,inventoryMap:invMap,stockMap:stockMap,searchTerms:searchTerms,keywords:keywords});
       document.getElementById("wkUnits").textContent=res.kpis.realUnits;
       document.getElementById("wkSpend").textContent="$"+res.kpis.adSpend;
       document.getElementById("wkSave").textContent="$"+res.kpis.burnSave;
@@ -172,7 +182,7 @@
       <div class="card kpi"><span>本周订单销售额</span><b>$2,826.50</b><small>6/6-6/12，25 单 / 26 件</small></div>
       <div class="card kpi"><span>本周 AOV</span><b>$113.06</b><small>按订单行销售收益估算</small></div>
       <div class="card kpi"><span>后半周广告 ROAS</span><b>3.27</b><small>6/7-6/12，Campaign 口径</small></div>
-      <div class="card kpi"><span>建议立即止损</span><b>$102.70</b><small>5 个无归因订单广告组合</small></div>
+      <div class="card kpi"><span>建议立即止损</span><b>$91.45</b><small>4 个无归因订单广告组合（DMOM1019 有真实单已剔除）</small></div>
     </section>
 
     <section class="section">
@@ -181,9 +191,9 @@
       <div class="actions">
         <div class="action">
           <span class="tag red">P0 止损</span>
-          <strong>暂停 5 个低效组合</strong>
+          <strong>暂停 4 个低效组合（已剔除 DMOM1019）</strong>
           <ul>
-            <li>DMOM1025、DMOM1022、DMOM1000、DMOM1019、DMOM1042。</li>
+            <li>DMOM1025、DMOM1022、DMOM1000、DMOM1042。<br><b>别误杀：DMOM1019</b> 本周有 4 件真实订单（广告 0 归因是 14 天口径滞后），不暂停，只降到最低预算 + 留高意图精确词观察。</li>
             <li>这些组合在 6/7-6/12 有花费但广告归因 0 单。</li>
           </ul>
         </div>
@@ -307,11 +317,11 @@
     <section class="section">
       <h2>7. 下周执行检查表</h2>
       <div class="checklist">
-        <div class="check"><b>止损执行</b><br>暂停 DMOM1025、DMOM1022、DMOM1000、DMOM1019、DMOM1042 的低效广告组合。</div>
+        <div class="check"><b>止损执行</b><br>暂停 DMOM1025、DMOM1022、DMOM1000、DMOM1042 的低效广告组合（DMOM1019 有真实订单，改为降最低预算，不暂停）。</div>
         <div class="check"><b>预算重排</b><br>省下预算不直接扩大总盘，转给 DMOM1003、DMOM1017、DMOM1029 小额验证。</div>
         <div class="check"><b>核心保留</b><br>DMOM1021 保留但不加预算；观察 7 天 ROAS 是否回到 5 以上。</div>
         <div class="check"><b>DMOM1020 复测</b><br>恢复/保留小预算 Product Targeting，验证自然订单能否被广告放大。</div>
-        <div class="check"><b>关键词整理</b><br>降低 filing cabinets 宽泛词 bid，暂停 DMOM1019/DMOM1025 的无效组合。</div>
+        <div class="check"><b>关键词整理</b><br>降低 filing cabinets 宽泛词 bid，对 DMOM1025 暂停无效组合；DMOM1019 只降 bid 不暂停（有真实订单）。</div>
         <div class="check"><b>复盘指标</b><br>下周看 Spend、Orders、ROAS、订单销售额、AOV、被暂停组合节省金额。</div>
       </div>
     </section>
