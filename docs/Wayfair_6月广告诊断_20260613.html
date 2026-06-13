@@ -1,0 +1,75 @@
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1"><title>Wayfair 6月广告诊断报告</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#eef2f6;color:#152033;font:14px/1.6 system-ui,"PingFang SC","Microsoft YaHei",sans-serif;padding:26px}
+.wrap{max-width:1080px;margin:auto}
+h1{font-size:26px}.sub{color:#667085;margin:6px 0 22px}
+h2{font-size:19px;margin:30px 0 12px;display:flex;align-items:center;gap:8px}
+h2:before{content:"";width:5px;height:20px;border-radius:5px;background:#2870e8}
+.card{background:#fff;border:1px solid #dce3ee;border-radius:14px;padding:18px;box-shadow:0 8px 24px rgba(16,24,40,.05)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:8px}
+.kpi{background:#fff;border:1px solid #dce3ee;border-radius:14px;padding:14px}
+.kpi b{display:block;font-size:25px;font-variant-numeric:tabular-nums}
+.kpi small{color:#667085;font-weight:700}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;font-size:13px}
+th,td{padding:8px 10px;border-bottom:1px solid #eef1f6;text-align:left;vertical-align:top}
+th{background:#f1f5f9;font-weight:800;position:sticky;top:0}
+td.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sm{color:#667085;font-size:12px}
+.wrapt{max-height:520px;overflow:auto;border:1px solid #e2e8f0;border-radius:12px}
+.wrapt table{border:0}
+.lead{border-left:4px solid #2870e8;background:#f8fbff;border-radius:0 10px 10px 0;padding:12px 14px;margin:10px 0}
+.warn{border-left-color:#ef5b45;background:#fff6f5}
+.ok{border-left-color:#23b887;background:#f3fbf7}
+ul{padding-left:20px}li{margin:4px 0}
+.foot{color:#98a2b3;font-size:12px;margin-top:24px}
+</style></head><body><div class=wrap>
+<h1>Wayfair 6月广告诊断报告</h1>
+<p class=sub>数据区间 2026-05-31 → 2026-06-12（两周）｜ 来源：Campaign / Product / Keyword Optimization / Keyword Targeting / Search Term Research ｜ 交叉：站内库存映射 ｜ 本报告独立生成，未改动线上网站</p>
+
+<div class=kpis>
+  <div class=kpi><b>$947.63</b><small>总广告花费</small></div>
+  <div class=kpi><b>$5,294.41</b><small>归因销售额(14天)</small></div>
+  <div class=kpi><b>28</b><small>归因订单</small></div>
+  <div class=kpi><b>5.59</b><small>整体 ROAS</small></div>
+  <div class=kpi><b>$261.06</b><small>低效花费(可省)</small></div>
+</div>
+
+<h2>一、核心结论</h2>
+<div class=lead warn><b>① 第二周效率腰斩。</b>花费 $529.71→$417.92，但销售 $3,929.49→$1,364.92、订单 20→8，ROAS 从 <b>7.42</b> 跌到 <b>3.27</b>。钱花得差不多，产出少一半，需立刻查是哪些 SKU/关键词在第二周空烧。</div>
+<div class=lead warn><b>② 约 $261.06 花在 0 单上。</b>8 个 SKU 各花 ≥$8、0 转化（合计 $247.86）；1 个关键词花 ≥$3、0 单（合计 $13.20）。这部分是本月最直接可省的预算。</div>
+<div class=lead ok><b>③ 真正的赢家集中在少数品。</b>Product 定向贡献 18/28 单（销售 $3,454），DMOM1020、DMOM1021、DMOM1003 等少数 SKU 撑起主要订单，应保预算；其中可用库存偏低的先补货再放量。</div>
+
+<h2>二、按周 / 店铺拆分</h2>
+<div class=card style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+<div><b>按周</b><table style="margin-top:8px"><tr><th>周</th><th class=r>花费</th><th class=r>销售</th><th class=r>订单</th><th class=r>ROAS</th></tr>
+<tr><td>5/31–6/6</td><td class=r>$529.71</td><td class=r>$3,929.49</td><td class=r>20</td><td class=r>7.42</td></tr>
+<tr><td>6/7–6/12</td><td class=r>$417.92</td><td class=r>$1,364.92</td><td class=r>8</td><td class=r>3.27</td></tr></table></div>
+<div><b>按店铺</b><table style="margin-top:8px"><tr><th>店铺</th><th class=r>花费</th><th class=r>销售</th><th class=r>订单</th><th class=r>ROAS</th></tr>
+<tr><td>加拿大</td><td class=r>$24.49</td><td class=r>$136.72</td><td class=r>1</td><td class=r>5.58</td></tr><tr><td>美国B2B</td><td class=r>$174.48</td><td class=r>$1,256.92</td><td class=r>5</td><td class=r>7.2</td></tr><tr><td>美国B2C</td><td class=r>$748.66</td><td class=r>$3,900.77</td><td class=r>22</td><td class=r>5.21</td></tr></table></div>
+</div>
+
+<h2>三、按 SKU 逐项诊断（含库存交叉）</h2>
+<div class=wrapt><table><thead><tr><th>SKU / Listing</th><th class=r>花费</th><th class=r>点击</th><th class=r>订单</th><th class=r>ROAS</th><th class=r>可用库存</th><th>动作</th><th>理由</th></tr></thead><tbody><tr><td><b>LFC-2B-680, LFC-2W-680</b><div class=sm>DMOM1021 · 2-Drawer Lateral Filing Cabinet, Compact Wide </div></td><td class=r>$177.02</td><td class=r>234</td><td class=r>6</td><td class=r>5.5</td><td class=r>—</td><td><span style="color:#166534;background:#dcfce7;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">加预算</span></td><td class=sm>赢家 ROAS 5.5、6 单，可小幅加预算放量</td></tr><tr><td><b>LFC-3B, LFC-3W</b><div class=sm>DMOM1025 · 3-Drawer Lateral Filing Cabinet, 110lbs Capaci</div></td><td class=r>$70.74</td><td class=r>96</td><td class=r>0</td><td class=r>0.0</td><td class=r>—</td><td><span style="color:#b42318;background:#fee2e2;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">停/降到最低</span></td><td class=sm>花 $70.74 0 单、CPC $0.74，承接无效，先停或降到最低</td></tr><tr><td><b>MFC-D3-B, MFC-D3-W</b><div class=sm>DMOM1022 · 3-Drawer Mobile File Cabinet with Lock, Fully </div></td><td class=r>$63.49</td><td class=r>86</td><td class=r>0</td><td class=r>0.0</td><td class=r>—</td><td><span style="color:#b42318;background:#fee2e2;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">停/降到最低</span></td><td class=sm>花 $63.49 0 单、CPC $0.74，承接无效，先停或降到最低</td></tr><tr><td><b>MFC-D2-B, MFC-D2-W</b><div class=sm>DMOM1020 · 2-Drawer Mobile File Cabinet with Lock, Fully </div></td><td class=r>$40.09</td><td class=r>58</td><td class=r>5</td><td class=r>30.4</td><td class=r>—</td><td><span style="color:#166534;background:#dcfce7;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">加预算</span></td><td class=sm>赢家 ROAS 30.4、5 单，可小幅加预算放量</td></tr><tr><td><b>5T-1600-800, 5T-1830-1200, 5T-1830-900, 5T-1980-1200, 6T-2095-122</b><div class=sm>DMOM1000 · 5-Tier Garage Storage Shelving Unit, Heavy Dut</div></td><td class=r>$33.67</td><td class=r>40</td><td class=r>0</td><td class=r>0.0</td><td class=r>—</td><td><span style="color:#b42318;background:#fee2e2;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">停/降到最低</span></td><td class=sm>花 $33.67 0 单、CPC $0.84，承接无效，先停或降到最低</td></tr><tr><td><b>4T-Kayak</b><div class=sm>DMOM1003 · Freestanding 4-tier Kayak &amp; Canoe Storage Rack</div></td><td class=r>$33.16</td><td class=r>33</td><td class=r>3</td><td class=r>17.4</td><td class=r>—</td><td><span style="color:#166534;background:#dcfce7;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">加预算</span></td><td class=sm>赢家 ROAS 17.4、3 单，可小幅加预算放量</td></tr><tr><td><b>VFC-3B, VFC-3W</b><div class=sm>DMOM1019 · 3-Drawer Vertical File Cabinet, Heavy Duty Eco</div></td><td class=r>$24.91</td><td class=r>33</td><td class=r>0</td><td class=r>0.0</td><td class=r>—</td><td><span style="color:#b42318;background:#fee2e2;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">停/降到最低</span></td><td class=sm>花 $24.91 0 单、CPC $0.75，承接无效，先停或降到最低</td></tr><tr><td><b>3T-B, 3T-W</b><div class=sm>DMOM1017 · 34&quot;W 20-30 Gallon Metal Fish Tank Stand - Heav</div></td><td class=r>$24.53</td><td class=r>128</td><td class=r>2</td><td class=r>9.4</td><td class=r>—</td><td><span style="color:#166534;background:#dcfce7;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">加预算</span></td><td class=sm>赢家 ROAS 9.4、2 单，可小幅加预算放量</td></tr><tr><td><b>PT03-WH</b><div class=sm>DMOM1042 · Metal Kitchen Pantry Cabinet - 72&quot; Tall Storag</div></td><td class=r>$20.74</td><td class=r>36</td><td class=r>0</td><td class=r>0.0</td><td class=r>—</td><td><span style="color:#b42318;background:#fee2e2;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">停/降到最低</span></td><td class=sm>花 $20.74 0 单、CPC $0.58，承接无效，先停或降到最低</td></tr><tr><td><b>VF-ZH-4B, VF-ZH-4W</b><div class=sm>DMOM1029 · 4-Drawer Vertical Metal Filing Cabinet with Lo</div></td><td class=r>$19.93</td><td class=r>26</td><td class=r>1</td><td class=r>12.9</td><td class=r>—</td><td><span style="color:#166534;background:#dcfce7;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">加预算</span></td><td class=sm>赢家 ROAS 12.9、1 单，可小幅加预算放量</td></tr><tr><td><b>LFC-4B, LFC-4W</b><div class=sm>DMOM1027 · 4-Drawer Lateral Metal File Cabinet, High-Volu</div></td><td class=r>$13.96</td><td class=r>16</td><td class=r>0</td><td class=r>0.0</td><td class=r>—</td><td><span style="color:#b42318;background:#fee2e2;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">停/降到最低</span></td><td class=sm>花 $13.96 0 单、CPC $0.87，承接无效，先停或降到最低</td></tr><tr><td><b>VFC-4B, VFC-4W</b><div class=sm>DMOM1023 · 4-Drawer Vertical  Filing Cabinet, High-Capaci</div></td><td class=r>$11.14</td><td class=r>16</td><td class=r>0</td><td class=r>0.0</td><td class=r>—</td><td><span style="color:#b42318;background:#fee2e2;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">停/降到最低</span></td><td class=sm>花 $11.14 0 单、CPC $0.70，承接无效，先停或降到最低</td></tr><tr><td><b>LFC-2B, LFC-2W</b><div class=sm>DMOM1018 · 2-Drawer Lateral File Cabinet, Extra Storage S</div></td><td class=r>$9.85</td><td class=r>15</td><td class=r>1</td><td class=r>19.7</td><td class=r>—</td><td><span style="color:#166534;background:#dcfce7;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">加预算</span></td><td class=sm>赢家 ROAS 19.7、1 单，可小幅加预算放量</td></tr><tr><td><b>5T-wangge</b><div class=sm>DMOM1016 · 72&quot;H 5-Tier Adjustable Heavy Duty Shelving Met</div></td><td class=r>$9.21</td><td class=r>10</td><td class=r>0</td><td class=r>0.0</td><td class=r>—</td><td><span style="color:#b42318;background:#fee2e2;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap">停/降到最低</span></td><td class=sm>花 $9.21 0 单、CPC $0.92，承接无效，先停或降到最低</td></tr></tbody></table></div>
+
+<h2>四、关键词：烧钱榜（0 单，建议停/降）</h2>
+<div class=wrapt><table><thead><tr><th>关键词</th><th class=r>花费</th><th class=r>点击</th><th class=r>CPC</th><th class=r>订单</th></tr></thead><tbody><tr><td><b>file cabinets</b></td><td class=r>$13.20</td><td class=r>37</td><td class=r>0.36</td><td class=r>0</td></tr></tbody></table></div>
+
+<h2>五、关键词：赢家榜（保留/可加 bid）</h2>
+<table><thead><tr><th>关键词</th><th class=r>花费</th><th class=r>订单</th><th class=r>ROAS</th></tr></thead><tbody><tr><td><b>filing cabinet</b></td><td class=r>$6.53</td><td class=r>1</td><td class=r>25.3</td></tr><tr><td><b>file cabinet</b></td><td class=r>$20.36</td><td class=r>1</td><td class=r>8.2</td></tr><tr><td><b>filing cabinets</b></td><td class=r>$352.17</td><td class=r>8</td><td class=r>4.3</td></tr></tbody></table>
+
+<h2>六、搜索词增长机会（高曝光但你 top8 占比低）</h2>
+<p class=sub style=margin-top:-4px>这些词月曝光高、但你的 Listing 进前 8 的比例 &lt;5%，是自然位 + 广告抢量的机会点。</p>
+<table><thead><tr><th>搜索词</th><th>类目</th><th class=r>30天曝光</th><th class=r>你出现占比</th><th class=r>你进top8占比</th></tr></thead><tbody><tr><td><b>garage storage</b></td><td class=sm>Shelving &amp; Racks</td><td class=r>3322</td><td class=r>14.6%</td><td class=r>0.1%</td></tr><tr><td><b>storage shelves</b></td><td class=sm>Shelving &amp; Racks</td><td class=r>2638</td><td class=r>4.3%</td><td class=r>0.1%</td></tr><tr><td><b>fish tank stand</b></td><td class=sm>Aquariums &amp; Bowls</td><td class=r>1952</td><td class=r>45.0%</td><td class=r>1.1%</td></tr><tr><td><b>fish tank</b></td><td class=sm>Aquariums &amp; Bowls</td><td class=r>1840</td><td class=r>9.1%</td><td class=r>0.1%</td></tr><tr><td><b>aquarium stand</b></td><td class=sm>Aquariums &amp; Bowls</td><td class=r>1449</td><td class=r>44.0%</td><td class=r>1.5%</td></tr><tr><td><b>garage shelving</b></td><td class=sm>Shelving &amp; Racks</td><td class=r>1059</td><td class=r>27.7%</td><td class=r>0.3%</td></tr><tr><td><b>aquarium</b></td><td class=sm>Aquariums &amp; Bowls</td><td class=r>942</td><td class=r>20.7%</td><td class=r>0.0%</td></tr><tr><td><b>printer cabinet</b></td><td class=sm>Filing Cabinets</td><td class=r>833</td><td class=r>8.0%</td><td class=r>0.1%</td></tr><tr><td><b>garage shelves</b></td><td class=sm>Shelving &amp; Racks</td><td class=r>797</td><td class=r>12.8%</td><td class=r>0.5%</td></tr><tr><td><b>small filing cabinet</b></td><td class=sm>Filing Cabinets</td><td class=r>730</td><td class=r>50.8%</td><td class=r>1.6%</td></tr><tr><td><b>decorative filing cabinet</b></td><td class=sm>Filing Cabinets</td><td class=r>627</td><td class=r>28.4%</td><td class=r>3.2%</td></tr><tr><td><b>garage storage shelves</b></td><td class=sm>Shelving &amp; Racks</td><td class=r>460</td><td class=r>42.2%</td><td class=r>0.2%</td></tr></tbody></table>
+
+<h2>七、本周可执行清单</h2>
+<div class=card><ul>
+<li><b>立即止损：</b>停掉或降到最低的 0 单高花费 SKU/关键词，预计省 $261.06/两周。</li>
+<li><b>保预算 + 补库存：</b>ROAS≥4 的赢家 SKU 维持预算；其中可用库存 ≤2 的先补货再放量，避免缺货空投。</li>
+<li><b>查第二周掉量：</b>对比两周明细，定位 ROAS 跌幅最大的 SKU/词，确认是竞价、承接还是季节因素。</li>
+<li><b>抢机会词：</b>对第六节高曝光低占比的搜索词，确认对应 Listing 有无在投、bid 是否够。</li>
+</ul></div>
+
+<p class=foot>本报告为一次性诊断，独立于线上网站，未改动任何站内文件。口径：ROAS=归因零售销售/花费（14天 view-through）。</p>
+</div></body></html>
