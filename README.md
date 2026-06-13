@@ -13,7 +13,8 @@ Wayfair 店铺运营接手与诊断项目。
 1. 先打开 `reports/Wayfair_运营执行中心_20260605.html`，看本周 P0 / P1 执行任务。
 2. 需要看全量动作时，打开 `reports/Wayfair_SKU任务清单_20260605.html`。
 3. 需要复核单个 SKU 时，打开 `reports/Wayfair_SKU经营档案_20260605.html`。
-4. 证据层再打开定价体检、促销准入、库存映射、广告调整等报告。
+4. 每周复盘打开 `reports/Wayfair_周复盘_订单_WSP_20260613.html`，动作回填到 `reports/Wayfair_复盘动作账本_20260613.html`。
+5. 月度结构诊断打开 `reports/Wayfair_月复盘模板_20260613.html`，有效月报到齐后再重跑。
 
 ---
 
@@ -29,6 +30,7 @@ AI-Wayfair/
 │       └── dashboard-shell.js  # 统一交互脚本（含表格 min-width 注入）
 ├── scripts/                    # 报告生成脚本
 │   ├── build_ops_workbench.py       # 生成执行中心 / 任务清单 / SKU档案
+│   ├── build_review_workbench.py    # 生成周/月复盘动作账本与模板
 │   ├── apply_dashboard_shell.py     # 给 HTML 套统一 Dashboard 框架
 │   ├── build_product_pricing_health.py   # 生成定价体检表
 │   └── rebuild_sku_promo_readiness.py    # 生成促销准入清单
@@ -48,6 +50,8 @@ AI-Wayfair/
 | `Wayfair_运营执行中心_20260605.html` | P0/P1 任务聚合，每日第一入口 |
 | `Wayfair_SKU任务清单_20260605.html` | 全量任务清单，含执行状态追踪（localStorage） |
 | `Wayfair_SKU经营档案_20260605.html` | 单 SKU 档案卡（价格/库存/广告/利润） |
+| `Wayfair_周复盘_订单_WSP_20260613.html` | 订单 + WSP 广告周复盘 |
+| `Wayfair_复盘动作账本_20260613.html` | 复盘动作、推广规则和止损规则闭环 |
 
 ### 证据层报告
 
@@ -67,6 +71,7 @@ AI-Wayfair/
 | 报告 | 说明 |
 |------|------|
 | `Wayfair_店铺诊断_20260604.html` | 店铺整体诊断总览 |
+| `Wayfair_月复盘模板_20260613.html` | 月度账号 / 类目 / SKU 结构复盘模板 |
 | `Wayfair_店铺交接_20260604.html` | 接手原则与交接说明 |
 | `Wayfair_运营工作台_20260604.html` | 当前状态、缺口数据、下一步动作 |
 | `Wayfair_操作护栏_20260604.html` | 禁止踩的错误口径和误操作清单 |
@@ -87,10 +92,13 @@ python3 -m venv .venv
 # 1. 生成执行中心 / 任务清单 / SKU档案
 .venv/bin/python scripts/build_ops_workbench.py
 
-# 2. 套 Dashboard shell（注意：会覆盖 <head>，页面专有 CSS 必须在 <body>）
+# 2. 生成复盘动作账本 / 月复盘模板
+.venv/bin/python scripts/build_review_workbench.py
+
+# 3. 套 Dashboard shell（注意：会覆盖 <head>，页面专有 CSS 必须在 <body>）
 python3 scripts/apply_dashboard_shell.py
 
-# 3. 本地预览
+# 4. 本地预览
 python3 -m http.server 8787 --directory reports
 # 访问 http://localhost:8787/
 ```

@@ -1169,7 +1169,7 @@ def render_execution_center(profiles: pd.DataFrame, tasks: pd.DataFrame) -> None
   <a href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><b>3. 决定流量/转化动作</b><small>盈利款放量，腰部款修短板，尾部无销量先观察。</small></a>
   <a href="./Wayfair_SKU任务清单_20260605.html"><b>4. 管理盘复盘</b><small>按 P0/P1/P2 跟进执行状态，下次用结果修正模型。</small></a>
 </div></div>
-<div class="section"><h2>2. 本周先做什么</h2><p>周复盘只强依赖订单和广告数据：先看本周订单增量、花费、ROAS/转化和真实毛利，再决定止损、保守测试或加预算；Report Center 月报只在有效导出后做结构复盘。</p><div class="card"><b>本周复盘输入</b><p>必需：订单数据 + WSP/广告数据。非阻塞：6 月 Report Center 少量报告或空表、Listing Health、Cost Stack、Customer Feedback，这些等有效月报后重跑结构结论。</p></div><div class='week-progress'>本周已执行 <b id='done-count'>0</b> / <span id='total-count'>20</span><div class='pbar'><i id='progress-bar'></i></div></div>{task_table(weekly, 20)}</div>
+<div class="section"><h2>2. 本周先做什么</h2><p>周复盘只强依赖订单和广告数据：先看本周订单增量、花费、ROAS/转化和真实毛利，再决定止损、保守测试或加预算；Report Center 月报只在有效导出后做结构复盘。</p><div class="card"><b>本周复盘输入</b><p>必需：订单数据 + WSP/广告数据。非阻塞：6 月 Report Center 少量报告或空表、Listing Health、Cost Stack、Customer Feedback，这些等有效月报后重跑结构结论。</p><p><a href="./Wayfair_周复盘_订单_WSP_20260613.html">查看本周复盘报告</a> ｜ <a href="./Wayfair_复盘动作账本_20260613.html">回填复盘动作账本</a></p></div><div class='week-progress'>本周已执行 <b id='done-count'>0</b> / <span id='total-count'>20</span><div class='pbar'><i id='progress-bar'></i></div></div>{task_table(weekly, 20)}</div>
 <div class="section"><h2>3. 问题类型分布</h2><div class="grid">
 {''.join(f"<div class='card'><div class='num'>{int(v)}</div><b>{esc(k)}</b></div>" for k, v in type_counts.items())}
 </div></div>

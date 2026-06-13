@@ -4,71 +4,52 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>Wayfair 周复盘报告 - 订单 + WSP 20260613</title>
+  <title>Wayfair 周复盘报告：订单 + WSP 广告</title>
   <link rel="stylesheet" href="./assets/dashboard-shell.css">
-  <style>
-    :root{
-      --ink:#172033;
-      --muted:#667085;
-      --line:#d8e0ec;
-      --paper:#ffffff;
-      --soft:#f5f7fb;
-      --blue:#2f6df6;
-      --green:#13795b;
-      --amber:#a15c00;
-      --red:#b42318;
-      --violet:#5b2b86;
-    }
-    body{margin:0;background:#eef2f7;color:var(--ink);font:14px/1.55 "Avenir Next","Segoe UI","Microsoft YaHei",sans-serif}
-    .report{max-width:1220px;margin:0 auto;padding:28px}
-    .mast{background:#111827;color:#fff;border-radius:10px;padding:28px;position:relative;overflow:hidden}
-    .mast:after{content:"";position:absolute;inset:auto -80px -120px auto;width:380px;height:260px;background:radial-gradient(circle,#2f6df6 0,#2f6df600 70%);opacity:.5}
-    .eyebrow{letter-spacing:.14em;text-transform:uppercase;color:#b6c7ff;font-size:12px;font-weight:800}
-    h1{margin:8px 0 8px;font-size:30px;line-height:1.18;letter-spacing:0}
-    h2{margin:28px 0 12px;font-size:20px;letter-spacing:0}
-    h3{margin:0 0 8px;font-size:15px}
-    .meta{color:#d0d5dd;max-width:880px}
-    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
-    .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #344054;background:#1f2937;color:#fff;border-radius:999px;padding:8px 12px;font-size:12px}
-    .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0}
-    .card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;box-shadow:0 14px 30px rgba(21,32,51,.06)}
-    .kpi b{display:block;font-size:26px;line-height:1;margin:7px 0;color:var(--ink)}
-    .kpi span{color:var(--muted);font-size:12px}
-    .kpi small{color:var(--muted)}
-    .section{background:var(--paper);border:1px solid var(--line);border-radius:10px;margin:16px 0;padding:18px}
-    .section>p{color:#475467;margin-top:0}
-    .note{border-left:4px solid var(--blue);background:#f2f6ff;border-radius:8px;padding:12px 14px;color:#263247;margin:12px 0}
-    .note.warn{border-color:var(--amber);background:#fff7ed}
-    .note.danger{border-color:var(--red);background:#fff1f0}
-    table{width:100%;max-width:100%;display:block;overflow-x:auto;box-sizing:border-box;border-collapse:separate;border-spacing:0;margin:10px 0;border:1px solid var(--line);border-radius:8px}
-    thead,tbody{display:table;width:max-content;min-width:100%}
-    th,td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
-    th{background:#f8fafc;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#344054}
-    tr:last-child td{border-bottom:0}
-    .num{text-align:right;font-variant-numeric:tabular-nums}
-    .tag{display:inline-flex;border-radius:999px;padding:3px 8px;font-size:12px;font-weight:800}
-    .tag.red{background:#fee4e2;color:var(--red)}
-    .tag.amber{background:#fef0c7;color:var(--amber)}
-    .tag.green{background:#dcfae6;color:var(--green)}
-    .tag.blue{background:#dbeafe;color:#1d4ed8}
-    .actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    .action{border-radius:10px;padding:14px;border:1px solid var(--line);background:#fff}
-    .action strong{display:block;font-size:16px;margin:6px 0}
-    .action ul{padding-left:18px;margin:8px 0 0}
-    .bars{display:grid;gap:10px;margin:12px 0}
-    .bar{display:grid;grid-template-columns:150px 1fr 90px;gap:10px;align-items:center}
-    .bar i{display:block;height:12px;border-radius:999px;background:linear-gradient(90deg,var(--blue),#8ab4ff)}
-    .bar span{font-size:12px;color:#475467}
-    .two{display:grid;grid-template-columns:1.05fr .95fr;gap:12px}
-    .grid>*,.actions>*,.two>*,.checklist>*{min-width:0}
-    .checklist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-    .check{border:1px dashed #b8c2d2;border-radius:10px;padding:12px;background:#fbfcff}
-    .footer{color:var(--muted);font-size:12px;margin:24px 0 6px}
-    @media (max-width:900px){.grid,.actions,.two,.checklist{grid-template-columns:1fr}.bar{grid-template-columns:1fr}.report{padding:14px}h1{font-size:24px}}
-  </style>
 </head>
-<body>
-  <main class="report">
+<body class="wf-app-body">
+<div class="wf-page"><div class="wf-app">
+  <aside class="wf-side">
+    <div class="wf-brand"><span class="wf-mark">W</span><div>Wayfair Ops<small>AI Command Center</small></div></div>
+    <nav class="wf-nav-root"><a class="" href="../index.html"><span class="wf-dot"></span>Dashboard</a></nav>
+<details class="wf-nav-group"><summary>每日 / 高频</summary><nav><a class="" href="./Wayfair_数据上传中心_20260612.html"><span class="wf-dot"></span>数据上传中心</a>
+<a class="" href="./Wayfair_每日库存生成工具_20260612.html"><span class="wf-dot"></span>每日库存生成</a>
+<a class="" href="./Wayfair_库存映射对照工具_20260604.html"><span class="wf-dot"></span>库存映射</a>
+<a class="" href="./Wayfair_运营执行中心_20260605.html"><span class="wf-dot"></span>执行中心</a>
+<a class="" href="./Wayfair_SKU任务清单_20260605.html"><span class="wf-dot"></span>任务清单</a></nav></details>
+<details class="wf-nav-group" open><summary>每周经营</summary><nav><a class="active" href="./Wayfair_周复盘_订单_WSP_20260613.html"><span class="wf-dot"></span>周复盘</a>
+<a class="" href="./Wayfair_复盘动作账本_20260613.html"><span class="wf-dot"></span>动作账本</a>
+<a class="" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html"><span class="wf-dot"></span>促销准入</a>
+<a class="" href="./Wayfair_6月WSP广告调整执行清单_CostStack校准版.html"><span class="wf-dot"></span>广告调整</a>
+<a class="" href="./Wayfair_6月WSP关键词调整清单_20260604.html"><span class="wf-dot"></span>关键词调整</a>
+<a class="" href="./Wayfair_SKU经营档案_20260605.html"><span class="wf-dot"></span>SKU经营档案</a>
+<a class="" href="./Wayfair_SKU价值分级_SABC_N_20260604.html"><span class="wf-dot"></span>SKU价值分级</a></nav></details>
+<details class="wf-nav-group"><summary>月度 / 复盘</summary><nav><a class="" href="./Wayfair_月复盘模板_20260613.html"><span class="wf-dot"></span>月复盘模板</a>
+<a class="" href="./Wayfair_产品定价体检表_20260605.html"><span class="wf-dot"></span>定价体检表</a>
+<a class="" href="./Wayfair_Pricing_ProductCatalog_定价体检_20260604.html"><span class="wf-dot"></span>Catalog定价</a>
+<a class="" href="./Wayfair_产品信息评分评论体检_20260604.html"><span class="wf-dot"></span>评分评论体检</a>
+<a class="" href="./Wayfair_店铺诊断_20260604.html"><span class="wf-dot"></span>店铺诊断</a></nav></details>
+<details class="wf-nav-group"><summary>规则与背景</summary><nav><a class="" href="./Wayfair_数据补齐清单_20260604.html"><span class="wf-dot"></span>数据补齐</a>
+<a class="" href="./Wayfair_运营工作台_20260604.html"><span class="wf-dot"></span>项目状态</a>
+<a class="" href="./Wayfair_6月待办甘特图_20260604.html"><span class="wf-dot"></span>待办甘特图</a>
+<a class="" href="./Wayfair_操作护栏_20260604.html"><span class="wf-dot"></span>操作护栏</a>
+<a class="" href="./Wayfair_CostStack口径校准与建议复核_20260604.html"><span class="wf-dot"></span>口径校准</a>
+<a class="" href="./Wayfair_店铺交接_20260604.html"><span class="wf-dot"></span>店铺交接</a>
+<a class="" href="./Wayfair_帮助中心.html"><span class="wf-dot"></span>帮助中心</a></nav></details>
+    <div class="wf-side-foot"><b>Production</b><small>ai-wayfair.vercel.app</small></div>
+  </aside>
+  <main class="wf-main">
+    <div class="wf-topbar"><div class="wf-global-search" role="search"><input type="search" aria-label="全局搜索页面" placeholder="搜索页面：库存、定价、促销、口径…"><div class="wf-search-results"></div></div><div class="wf-top-actions"><span class="wf-chip">订单截至 2026-06-12</span><a class="wf-chip" href="../index.html">返回 Dashboard</a><a class="wf-chip live" href="https://ai-wayfair.vercel.app">线上查看</a></div></div>
+    <section class="wf-hero">
+      <div class="wf-title-card"><div><div class="wf-eyebrow">Ads action</div><h1>Wayfair 周复盘报告：订单 + WSP 广告</h1></div><div class="wf-actions"><a class="wf-btn primary" href="./Wayfair_运营执行中心_20260605.html">执行中心</a><a class="wf-btn green" href="./Wayfair_库存映射对照工具_20260604.html">查库存</a><a class="wf-btn light" href="./Wayfair_6月SKU分层与促销准入清单_20260604.html">促销准入</a></div></div>
+    </section>
+    <section class="wf-data-alert">
+      <div><b>周复盘口径</b><div class="stamp">订单+WSP</div></div>
+      <div><p>当前页面订单和固定成本已补到 <b>2026-06-12</b>。截至 2026-06-12，本周复盘只强依赖 <b>2026-06-06 至 2026-06-12</b> 的订单数据和 WSP 广告报表；Report Center 6 月 To Date 资料少且可能为空表，下载后必须验行数和字段，不能作为全量周更前提。</p>
+      <ul><li>每周必需：订单、WSP Campaign、Product、Keyword Targeting (Listing)、Keyword Optimization、Search Term Research。</li><li>月度或有效时纳入：Report Center、Listing Health、Cost Stack、Product Catalog、客诉/促销清单；5 月完整报告继续作为结构基线。</li><li><a href="./Wayfair_数据上传中心_20260612.html">去数据上传中心</a></li></ul></div>
+    </section>
+    <div id="content" class="wf-content">
+<main class="report">
     <section class="mast">
       <div class="eyebrow">Weekly Business Review</div>
       <h1>Wayfair 周复盘报告：订单 + WSP 广告</h1>
@@ -232,5 +213,7 @@
       生成方式：基于本地订单报告与 WSP Campaign / Product / Keyword Targeting / Keyword Optimization / Search Term Research 报表手工模拟。未纳入库存、Cost Stack、客诉扣款和真实毛利，因此本报告只建议预算重排和止损，不建议大幅加预算。
     </div>
   </main>
+</div></div>
+<script src="./assets/dashboard-shell.js"></script>
 </body>
 </html>
