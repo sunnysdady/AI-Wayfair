@@ -7,7 +7,7 @@ const FRESH_MS = 15 * 60 * 1000;
 type Product = { partNumber?: string; quantity?: number; price?: number };
 type PurchaseOrder = { poNumber?: string; poDate?: string; products?: Product[] };
 
-const ORDER_QUERY = `query RecentDropshipOrders($fromDate: MonoDateTime!) {
+const ORDER_QUERY = `query RecentDropshipOrders($fromDate: IsoDateTime!) {
   getDropshipPurchaseOrders(limit: 2000, fromDate: $fromDate, sortOrder: DESC) {
     poNumber
     poDate
