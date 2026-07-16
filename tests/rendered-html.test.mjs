@@ -87,3 +87,19 @@ test("ships the complete evidence library instead of summary placeholders", asyn
     assert.ok(contents.byteLength > 100, `${file} should contain a real report`);
   }
 });
+
+test("restores persisted weekly actions after the advertising page reloads", async () => {
+  const [{ queuedActionState }, page] = await Promise.all([
+    import("../lib/ad-action-queue.mjs"),
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.deepEqual(queuedActionState([
+    { campaign_id: "622741", listing: "DMOM1000", status: "PLANNED" },
+    { campaign_id: "622731", listing: "DMOM1029", status: "EXECUTED" },
+  ]), {
+    "622741:DMOM1000": "saved",
+    "622731:DMOM1029": "executed",
+  });
+  assert.match(page, /\/api\/ads\/actions\?runKey=/);
+  assert.match(page, /queuedActionState/);
+});
