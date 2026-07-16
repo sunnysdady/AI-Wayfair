@@ -114,7 +114,7 @@ async function metrics(start: string, end: string) {
   const estimatedProfitCents = Number(profit?.known_profit_cents || 0) + Math.round(Number(profit?.unknown_revenue_cents || 0) * DEFAULT_MARGIN_RATE);
   const advertising = await cachedAdSpend(db, start, end);
   const advertisingBeforeGrossProfit = estimatedProfitCents / 100;
-  const contributionAfterAds = advertising.spend === null ? null : advertisingBeforeGrossProfit - advertising.spend;
+  const contributionAfterAds = advertising.spend === null ? null : Number((advertisingBeforeGrossProfit - advertising.spend).toFixed(2));
   return {
     orders: Number(row?.orders || 0),
     revenue: Number(row?.revenue_cents || 0) / 100,
