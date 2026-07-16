@@ -13,7 +13,10 @@ test("renders the Wayfair AI operations product", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /Wayfair AI 运营中台/);
-  assert.match(html, /今日运营简报/);
+  assert.match(html, /经营日报/);
+  assert.match(html, /最近 7 天/);
+  assert.match(html, /估算利润/);
   assert.match(html, /广告优化/);
+  assert.match(html, /Ops API（库存 \+ 订单）/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
 });
