@@ -104,4 +104,5 @@ test("restores persisted weekly actions after the advertising page reloads", asy
   assert.match(page, /queuedActionState/);
   assert.match(page, /本周执行批次/);
   assert.match(page, /确认进入 API 预检/);
+  assert.match(page, /重新进入 API 预检/);
 });

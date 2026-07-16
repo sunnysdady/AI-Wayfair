@@ -1,4 +1,4 @@
-import { buildCampaignUpdates } from "@/lib/ad-action-queue.mjs";
+import { WAYFAIR_ADVERTISING_AUDIENCE, buildCampaignUpdates } from "@/lib/ad-action-queue.mjs";
 
 type QueueRow = {
   id: string; run_key: string; listing: string; campaign_id: string; action_type: string;
@@ -24,7 +24,7 @@ async function token(env: Env) {
   const response = await fetch("https://sso.auth.wayfair.com/oauth/token", {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json" },
-    body: JSON.stringify({ grant_type: "client_credentials", client_id: env.WAYFAIR_AD_CLIENT_ID, client_secret: env.WAYFAIR_AD_CLIENT_SECRET, audience: "https://api.wayfair.io/" }),
+    body: JSON.stringify({ grant_type: "client_credentials", client_id: env.WAYFAIR_AD_CLIENT_ID, client_secret: env.WAYFAIR_AD_CLIENT_SECRET, audience: WAYFAIR_ADVERTISING_AUDIENCE }),
   });
   if (!response.ok) throw new Error(`Wayfair OAuth 失败（HTTP ${response.status}）`);
   const body = await response.json() as { access_token?: string };
@@ -52,6 +52,9 @@ async function updateCampaign(accessToken: string, campaignId: string, listings:
     if (response.ok) return body;
     if ((response.status === 429 || response.status >= 500) && attempt < 2) { await wait(500 * (2 ** attempt)); continue; }
     const details = body.details?.length ? `：${body.details.join("；")}` : "";
+    if (response.status === 401) {
+      throw new Error(`Wayfair 拒绝了广告写入凭证（HTTP 401）${details}。请求已使用生产 OAuth audience；请核对 Sites 的广告 Client ID 与 Client Secret 是否同时属于已开启 Modify Bids 的 advertising ops 应用`);
+    }
     throw new Error(`${body.message || "Wayfair Advertising API 执行失败"}${details}（HTTP ${response.status}）`);
   }
   throw new Error("Wayfair Advertising API 执行失败");

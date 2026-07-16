@@ -117,7 +117,7 @@ async function getToken(env: AdvertisingEnv) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const response = await fetch(TOKEN_URL, {
       method: "POST", headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ grant_type: "client_credentials", client_id: env.WAYFAIR_AD_CLIENT_ID, client_secret: env.WAYFAIR_AD_CLIENT_SECRET, audience: "https://api.wayfair.io/" }),
+      body: JSON.stringify({ grant_type: "client_credentials", client_id: env.WAYFAIR_AD_CLIENT_ID, client_secret: env.WAYFAIR_AD_CLIENT_SECRET, audience: WAYFAIR_ADVERTISING_AUDIENCE }),
     });
     lastStatus = response.status;
     if (response.ok) {
@@ -363,3 +363,4 @@ export async function cachedAdSpend(db: D1Database | undefined, start: string, e
   const expected = daysBetween(start, end);
   return { spend: Number(rows.reduce((sum, item) => sum + Number(item.spend || 0), 0).toFixed(2)), coverage: rows.length >= expected ? "FULL" : "PARTIAL", coveredDays: rows.length, expectedDays: expected, updatedAt: cached.updated_at, source: "LEGACY_CACHE" };
 }
+import { WAYFAIR_ADVERTISING_AUDIENCE } from "./ad-action-queue.mjs";
