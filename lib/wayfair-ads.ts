@@ -1,4 +1,4 @@
-import { PLAN_LISTINGS, planForListing } from "./operating-plan";
+import { JULY_PLAN, JULY_PLAN_LISTINGS, planForListing } from "./operating-plan";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -157,25 +157,28 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
   const previousByListing = aggregate(listingRows, "listing", previousStart, previousEnd);
   const listings = [...currentByListing].map(([listing, current]) => {
     const previous = previousByListing.get(listing);
-    const plan = planForListing(listing);
+    const plan = planForListing(listing, JULY_PLAN.month);
     const marginRate = plan?.marginRate || DEFAULT_MARGIN;
     const breakEvenRoas = Number((1 / marginRate).toFixed(2));
     const ratingPass = plan?.rating !== undefined && plan.rating >= 4;
-    const planPass = Boolean(plan?.eligible && plan.budget > 0);
+    const planPass = Boolean(plan?.eligible && plan.adRole !== "exclude");
     const qualityKnown = plan?.rating !== undefined;
     const inventoryKnown = false;
     let action = "等待数据成熟";
     let actionType = "WAIT_DATA";
     let proposed: Record<string, unknown> = {};
-    if (mature && !planPass && current.spend > 0) { action = "暂停计划外 Listing"; actionType = "SET_LISTING_ACTIVE"; proposed = { active: false }; }
+    if (mature && plan?.adRole === "exclude" && current.spend > 0) { action = "暂停7月计划外 Listing"; actionType = "SET_LISTING_ACTIVE"; proposed = { active: false }; }
     else if (mature && current.clicks >= 20 && current.orders === 0) { action = "Listing Bid 下调 10%并排查链接"; actionType = "SET_LISTING_BID"; proposed = { bid: Number((number(current.latest, "product_default_bid") * .9).toFixed(2)) }; }
     else if (mature && current.spend > 0 && current.wscRoas < breakEvenRoas) { action = "Listing Bid 下调 10%"; actionType = "SET_LISTING_BID"; proposed = { bid: Number((number(current.latest, "product_default_bid") * .9).toFixed(2)) }; }
-    else if (mature && planPass && ratingPass && current.cvr >= .02 && current.wscRoas >= Math.max(breakEvenRoas, 4)) { action = "审核后增加Campaign Cap 20%"; actionType = "INCREASE_DAILY_CAP"; proposed = { change: "+20%", manual: true }; }
+    else if (mature && plan?.adRole === "reduce" && current.spend > 0) { action = "按7月策略下调Listing Bid 10%"; actionType = "SET_LISTING_BID"; proposed = { bid: Number((number(current.latest, "product_default_bid") * .9).toFixed(2)) }; }
+    else if (mature && planPass && ["scale", "protect"].includes(plan?.adRole || "") && plan?.budget && ratingPass && current.cvr >= .02 && current.wscRoas >= Math.max(breakEvenRoas, 4)) { action = "按7月计划审核后增加Campaign Cap 20%"; actionType = "INCREASE_DAILY_CAP"; proposed = { change: "+20%", manual: true }; }
+    else if (mature && plan?.adRole === "hold") { action = "按7月计划保持Bid与Cap"; actionType = "HOLD"; }
     else if (mature) { action = "保持参数，进入下一成熟周复查"; actionType = "HOLD"; }
+    const needsQualityGate = actionType === "INCREASE_DAILY_CAP";
     const blockers = [
       !mature ? `归因未成熟（成熟至 ${matureThrough}）` : "",
-      !plan ? "未进入月度计划" : !planPass ? plan.gate : "",
-      !qualityKnown ? "评分/评论快照缺失" : !ratingPass ? `评分 ${plan?.rating} 低于放量门槛` : "",
+      !plan ? "未进入7月推广计划" : !planPass ? plan.gate : "",
+      needsQualityGate && !qualityKnown ? "评分/评论快照缺失" : needsQualityGate && !ratingPass ? `评分 ${plan?.rating} 低于放量门槛` : "",
       !inventoryKnown ? "库存覆盖天数未接入" : "",
       !plan?.marginRate ? "使用店铺默认毛利率估算保本线" : "",
     ].filter(Boolean);
@@ -186,7 +189,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       bid: number(current.latest, "product_default_bid"), status: current.latest.product_status,
       current: { ...current, latest: undefined }, previous: previous ? { ...previous, latest: undefined } : emptyMetric(),
       plan: plan || null, economics: { marginRate, marginMode: plan?.marginRate ? "PLAN_SKU" : "STORE_ESTIMATE", breakEvenRoas },
-      linkQuality: { rating: plan?.rating ?? null, reviews: plan?.reviews ?? null, pass: qualityKnown && ratingPass, source: plan ? "月度Playbook快照" : "未建档" },
+      linkQuality: { rating: plan?.rating ?? null, reviews: plan?.reviews ?? null, pass: qualityKnown && ratingPass, source: plan ? "7月真实基线计划快照" : "未建档" },
       action: { type: actionType, label: action, before: { bid: number(current.latest, "product_default_bid"), active: !/inactive|false/i.test(current.latest.product_status || "") }, proposed, execution, blockers },
     };
   }).sort((a, b) => (a.action.execution === "BLOCKED" ? 1 : 0) - (b.action.execution === "BLOCKED" ? 1 : 0) || b.current.spend - a.current.spend);
@@ -198,7 +201,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     source: "Wayfair Advertising API", generatedAt: new Date().toISOString(), attributionWindowDays: ATTRIBUTION_DAYS,
     range: { start, end, previousStart, previousEnd, asOf, matureThrough, mature },
     current: total(campaignRows, start, end), previous: total(campaignRows, previousStart, previousEnd), history, campaigns, listings,
-    plan: { month: "2026-08", plannedListings: PLAN_LISTINGS.filter((item) => item.eligible).length, plannedBudget: 1800 },
+    plan: { month: JULY_PLAN.month, plannedListings: JULY_PLAN_LISTINGS.filter((item) => item.eligible).length, plannedBudget: JULY_PLAN.adBudget },
     safety: { liveWritesEnabled: false, approvalEnabled: false, reason: "第一阶段仅生成可解释清单；缺失库存/链接/利润Gate时禁止审批。" },
   };
 }
@@ -208,7 +211,7 @@ export async function getAdvertisingAnalysis(env: Record<string, string> & { DB?
   if (span < 1 || span > 42) throw new Error("广告分析周期需在1–42天内");
   const previousEnd = addDays(start, -1);
   const historyStart = addDays(previousEnd, -(span - 1));
-  const cacheKey = `ads-analysis:${start}:${end}`;
+  const cacheKey = `ads-analysis:v2:${start}:${end}`;
   if (env.DB && !force) {
     const cached = await env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key = ?").bind(cacheKey).first<{ value: string; updated_at: string }>();
     if (cached && Date.now() - Date.parse(cached.updated_at) < CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, updatedAt: cached.updated_at } };

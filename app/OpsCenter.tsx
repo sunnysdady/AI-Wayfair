@@ -9,7 +9,7 @@ const NAV: { id: View; label: string; meta: string }[] = [
   { id: "plan", label: "运营计划", meta: "本月" },
   { id: "inventory", label: "库存更新", meta: "Gate" },
   { id: "ads", label: "广告优化", meta: "每周" },
-  { id: "review", label: "月度复盘", meta: "13" },
+  { id: "review", label: "月度复盘", meta: "15" },
   { id: "catalog", label: "商品数据", meta: "V2" },
   { id: "sources", label: "数据源", meta: "6/6" },
 ];
@@ -40,7 +40,7 @@ type AdMetric = { impressions: number; clicks: number; spend: number; orders: nu
 type AdListing = {
   listing: string; campaignId: string; campaignName: string; site: string; parts: string[]; bid: number; status: string;
   current: AdMetric; previous: AdMetric;
-  plan: null | { budget: number; augustUnits: number; role: string; gate: string; eligible: boolean; rating?: number; reviews?: number };
+  plan: null | { budget: number; augustUnits?: number; julyTargetOrders?: number; role: string; gate: string; eligible: boolean; adRole: string; rating?: number; reviews?: number };
   economics: { marginRate: number; marginMode: string; breakEvenRoas: number };
   linkQuality: { rating: number | null; reviews: number | null; pass: boolean; source: string };
   action: { type: string; label: string; execution: string; blockers: string[]; before: Record<string, unknown>; proposed: Record<string, unknown> };
@@ -51,12 +51,15 @@ type AdAnalysis = {
   generatedAt: string; attributionWindowDays: number; cache?: { hit?: boolean; updatedAt?: string }; safety: { reason: string }; error?: string;
 };
 type PlanProgress = {
-  plan: { month: string; unitTarget: number; revenueTarget: number; attributedOrderTarget: number; baseAdBudget: number; hardAdCap: number; wscRoasGoal: number; scaleRoasGate: number; sourceAsOf: string; scopeWarning: string };
+  plan: { month: string; orderTarget: number; baselineOrders: number; floorOrders: number; stretchOrders: number; adBudget: number; estimatedNetProfit: number; source: string; sourceAsOf: string; scopeWarning: string };
   currentOperatingMonth: { month: string; targetStatus: string; note: string }; status: string; asOf: string;
-  actual: { orders: number; units: number; revenue: number; adSpend: number | null; adCoverage: string };
-  progress: { elapsedDays: number; totalDays: number; timeProgress: number; unitCompletion: number; expectedUnits: number; paceGap: number; forecastUnits: number; remainingUnits: number; requiredDailyUnits: number };
-  listings: { listing: string; parts: string[]; juneUnits: number; augustUnits: number; actualUnits: number; budget: number; role: string; gate: string }[];
-  milestones: { label: string; range: string; cumulative: number; note: string }[]; error?: string;
+  actual: { orders: number; units: number; revenue: number; adSpend: number | null; adCoverage: string; grossProfitBeforeAds: number; contributionAfterAds: number | null; costCoverage: number };
+  progress: { elapsedDays: number; totalDays: number; timeProgress: number; orderCompletion: number; expectedOrders: number; paceGap: number; forecastOrders: number; remainingOrders: number; requiredDailyOrders: number };
+  listings: { listing: string; parts: string[]; juneBaselineOrders: number; julyTargetOrders: number; actualOrders: number; actualUnits: number; actualRevenue: number; budget: number; estimatedNetProfit: number; role: string; gate: string; tactic?: string; sourceWarning?: string }[];
+  events: { label: string; range: string; note: string }[];
+  activity: { name: string; officialEventRange: string; canadaCoInvestRange: string; flashDealRange: string; flashConfirmationDeadline: string; catalogLockRange: string; strategyBudget: number; monthlyBudget: number; budgetNote: string; source: string; sourceAsOf: string; activePhase: string; phases: { id: string; label: string; range: string; budgetCap: number; bidRule: string; capRule: string; objective: string }[] };
+  nextPlan: { plan: { unitTarget: number; baseAdBudget: number; hardAdCap: number; sourceAsOf: string; scopeWarning: string }; listings: { listing: string; parts: string[]; juneUnits: number; augustUnits: number; actualUnits: number; budget: number; role: string; gate: string }[]; milestones: { label: string; range: string; cumulative: number; note: string }[] };
+  error?: string;
 };
 
 const presetOptions = [
@@ -92,8 +95,11 @@ function change(current = 0, previous = 0) {
   const value = (current - previous) / previous * 100;
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}% 较前周期`;
 }
-const REPORTS = [
-  { title: "8月150单完整增长 Playbook", file: "YB店_8月150单完整增长Playbook.html", kind: "PLAYBOOK", summary: "SKU目标、渠道预算、Campaign、Offer利润、周节奏和Scorecard的主计划。", sections: [["01","SKU责任","10个Listing拆解150 Units；DMOM1021/1022/1019承担101件。"],["02","预算结构","基础广告预算$1,800；Keyword $750、Product $650、B2B $150、Canada $50、机动$200。"],["03","周节奏","W1/W2/W3/W4累计目标30/65/105/150；未过Gate不得解锁预算。"],["04","经营护栏","WSC ROAS目标≥3.2×，放量≥4.0×；Fill Rate≥95%，月花费硬上限$2,500。"]] },
+type EvidenceReport = { title: string; file: string; kind: string; date?: string; summary: string; metrics?: string[][]; sections: string[][] };
+const REPORTS: EvidenceReport[] = [
+  { title: "7月推广计划 v3.1 真实基线", file: "Wayfair_7月推广计划_v3真实基线_20260623.html", kind: "当前计划", date: "2026/06/23", summary: "以6月真实基线制定7月128 Orders目标、$790广告预算、SKU责任和活动节奏。", metrics: [["主目标","128 Orders"],["真实基线","102 Orders"],["广告预算","$790"],["预计净利","$3,394"],["冲刺目标","145 Orders"]], sections: [["01","目标阶梯","保底112、主目标128、冲刺145；长尾激活待新产品SOP，不计入承诺目标。"],["02","SKU责任","10个Listing拆解128 Orders；系统用订单API关联实际订单与件数。"],["03","数据冲突","正文基线102、SKU表合计100；DMOM1022正文10单、表格5单，均保留待确认。"],["04","广告联动","月预算、SKU角色、利润与链接Gate直接约束当前广告动作。"]] },
+  { title: "Black Friday in July 官宣与广告策略", file: "Wayfair 北美地区 Black Friday in July官宣定档！.pdf", kind: "活动", date: "2026/07/16", summary: "官方活动规则已转成独立阶段策略，活动预算包含在7月$790内。", metrics: [["北美主活动","07/23–07/28"],["Canada Co-Invest","07/23–07/27"],["Flash窗口","07/26–07/27"],["活动广告上限","$330"],["商品锁定","07/21–07/28"]], sections: [["01","资格与费用","Flash Deal须07/17前确认；受邀SKU上线收取$75固定费，必须计入利润。"],["02","投放节奏","资格确认、预热、Member Day衔接、主活动、Flash窗口、收尾六阶段独立预算。"],["03","价格与商品","普通折扣不叠加；Conditional Offer会叠加；商品编辑在07/21–07/28锁定。"],["04","执行护栏","促销、利润、库存、链接和历史ROAS全部通过后，才释放活动Bid与Cap。"]] },
+  { title: "8月150单完整增长 Playbook", file: "YB店_8月150单完整增长Playbook.html", kind: "下一计划", date: "2026/07/15", summary: "SKU目标、渠道预算、Campaign、Offer利润、周节奏和Scorecard的下一月计划。", metrics: [["目标口径","150 Units"],["6月基线","90 Units"],["基础预算","$1,800"],["预算硬上限","$2,500"],["WSC ROAS","≥ 3.2×"]], sections: [["01","SKU责任","10个Listing拆解150 Units；DMOM1021/1022/1019承担101件。"],["02","预算结构","基础广告预算$1,800；Keyword $750、Product $650、B2B $150、Canada $50、机动$200。"],["03","周节奏","W1/W2/W3/W4累计目标30/65/105/150；未过Gate不得解锁预算。"],["04","经营护栏","WSC ROAS目标≥3.2×，放量≥4.0×；Fill Rate≥95%，月花费硬上限$2,500。"]] },
   { title: "2026年6月月度复盘总览", file: "index.html", kind: "REVIEW", summary: "6月经营基线、诊断结论和全部复盘证据索引。", sections: [["01","经营基线","6月SKU拆解基线90 Units，为8月150 Units计划提供增量基准。"],["02","核心矛盾","流量并非唯一瓶颈；库存、Catalog、Listing承接和广告结构共同限制增长。"],["03","证据边界","不同报告日期和口径必须保留来源，不用下一月目标冒充当前月目标。"],["04","进入计划","复盘结论已结构化为SKU责任、预算Gate和周里程碑。"]] },
   { title: "店铺诊断报告", file: "YB店_店铺诊断报告.html", kind: "诊断", summary: "店铺增长是否成立、主要瓶颈和优先级判断。", sections: [["01","增长判断","增长成立，但不能靠无差别增加广告预算。"],["02","结构问题","头部SKU贡献集中，长尾商品和低质量链接稀释效率。"],["03","优先级","先修库存与目录，再修链接承接，最后扩广告。"],["04","验收","每项诊断必须落到负责人、期限和可量化验收条件。"]] },
   { title: "SKU健康体检", file: "YB店_SKU健康体检.html", kind: "SKU", summary: "90个Part的销量、Sessions/CVR、评分评论、目录和整改证据。", sections: [["01","商品范围","覆盖90个Supplier Part，不再只展示Catalog当前状态。"],["02","质量维度","Sessions、CVR、评分评论、内容问题、图片和目录状态共同判断链接质量。"],["03","运营分组","区分主力、修复、自然观察和永久剔除池。"],["04","广告联动","链接质量不通过时，只生成整改任务，不允许加Bid或扩预算。"]] },
@@ -180,7 +186,7 @@ function Daily({ onNavigate }: { onNavigate: (view: View) => void }) {
     <section className="cadence">
       <button onClick={() => onNavigate("daily")}><b>每日</b><span>订单与邮件</span><small>经营日报不触发广告动作</small></button>
       <button onClick={() => onNavigate("ads")}><b>本周</b><span>广告优化</span><small>读取成熟归因周期并生成真实清单</small></button>
-      <button onClick={() => onNavigate("review")}><b>本月</b><span>经营复盘</span><small>13 份证据已归档</small></button>
+      <button onClick={() => onNavigate("review")}><b>本月</b><span>经营复盘</span><small>15 份证据已归档</small></button>
     </section>
     <section className="card order-performance">
       <div className="section-head"><div><span>ORDER PERFORMANCE</span><h2>{rangeLabel} 订单走势</h2></div><b>{data?.sync.refreshed ? "API 已刷新并写入缓存" : "15 分钟缓存 · 增量预载"}</b></div>
@@ -212,24 +218,33 @@ function Daily({ onNavigate }: { onNavigate: (view: View) => void }) {
 
 function Plan({ onNavigate }: { onNavigate: (view: View) => void }) {
   const [data,setData]=useState<PlanProgress|null>(null); const [error,setError]=useState('');
+  const [tab,setTab]=useState<'july'|'bfij'|'august'>('july');
   useEffect(()=>{fetch('/api/plan/progress').then(async r=>{const body=await r.json() as PlanProgress;if(!r.ok)throw new Error(body.error||'计划读取失败');return body;}).then(setData).catch(e=>setError(e.message));},[]);
   const p=data?.progress; const actual=data?.actual;
-  return <><Hero eyebrow="MONTHLY OPERATING PLAN" title="目标与执行" text="当前经营月、下一计划月和复盘月分开管理；计划直接约束广告与商品动作" side={<button className="hero-button" onClick={() => onNavigate("review")}>查看完整复盘证据</button>} />
-    <section className="context-strip"><div><span>复盘月</span><b>2026-06</b><small>已归档</small></div><div className="warning"><span>当前经营月</span><b>{data?.currentOperatingMonth.month||'2026-07'}</b><small>{data?.currentOperatingMonth.note||'目标读取中'}</small></div><div className="active"><span>下一执行计划</span><b>2026-08 · 150 Units</b><small>{data?.status==='PREPARATION'?'准备阶段':'执行中'}</small></div></section>
+  return <><Hero eyebrow="MONTHLY OPERATING PLAN" title="目标与执行" text="6月复盘 → 7月真实基线执行 → 8月下一阶段准备；目标、利润与广告共用同一套运营计划" side={<button className="hero-button" onClick={() => onNavigate("review")}>查看完整复盘证据</button>} />
+    <section className="context-strip"><div><span>复盘月</span><b>2026-06</b><small>经营事实已归档</small></div><div className="active"><span>当前经营月</span><b>{data?.currentOperatingMonth.month||'2026-07'} · 128 Orders</b><small>{data?.currentOperatingMonth.note||'真实基线计划读取中'}</small></div><div><span>下一计划月</span><b>2026-08 · 150 Units</b><small>准备阶段，不与7月目标混算</small></div></section>
     {error&&<div className="inline-error">{error}</div>}
     <section className="stat-grid six plan-kpis">{[
-      [`${actual?.units||0} / 150`,"Units完成",data?.status==='PREPARATION'?'8月未开始':`${((p?.unitCompletion||0)*100).toFixed(1)}%`],
-      [`${p?.expectedUnits||0}`,"截至今日应完成",`节奏差 ${p?.paceGap||0} Units`],
-      [`${p?.forecastUnits||0}`,"月末预测",`剩余 ${p?.remainingUnits??150} Units`],
-      [`${p?.requiredDailyUnits||0}`,"所需日均",data?.status==='PREPARATION'?'执行期自动计算':'按剩余天数计算'],
-      [actual?.adSpend==null?'待同步':money(actual.adSpend),"广告实际花费",`计划 $1,800 · 上限 $2,500`],
-      [`${Math.round((p?.timeProgress||0)*100)}%`,"时间进度",`截至 ${data?.asOf||'—'}`],
+      [`${actual?.orders||0} / 128`,"7月订单完成",`${((p?.orderCompletion||0)*100).toFixed(1)}% · ${actual?.units||0} 件`],
+      [`${p?.expectedOrders||0}`,"截至今日应完成",`节奏差 ${p?.paceGap||0} Orders`],
+      [`${p?.forecastOrders||0}`,"月末订单预测",`剩余 ${p?.remainingOrders??128} Orders`],
+      [`${p?.requiredDailyOrders||0}`,"后续所需日均",`按剩余天数计算 · 截至 ${data?.asOf||'—'}`],
+      [actual?.adSpend==null?'待广告同步':money(actual.adSpend),"7月广告实际",`月预算 $790 · ${actual?.adCoverage||'未覆盖'}`],
+      [actual?.contributionAfterAds==null?'待广告同步':money(actual.contributionAfterAds),"广告后店铺贡献",`计划预计净利 $3,394 · 成本覆盖 ${Math.round((actual?.costCoverage||0)*100)}%`],
     ].map(([value,label,note])=><article className="stat" key={label}><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}</section>
-    <div className="plan-workspace">
-      <article className="card target-card"><div className="section-head"><div><span>SKU RESPONSIBILITY</span><h2>150 Units责任拆解与实际</h2></div><b>来源：Playbook · 2026-07-15</b></div><div className="plan-table"><div className="plan-row head"><span>Listing / Part</span><span>6月基线</span><span>8月目标</span><span>实际</span><span>广告预算</span><span>角色与Gate</span></div>{(data?.listings||[]).map(item=><div className="plan-row" key={item.listing}><span><b>{item.listing}</b><small>{item.parts.join(' · ')}</small></span><span>{item.juneUnits}</span><span><b>{item.augustUnits}</b></span><span>{item.actualUnits}</span><span>{money(item.budget)}</span><span><b>{item.role}</b><small>{item.gate}</small></span></div>)}</div></article>
-      <aside className="card milestone-card"><div className="section-head"><div><span>WEEKLY GATES</span><h2>周里程碑</h2></div></div><div className="milestones">{(data?.milestones||[]).map(item=><div key={item.label}><b>{item.label}<small>{item.range}</small></b><strong>{item.cumulative?`${item.cumulative} Units`:'准备'}</strong><p>{item.note}</p></div>)}</div></aside>
-    </div>
-    <div className="scope-alert"><b>口径待确认</b><span>{data?.plan.scopeWarning||'Playbook中SKU责任表按Units拆解，但Scorecard使用Orders标题。系统暂按Units跟踪，避免把两个口径混用。'}</span></div>
+    <div className="plan-tabs"><button className={tab==='july'?'active':''} onClick={()=>setTab('july')}>7月执行计划</button><button className={tab==='bfij'?'active':''} onClick={()=>setTab('bfij')}>BFIJ 活动广告策略</button><button className={tab==='august'?'active':''} onClick={()=>setTab('august')}>8月准备计划</button></div>
+    {tab==='july'&&<><div className="plan-workspace">
+      <article className="card target-card"><div className="section-head"><div><span>JULY SKU RESPONSIBILITY</span><h2>128 Orders责任拆解与订单API实际</h2></div><b>来源：真实基线 v3.1 · 2026-06-23</b></div><div className="plan-table july"><div className="plan-row head"><span>Listing / Part</span><span>6月基线</span><span>7月目标</span><span>实际订单 / 件</span><span>广告预算</span><span>策略与Gate</span></div>{(data?.listings||[]).map(item=><div className="plan-row" key={item.listing}><span><b>{item.listing}</b><small>{item.parts.join(' · ')}</small></span><span>{item.juneBaselineOrders}</span><span><b>{item.julyTargetOrders}</b></span><span><b>{item.actualOrders} / {item.actualUnits}</b><small>{money(item.actualRevenue)}</small></span><span>{money(item.budget)}<small>预计净利 {money(item.estimatedNetProfit)}</small></span><span><b>{item.role} · {item.tactic}</b><small>{item.gate}{item.sourceWarning?` · ${item.sourceWarning}`:''}</small></span></div>)}</div></article>
+      <aside className="card milestone-card"><div className="section-head"><div><span>JULY EVENTS</span><h2>活动节奏</h2></div></div><div className="milestones">{(data?.events||[]).map(item=><div key={item.label}><b>{item.label}<small>{item.range}</small></b><strong>{item.range.includes('23')?'当前重点':'记录'}</strong><p>{item.note}</p></div>)}</div></aside>
+    </div><div className="scope-alert"><b>来源口径冲突</b><span>{data?.plan.scopeWarning||'正在读取7月计划来源说明。'}</span></div></>}
+    {tab==='bfij'&&<><section className="activity-brief card"><div><span>OFFICIAL EVENT · 2026</span><h2>{data?.activity.name||'Black Friday in July 广告策略'}</h2><p>北美主活动 {data?.activity.officialEventRange.replace('/',' → ')||'07/23 → 07/28'}；Canada Co-Invest {data?.activity.canadaCoInvestRange.replace('/',' → ')||'07/23 → 07/27'}。活动预算与7月月计划共用同一预算池。</p></div><div><small>活动窗口建议上限</small><strong>{money(data?.activity.strategyBudget||330)}</strong><span>/ 7月 {money(data?.activity.monthlyBudget||790)}</span></div></section>
+      <section className="activity-facts"><article><span>07/17 前</span><b>确认 Flash Deal</b><small>只有收到邀请的SKU才进入；每个上线SKU固定费$75计入利润。</small></article><article><span>07/21–07/28</span><b>商品编辑锁定</b><small>Listing、折扣、媒体和变体必须在锁定前完成核查。</small></article><article><span>07/23–07/28</span><b>北美主活动</b><small>普通折扣不叠加；Conditional Offer会叠加，必须核算最终折扣。</small></article><article><span>14天后</span><b>归因复盘</b><small>活动当日只看预算、库存与异常，不用未成熟ROAS做结论。</small></article></section>
+      <section className="card activity-plan"><div className="section-head"><div><span>ACTIVITY MEDIA PLAN</span><h2>六阶段广告执行表</h2></div><b>{data?.activity.budgetNote||'活动预算包含在7月总预算内'}</b></div><div className="phase-list"><div className="phase-head"><span>阶段</span><span>预算上限</span><span>Bid规则</span><span>Cap规则</span><span>运营目标</span></div>{(data?.activity.phases||[]).map(phase=><article className={data?.activity.activePhase===phase.id?'active':''} key={phase.id}><div><b>{phase.label}</b><small>{phase.range}</small></div><strong>{money(phase.budgetCap)}</strong><p>{phase.bidRule}</p><p>{phase.capRule}</p><p>{phase.objective}</p></article>)}</div></section>
+      <div className="scope-alert"><b>官方事实与本店策略分开</b><span>活动日期、Flash费用、商品锁定与Co-Invest来自官宣PDF；$330阶段预算及Bid/Cap幅度是中台基于7月$790总预算制定的运营建议，仍需利润、库存、促销资格和链接Gate通过。</span></div></>}
+    {tab==='august'&&<><div className="plan-workspace">
+      <article className="card target-card"><div className="section-head"><div><span>AUGUST PREPARATION</span><h2>150 Units下一计划责任表</h2></div><b>来源：Playbook · {data?.nextPlan.plan.sourceAsOf||'2026-07-15'}</b></div><div className="plan-table"><div className="plan-row head"><span>Listing / Part</span><span>6月基线</span><span>8月目标</span><span>实际</span><span>广告预算</span><span>角色与Gate</span></div>{(data?.nextPlan.listings||[]).map(item=><div className="plan-row" key={item.listing}><span><b>{item.listing}</b><small>{item.parts.join(' · ')}</small></span><span>{item.juneUnits}</span><span><b>{item.augustUnits}</b></span><span>{item.actualUnits}</span><span>{money(item.budget)}</span><span><b>{item.role}</b><small>{item.gate}</small></span></div>)}</div></article>
+      <aside className="card milestone-card"><div className="section-head"><div><span>WEEKLY GATES</span><h2>8月周里程碑</h2></div></div><div className="milestones">{(data?.nextPlan.milestones||[]).map(item=><div key={item.label}><b>{item.label}<small>{item.range}</small></b><strong>{item.cumulative?`${item.cumulative} Units`:'准备'}</strong><p>{item.note}</p></div>)}</div></aside>
+    </div><div className="scope-alert"><b>8月口径待确认</b><span>{data?.nextPlan.plan.scopeWarning||'8月责任表按Units跟踪。'}</span></div></>}
   </>;
 }
 
@@ -275,8 +290,8 @@ function Ads() {
 function Review() {
   const [report,setReport]=useState(0); const selected=REPORTS[report];
   return <><Hero eyebrow="MONTHLY REVIEW · NEXT PLAN" title="月度复盘" text="经营事实、广告月复盘、执行证据与下月计划" side={<button className="hero-button">补充复盘资料</button>} />
-    <section className="review-context"><div><span>复盘事实月</span><b>2026-06</b></div><i>→</i><div><span>当前经营月</span><b>2026-07 · 目标未建档</b></div><i>→</i><div><span>下一计划月</span><b>2026-08 · 150 Units</b></div></section>
-    <div className="review-grid"><aside className="card report-list"><div><span>EVIDENCE LIBRARY</span><h2>完整复盘资料</h2><b>{REPORTS.length}</b></div>{REPORTS.map((x,i)=><button className={report===i?'active':''} onClick={()=>setReport(i)} key={x.file}><strong>{x.title}</strong><small>{x.kind} · 2026/07/15</small></button>)}</aside><article className="card report-native"><header><span>{selected.kind}</span><h2>{selected.title}</h2><p>{selected.summary}</p><small>{selected.file}</small></header>{report===0&&<div className="report-metrics">{[["目标口径","150 Units"],["6月基线","90 Units"],["基础预算","$1,800"],["预算硬上限","$2,500"],["WSC ROAS","≥ 3.2×"]].map(x=><div key={x[0]}><span>{x[0]}</span><strong>{x[1]}</strong></div>)}</div>}<div className="report-sections">{selected.sections.map(x=><section key={x[0]}><b>{x[0]}</b><h3>{x[1]}</h3><p>{x[2]}</p></section>)}</div><div className="report-source"><b>证据来源</b><span>{selected.file} · 每份资料展示自己的结构化结论，不再重复同一块静态正文。</span></div></article></div>
+    <section className="review-context"><div><span>复盘事实月</span><b>2026-06 · 已归档</b></div><i>→</i><div><span>当前经营月</span><b>2026-07 · 128 Orders执行中</b></div><i>→</i><div><span>下一计划月</span><b>2026-08 · 150 Units准备中</b></div></section>
+    <div className="review-grid"><aside className="card report-list"><div><span>EVIDENCE LIBRARY</span><h2>完整复盘资料</h2><b>{REPORTS.length}</b></div>{REPORTS.map((x,i)=><button className={report===i?'active':''} onClick={()=>setReport(i)} key={x.file}><strong>{x.title}</strong><small>{x.kind} · {x.date||'2026/07/15'}</small></button>)}</aside><article className="card report-native"><header><span>{selected.kind}</span><h2>{selected.title}</h2><p>{selected.summary}</p><small>{selected.file}</small></header>{selected.metrics&&<div className="report-metrics">{selected.metrics.map(x=><div key={x[0]}><span>{x[0]}</span><strong>{x[1]}</strong></div>)}</div>}<div className="report-sections">{selected.sections.map(x=><section key={x[0]}><b>{x[0]}</b><h3>{x[1]}</h3><p>{x[2]}</p></section>)}</div><div className="report-source"><b>证据来源</b><span>{selected.file} · 每份资料展示自己的结构化结论，不再重复同一块静态正文。</span></div></article></div>
   </>;
 }
 
@@ -303,7 +318,7 @@ function Catalog() {
 }
 
 function Sources() {
-  const sources=[['Outlook 邮件日报','已同步','2026-07-16','风险与待办'],['Ops API · 库存 + 订单','生产','同一套 OAuth 应用','库存写 · 订单读'],['Advertising API','生产','官方报表已连接','Campaign / Listing历史报表 · 写关闭'],['Catalog Read V2','生产','双版本权限','商品、Listing 与诊断'],['月度报告资料库','已同步','13 份报告','复盘证据、SKU目标与预算Gate'],['订单与广告缓存','运行中','D1 增量预载','订单15分钟 · 广告30分钟']];
+  const sources=[['Outlook 邮件日报','已同步','2026-07-16','风险与待办'],['Ops API · 库存 + 订单','生产','同一套 OAuth 应用','库存写 · 订单读'],['Advertising API','生产','官方报表已连接','Campaign / Listing历史报表 · 写关闭'],['Catalog Read V2','生产','双版本权限','商品、Listing 与诊断'],['月度报告资料库','已同步','15 份报告','6月复盘 · 7月执行 · BFIJ · 8月准备'],['订单与广告缓存','运行中','D1 增量预载','订单15分钟 · 广告30分钟']];
   return <><Hero eyebrow="DATA SOURCES · PERMISSION CONTROL" title="数据源" text="库存与订单共用 Ops 应用；每个连接只承担明确的数据职责" /><div className="source-grid">{sources.map(x=><article className="card source-card" key={x[0]}><span className="connected">{x[1]}</span><h2>{x[0]}</h2><p>{x[2]}</p><small>{x[3]}</small></article>)}</div></>;
 }
 
