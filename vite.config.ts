@@ -31,6 +31,10 @@ const localBindingConfig = {
         },
       ]
     : [],
+  vars: Object.fromEntries(
+    ["WAYFAIR_OPS_CLIENT_ID", "WAYFAIR_OPS_CLIENT_SECRET", "WAYFAIR_CATALOG_CLIENT_ID", "WAYFAIR_CATALOG_CLIENT_SECRET", "WAYFAIR_CATALOG_SUPPLIER_ID", "WAYFAIR_AD_CLIENT_ID", "WAYFAIR_AD_CLIENT_SECRET"]
+      .flatMap((key) => process.env[key] ? [[key, process.env[key]]] : []),
+  ),
 };
 
 export default defineConfig(async () => {

@@ -14,7 +14,7 @@ const NAV: { id: View; label: string; meta: string }[] = [
   { id: "sources", label: "数据源", meta: "6/6" },
 ];
 
-type OrderMetric = { revenue: number; orders: number; units: number; aov: number; profit: number; profitMode: "estimated" | "actual"; costCoverage: number; marginRate: number };
+type OrderMetric = { revenue: number; orders: number; units: number; aov: number; advertisingBeforeGrossProfit: number; contributionAfterAds: number | null; advertisingSpend: number | null; advertisingCoverage: string; profitMode: "estimated" | "cost-covered"; costCoverage: number; marginRate: number };
 type OrderSummary = {
   current: OrderMetric;
   previous: OrderMetric;
@@ -35,6 +35,29 @@ type CatalogItem = {
   recent30d?: { units: number; revenue: number };
 };
 type CatalogResponse = { items?: CatalogItem[]; paginationInfo?: { page: number; totalPages: number; totalCount: number; hasNextPage: boolean }; error?: string };
+
+type AdMetric = { impressions: number; clicks: number; spend: number; orders: number; units: number; wsc: number; ctr: number; cvr: number; wscRoas: number };
+type AdListing = {
+  listing: string; campaignId: string; campaignName: string; site: string; parts: string[]; bid: number; status: string;
+  current: AdMetric; previous: AdMetric;
+  plan: null | { budget: number; augustUnits: number; role: string; gate: string; eligible: boolean; rating?: number; reviews?: number };
+  economics: { marginRate: number; marginMode: string; breakEvenRoas: number };
+  linkQuality: { rating: number | null; reviews: number | null; pass: boolean; source: string };
+  action: { type: string; label: string; execution: string; blockers: string[]; before: Record<string, unknown>; proposed: Record<string, unknown> };
+};
+type AdAnalysis = {
+  current: AdMetric; previous: AdMetric; history: ({ date: string } & AdMetric)[]; listings: AdListing[];
+  range: { start: string; end: string; previousStart: string; previousEnd: string; asOf: string; matureThrough: string; mature: boolean };
+  generatedAt: string; attributionWindowDays: number; cache?: { hit?: boolean; updatedAt?: string }; safety: { reason: string }; error?: string;
+};
+type PlanProgress = {
+  plan: { month: string; unitTarget: number; revenueTarget: number; attributedOrderTarget: number; baseAdBudget: number; hardAdCap: number; wscRoasGoal: number; scaleRoasGate: number; sourceAsOf: string; scopeWarning: string };
+  currentOperatingMonth: { month: string; targetStatus: string; note: string }; status: string; asOf: string;
+  actual: { orders: number; units: number; revenue: number; adSpend: number | null; adCoverage: string };
+  progress: { elapsedDays: number; totalDays: number; timeProgress: number; unitCompletion: number; expectedUnits: number; paceGap: number; forecastUnits: number; remainingUnits: number; requiredDailyUnits: number };
+  listings: { listing: string; parts: string[]; juneUnits: number; augustUnits: number; actualUnits: number; budget: number; role: string; gate: string }[];
+  milestones: { label: string; range: string; cumulative: number; note: string }[]; error?: string;
+};
 
 const presetOptions = [
   ["today", "今天"], ["yesterday", "昨天"], ["7d", "最近 7 天"], ["14d", "最近 14 天"],
@@ -69,11 +92,20 @@ function change(current = 0, previous = 0) {
   const value = (current - previous) / previous * 100;
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}% 较前周期`;
 }
-const reportSections = [
-  ["01", "广告执行口径已升级", "Campaign 级执行成为唯一有效版本；预算、Daily Cap、Bid Adjustment 与 SKU 统一回到账本。"],
-  ["02", "目标池状态更新", "当前无法再获取历史库存量证据。本月目标从 8 月拆解到周节奏，并锁定可售 SKU。"],
-  ["03", "150 单经营模型", "以 150 单为业务目标，基础广告预算 $1,800，硬上限 $2,500，放量 ROAS 不低于 4.0×。"],
-  ["04", "SKU / Listing 责任表", "每个核心 SKU 对应库存、Catalog、广告和复盘责任，避免结论停留在报告里。"],
+const REPORTS = [
+  { title: "8月150单完整增长 Playbook", file: "YB店_8月150单完整增长Playbook.html", kind: "PLAYBOOK", summary: "SKU目标、渠道预算、Campaign、Offer利润、周节奏和Scorecard的主计划。", sections: [["01","SKU责任","10个Listing拆解150 Units；DMOM1021/1022/1019承担101件。"],["02","预算结构","基础广告预算$1,800；Keyword $750、Product $650、B2B $150、Canada $50、机动$200。"],["03","周节奏","W1/W2/W3/W4累计目标30/65/105/150；未过Gate不得解锁预算。"],["04","经营护栏","WSC ROAS目标≥3.2×，放量≥4.0×；Fill Rate≥95%，月花费硬上限$2,500。"]] },
+  { title: "2026年6月月度复盘总览", file: "index.html", kind: "REVIEW", summary: "6月经营基线、诊断结论和全部复盘证据索引。", sections: [["01","经营基线","6月SKU拆解基线90 Units，为8月150 Units计划提供增量基准。"],["02","核心矛盾","流量并非唯一瓶颈；库存、Catalog、Listing承接和广告结构共同限制增长。"],["03","证据边界","不同报告日期和口径必须保留来源，不用下一月目标冒充当前月目标。"],["04","进入计划","复盘结论已结构化为SKU责任、预算Gate和周里程碑。"]] },
+  { title: "店铺诊断报告", file: "YB店_店铺诊断报告.html", kind: "诊断", summary: "店铺增长是否成立、主要瓶颈和优先级判断。", sections: [["01","增长判断","增长成立，但不能靠无差别增加广告预算。"],["02","结构问题","头部SKU贡献集中，长尾商品和低质量链接稀释效率。"],["03","优先级","先修库存与目录，再修链接承接，最后扩广告。"],["04","验收","每项诊断必须落到负责人、期限和可量化验收条件。"]] },
+  { title: "SKU健康体检", file: "YB店_SKU健康体检.html", kind: "SKU", summary: "90个Part的销量、Sessions/CVR、评分评论、目录和整改证据。", sections: [["01","商品范围","覆盖90个Supplier Part，不再只展示Catalog当前状态。"],["02","质量维度","Sessions、CVR、评分评论、内容问题、图片和目录状态共同判断链接质量。"],["03","运营分组","区分主力、修复、自然观察和永久剔除池。"],["04","广告联动","链接质量不通过时，只生成整改任务，不允许加Bid或扩预算。"]] },
+  { title: "SKU广告重构执行清单", file: "YB店_SKU广告重构执行清单_2026-07-15.html", kind: "广告", summary: "SKU到Campaign/Listing的执行映射、参数和人工动作。", sections: [["01","执行层级","父体用于运营审阅；精确Listing载荷才可进入API Dry-run。"],["02","API边界","Listing Bid/启停可API执行；Daily Cap、tROAS、关键词和否词为人工任务。"],["03","安全机制","一次只改变一个变量，保存前值、建议值、回滚值。"],["04","复查","D7只做安全止损；D21/D28用成熟归因评估结果。"]] },
+  { title: "广告深度分析：商品+关键词", file: "YB店_广告深度分析_商品+关键词.html", kind: "广告", summary: "商品广告、关键词、搜索词与归因效率分析。", sections: [["01","历史证据","并列成熟7天、前7天、滚动28天和月累计。"],["02","漏斗","曝光→点击→转化→WSC ROAS逐层定位，不直接用订单数下结论。"],["03","盈利线","每个SKU按贡献毛利计算自己的保本ROAS。"],["04","数据成熟","14天归因未成熟的周期只观察，不进入执行审批。"]] },
+  { title: "广告诊断报告", file: "YB店_广告诊断报告.html", kind: "广告", summary: "广告账户问题、止损对象和预算迁移机会。", sections: [["01","账户对账","Campaign与Listing花费需对账后才可信。"],["02","止损","成熟点击≥20且0单进入暂停或降Bid候选。"],["03","扩量","盈利、质量、库存、计划和预算余量全部通过才放量。"],["04","禁止项","计划预算为0或永久剔除对象禁止任何加价。"]] },
+  { title: "150单SKU与广告预算分配论证", file: "YB店_150单SKU与广告预算分配论证_2026-07-15.html", kind: "预算", summary: "为什么给每个SKU目标与预算，以及释放边界。", sections: [["01","主力","DMOM1021目标50、预算$700；DMOM1022目标30、预算$340。"],["02","赢家","DMOM1019目标21、预算$290，以高效Keyword为主。"],["03","修复池","DMOM1018/1017/1000合计预算仅$50，严格Gate。"],["04","零预算池","DMOM1025/1026/1016与DRCI1007不得用广告救量。"]] },
+  { title: "Conditional Offers 8月计划", file: "YB店_ConditionalOffers_8月150单增长计划.html", kind: "OFFER", summary: "Offer候选、利润底线、实验组与退出条件。", sections: [["01","盈利口径","WSC收入减出库成本、Offer Owed、广告和其他变动成本。"],["02","实验原则","A/B/C小流量验证；无增量或毛利<20%立即结束。"],["03","目标","Offer约20单，但不能以牺牲毛利换完成率。"],["04","归因","价格、Offer和广告同期变化必须记录，避免错误归因。"]] },
+  { title: "新增四报前后对比", file: "YB店_新增四报前后对比.html", kind: "证据", summary: "新增报告对既有结论、目标和执行口径的修正。", sections: [["01","变化记录","保留旧结论和新证据，说明为什么修正。"],["02","数据冲突","冲突字段进入待确认，不选择性搬运。"],["03","影响范围","目标、预算、Campaign和SKU责任同步更新。"],["04","审计","每次计划变更保留时间、来源和责任人。"]] },
+  { title: "店铺对标：类目均值", file: "YB店_店铺对标_类目均值.html", kind: "对标", summary: "店铺与类目均值在流量、转化和商品结构上的差异。", sections: [["01","用途","对标用于定位差距，不直接生成广告动作。"],["02","流量","曝光分位高但转化弱时，优先修承接。"],["03","转化","评分、评论、价格和内容是CVR诊断上下文。"],["04","目标","用类目基准校验计划是否可达，而非机械追平。"]] },
+  { title: "运营ToDoList详细指引", file: "YB店_运营ToDoList_详细指引.html", kind: "任务", summary: "诊断结论到负责人、期限和验收物的运营任务。", sections: [["01","任务化","每项结论都有对象、负责人、截止日和验收物。"],["02","优先级","先处理影响业绩的P0/P1，再处理信息类待办。"],["03","跨模块","库存、商品、广告和月报共享同一任务状态。"],["04","闭环","完成后记录结果并进入下一次复盘证据。"]] },
+  { title: "执行清单 XLSX", file: "YB店_SKU广告重构执行清单_2026-07-15.xlsx", kind: "表格", summary: "可下载、核对和执行的SKU广告参数账本。", sections: [["01","精确载荷","保存Listing、Campaign、当前Bid和建议Bid。"],["02","人工动作","Daily Cap、tROAS、关键词与否词分开列示。"],["03","回滚","每个动作保存原值和触发回滚的条件。"],["04","审批","个人测试阶段仅Dry-run，不执行生产写入。"]] },
 ];
 
 function ShellHeader({ active, onNavigate }: { active: View; onNavigate: (view: View) => void }) {
@@ -81,7 +113,8 @@ function ShellHeader({ active, onNavigate }: { active: View; onNavigate: (view: 
     <header className="topbar">
       <button className="brand" onClick={() => onNavigate("daily")}><span>W</span><strong>Wayfair AI</strong><small>运营中台</small></button>
       <div className="workspace"><span>店铺</span><strong>YB店</strong></div>
-      <div className="workspace"><span>复盘月</span><strong>2026年6月</strong></div>
+      <div className="workspace"><span>经营月</span><strong>2026年7月</strong></div>
+      <div className="workspace"><span>下一计划</span><strong>2026年8月</strong></div>
       <div className="system"><i></i><span><strong>生产数据已连接</strong><small>写操作保留人工确认</small></span></div>
     </header>
     <nav className="nav" aria-label="主导航">
@@ -134,18 +167,19 @@ function Daily({ onNavigate }: { onNavigate: (view: View) => void }) {
       {preset === "custom" && <div className="custom-range"><label>开始<input type="date" value={start} max={end} onChange={(event) => {setLoading(true);setError("");setStart(event.target.value);}} /></label><label>结束<input type="date" value={end} min={start} onChange={(event) => {setLoading(true);setError("");setEnd(event.target.value);}} /></label></div>}
       <span className={error ? "sync-state error" : "sync-state"}>{error || (data?.sync.stale ? `同步失败，显示缓存：${data.sync.error}` : data?.sync.syncedAt ? `最近同步 ${new Date(data.sync.syncedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}` : "正在连接订单数据")}</span>
     </section>
-    <section className="stat-grid five order-kpis">
+    <section className="stat-grid six order-kpis">
       {[
         [loading ? "—" : money(current?.revenue), "销售额", change(current?.revenue, previous?.revenue)],
         [loading ? "—" : String(current?.orders || 0), "订单", change(current?.orders, previous?.orders)],
         [loading ? "—" : String(current?.units || 0), "件数", change(current?.units, previous?.units)],
         [loading ? "—" : money(current?.aov), "客单价", change(current?.aov, previous?.aov)],
-        [loading ? "—" : money(current?.profit), current?.profitMode === "actual" ? "实际利润" : "估算利润", current?.profitMode === "actual" ? "SKU 成本已完整覆盖" : `成本覆盖 ${Math.round((current?.costCoverage || 0) * 100)}% · 其余按 ${((current?.marginRate || .2826) * 100).toFixed(2)}%`],
-      ].map(([value,label,note]) => <article className={`stat ${label.includes("利润") ? "profit-stat" : ""}`} key={label}><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}
+        [loading ? "—" : money(current?.advertisingBeforeGrossProfit), "广告前商品毛利", `成本覆盖 ${Math.round((current?.costCoverage || 0) * 100)}% · 未覆盖部分按 ${((current?.marginRate || .2826) * 100).toFixed(2)}%估算`],
+        [loading ? "—" : current?.contributionAfterAds == null ? "待广告同步" : money(current.contributionAfterAds), "广告后店铺贡献", current?.advertisingSpend == null ? "先到广告优化同步相同周期，不能伪称净利润" : `已扣广告费 ${money(current.advertisingSpend)} · ${current.advertisingCoverage === 'FULL' ? '完整覆盖' : '部分覆盖'}`],
+      ].map(([value,label,note]) => <article className={`stat ${/毛利|贡献/.test(label) ? "profit-stat" : ""}`} key={label}><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}
     </section>
     <section className="cadence">
       <button onClick={() => onNavigate("daily")}><b>每日</b><span>订单与邮件</span><small>经营日报不触发广告动作</small></button>
-      <button onClick={() => onNavigate("ads")}><b>本周</b><span>广告优化</span><small>35 项建议待处理</small></button>
+      <button onClick={() => onNavigate("ads")}><b>本周</b><span>广告优化</span><small>读取成熟归因周期并生成真实清单</small></button>
       <button onClick={() => onNavigate("review")}><b>本月</b><span>经营复盘</span><small>13 份证据已归档</small></button>
     </section>
     <section className="card order-performance">
@@ -177,9 +211,25 @@ function Daily({ onNavigate }: { onNavigate: (view: View) => void }) {
 }
 
 function Plan({ onNavigate }: { onNavigate: (view: View) => void }) {
-  return <><Hero eyebrow="MONTHLY OPERATING PLAN" title="运营计划" text="目标、护栏、责任和执行证据共用一套节奏" side={<button className="hero-button" onClick={() => onNavigate("review")}>查看月度复盘</button>} />
-    <section className="stat-grid five">{[["150 单","8月目标"],["$1,800","基础广告预算"],["$2,500","预算硬上限"],["≥ 4.0×","放量 ROAS"],["≥ 95%","Fill Rate"]].map(x=><article className="stat" key={x[1]}><strong>{x[0]}</strong><span>{x[1]}</span></article>)}</section>
-    <div className="plan-grid"><article className="card"><div className="section-head"><div><span>OPERATING LOOP</span><h2>本月执行闭环</h2></div><b>数据齐套 86%</b></div><div className="timeline">{[["01","日报归集","每天"],["02","库存与商品 Gate","按需"],["03","广告优化","每周"],["04","经营复盘","月末"]].map(x=><button key={x[0]} onClick={()=>onNavigate(x[0]==='01'?'daily':x[0]==='02'?'inventory':x[0]==='03'?'ads':'review')}><b>{x[0]}</b><span>{x[1]}</span><small>{x[2]}</small></button>)}</div></article><article className="card"><div className="section-head"><div><span>OWNER QUEUE</span><h2>本月责任清单</h2></div></div><div className="owner-list">{[["经营","确认150单拆解","进行中"],["库存","修复准确率指标","优先"],["广告","处理35项周建议","待审批"],["复盘","归档13份证据","正常"]].map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span><em>{x[2]}</em></div>)}</div></article></div>
+  const [data,setData]=useState<PlanProgress|null>(null); const [error,setError]=useState('');
+  useEffect(()=>{fetch('/api/plan/progress').then(async r=>{const body=await r.json() as PlanProgress;if(!r.ok)throw new Error(body.error||'计划读取失败');return body;}).then(setData).catch(e=>setError(e.message));},[]);
+  const p=data?.progress; const actual=data?.actual;
+  return <><Hero eyebrow="MONTHLY OPERATING PLAN" title="目标与执行" text="当前经营月、下一计划月和复盘月分开管理；计划直接约束广告与商品动作" side={<button className="hero-button" onClick={() => onNavigate("review")}>查看完整复盘证据</button>} />
+    <section className="context-strip"><div><span>复盘月</span><b>2026-06</b><small>已归档</small></div><div className="warning"><span>当前经营月</span><b>{data?.currentOperatingMonth.month||'2026-07'}</b><small>{data?.currentOperatingMonth.note||'目标读取中'}</small></div><div className="active"><span>下一执行计划</span><b>2026-08 · 150 Units</b><small>{data?.status==='PREPARATION'?'准备阶段':'执行中'}</small></div></section>
+    {error&&<div className="inline-error">{error}</div>}
+    <section className="stat-grid six plan-kpis">{[
+      [`${actual?.units||0} / 150`,"Units完成",data?.status==='PREPARATION'?'8月未开始':`${((p?.unitCompletion||0)*100).toFixed(1)}%`],
+      [`${p?.expectedUnits||0}`,"截至今日应完成",`节奏差 ${p?.paceGap||0} Units`],
+      [`${p?.forecastUnits||0}`,"月末预测",`剩余 ${p?.remainingUnits??150} Units`],
+      [`${p?.requiredDailyUnits||0}`,"所需日均",data?.status==='PREPARATION'?'执行期自动计算':'按剩余天数计算'],
+      [actual?.adSpend==null?'待同步':money(actual.adSpend),"广告实际花费",`计划 $1,800 · 上限 $2,500`],
+      [`${Math.round((p?.timeProgress||0)*100)}%`,"时间进度",`截至 ${data?.asOf||'—'}`],
+    ].map(([value,label,note])=><article className="stat" key={label}><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}</section>
+    <div className="plan-workspace">
+      <article className="card target-card"><div className="section-head"><div><span>SKU RESPONSIBILITY</span><h2>150 Units责任拆解与实际</h2></div><b>来源：Playbook · 2026-07-15</b></div><div className="plan-table"><div className="plan-row head"><span>Listing / Part</span><span>6月基线</span><span>8月目标</span><span>实际</span><span>广告预算</span><span>角色与Gate</span></div>{(data?.listings||[]).map(item=><div className="plan-row" key={item.listing}><span><b>{item.listing}</b><small>{item.parts.join(' · ')}</small></span><span>{item.juneUnits}</span><span><b>{item.augustUnits}</b></span><span>{item.actualUnits}</span><span>{money(item.budget)}</span><span><b>{item.role}</b><small>{item.gate}</small></span></div>)}</div></article>
+      <aside className="card milestone-card"><div className="section-head"><div><span>WEEKLY GATES</span><h2>周里程碑</h2></div></div><div className="milestones">{(data?.milestones||[]).map(item=><div key={item.label}><b>{item.label}<small>{item.range}</small></b><strong>{item.cumulative?`${item.cumulative} Units`:'准备'}</strong><p>{item.note}</p></div>)}</div></aside>
+    </div>
+    <div className="scope-alert"><b>口径待确认</b><span>{data?.plan.scopeWarning||'Playbook中SKU责任表按Units拆解，但Scorecard使用Orders标题。系统暂按Units跟踪，避免把两个口径混用。'}</span></div>
   </>;
 }
 
@@ -192,37 +242,41 @@ function Inventory() {
 
 function Ads() {
   const [tab,setTab]=useState<'week'|'month'>('week');
-  const [group,setGroup]=useState<'sku'|'campaign'>('sku');
-  const [start,setStart]=useState('2026-06-01'); const [end,setEnd]=useState('2026-06-30');
-  const [message,setMessage]=useState('当前载入 2026-06-01 → 2026-06-30'); const [approved,setApproved]=useState<string[]>([]);
-  const skuActions = [
-    { id:'DMOM1025', children:'2 个 Listing · 1 个 Campaign', action:'暂停父体下低效 Listing', evidence:'28 次点击 · 0 单 · ROAS 0.00×', gate:'库存正常 · Catalog LIVE', state:'待审批' },
-    { id:'DMOM1022', children:'3 个 Listing · Campaign 622721 / 622722', action:'父体 Bid 下调 10%', evidence:'31 次点击 · 1 单 · ROAS 1.39×，低于盈亏线 3.54×', gate:'库存正常 · Catalog LIVE', state:'待审批' },
-    { id:'DMOM1017', children:'2 个 Listing · Campaign 622715', action:'保留出价，下一周期复查', evidence:'3 单 · ROAS 2.94×，证据未达到加价条件', gate:'不执行写入', state:'观察' },
-  ];
-  const campaignActions = [
-    { id:'Campaign 622721', children:'DMOM1022 · 3 个 Listing', action:'Campaign Bid 下调 10%', evidence:'父体汇总 ROAS 1.39× · 31 次点击', gate:'SKU 库存与商品状态通过', state:'待审批' },
-    { id:'Campaign 622731', children:'DMOM1029 · 2 个 Listing', action:'维持 Campaign，拆分低效 Listing', evidence:'父体 ROAS 4.14×，但子体差异大', gate:'父体通过 · 子体需复核', state:'暂缓' },
-    { id:'Campaign 622709', children:'DMOM1025 · 2 个 Listing', action:'暂停无转化子体', evidence:'28 次点击 · 0 单 · 已越过最小样本线', gate:'库存正常 · Catalog LIVE', state:'待审批' },
-  ];
-  const actions = group === 'sku' ? skuActions : campaignActions;
-  return <><Hero eyebrow="WEEKLY OPTIMIZATION · MONTHLY REVIEW" title="广告优化" text="周度形成父体执行清单；月度解释结果并进入经营复盘" side={<button className="hero-button" onClick={()=>setMessage('本周建议已按库存、Catalog 与利润 Gate 重新生成')}>生成本周清单</button>} />
-    <section className="period-bar"><div><button className={tab==='week'?'active':''} onClick={()=>setTab('week')}>周优化</button><button className={tab==='month'?'active':''} onClick={()=>setTab('month')}>月度广告复盘</button></div><label>开始<input type="date" value={start} onChange={e=>setStart(e.target.value)}/></label><label>结束<input type="date" value={end} onChange={e=>setEnd(e.target.value)}/></label><button onClick={()=>setMessage(`已创建 ${start} → ${end} 的官方报表拉取任务`)}>拉取该周期</button><span>{message}</span></section>
+  const matureEnd=shiftDate(dateText(new Date()),-14); const defaultStart=shiftDate(matureEnd,-27);
+  const [start,setStart]=useState(defaultStart); const [end,setEnd]=useState(matureEnd); const [requested,setRequested]=useState({start:defaultStart,end:matureEnd,refresh:false});
+  const [data,setData]=useState<AdAnalysis|null>(null); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
+  useEffect(()=>{const controller=new AbortController();fetch(`/api/ads/analysis?start=${requested.start}&end=${requested.end}${requested.refresh?'&refresh=1':''}`,{signal:controller.signal}).then(async r=>{const body=await r.json() as AdAnalysis;if(!r.ok)throw new Error(body.error||'广告分析失败');return body;}).then(setData).catch(e=>{if(e.name!=='AbortError')setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();},[requested]);
+  function setMode(next:'week'|'month'){setTab(next);const e=matureEnd;const s=next==='week'?shiftDate(e,-6):`${e.slice(0,7)}-01`;setStart(s);setEnd(e);setLoading(true);setError('');setRequested({start:s,end:e,refresh:false});}
+  const trendMax=Math.max(1,...(data?.history||[]).map(x=>x.spend));
+  const executable=data?.listings.filter(x=>x.action.execution!=='BLOCKED').length||0;
+  return <><Hero eyebrow="WEEKLY OPTIMIZATION · MONTHLY REVIEW" title="广告运营清单" text="官方历史报表 × 链接质量 × SKU盈利 × 月度推广计划；缺任一Gate即禁止执行" side={<div className="hero-side"><b>{loading?'同步中':error?'需检查':data?.range.mature?'归因成熟':'只观察'}</b><span>14天归因 · 生产报表只读</span></div>} />
+    <section className="period-bar"><div><button className={tab==='week'?'active':''} onClick={()=>setMode('week')}>成熟周优化</button><button className={tab==='month'?'active':''} onClick={()=>setMode('month')}>月度广告复盘</button></div><label>开始<input type="date" value={start} onChange={e=>setStart(e.target.value)}/></label><label>结束<input type="date" value={end} max={dateText(new Date())} onChange={e=>setEnd(e.target.value)}/></label><button disabled={loading||start>end} onClick={()=>{setLoading(true);setError('');setRequested({start,end,refresh:false});}}>读取官方报表</button><button disabled={loading} onClick={()=>{setLoading(true);setError('');setRequested({start,end,refresh:true});}}>强制刷新</button><span>{error||`${requested.start} → ${requested.end} · ${data?.cache?.hit?'D1缓存':'Advertising API'} · 成熟截止 ${data?.range.matureThrough||matureEnd}`}</span></section>
+    {error&&<div className="inline-error">{error}；系统未展示任何静态替代建议。</div>}
+    <section className="stat-grid six ad-kpis">{[
+      [loading?'—':money(data?.current.spend),"广告花费",change(data?.current.spend,data?.previous.spend)],
+      [loading?'—':String(data?.current.orders||0),"归因订单",change(data?.current.orders,data?.previous.orders)],
+      [loading?'—':`${(data?.current.wscRoas||0).toFixed(2)}×`,"WSC ROAS",`前周期 ${(data?.previous.wscRoas||0).toFixed(2)}×`],
+      [loading?'—':`${((data?.current.ctr||0)*100).toFixed(2)}%`,"CTR",`${data?.current.clicks||0} 点击`],
+      [loading?'—':`${((data?.current.cvr||0)*100).toFixed(2)}%`,"广告CVR",`${data?.current.impressions||0} 曝光`],
+      [loading?'—':String(executable),"可进入执行",`其余因Gate阻断`],
+    ].map(([value,label,note])=><article className="stat" key={label}><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}</section>
     <section className="ad-decision-grid">
-      <article className="card decision-card"><span>本周期结论</span><h2>{tab==='week'?'先止损，再观察，不放量':'本月效率未稳定，不提高预算上限'}</h2><p>{tab==='week'?'DMOM1025 已满足无转化止损条件；DMOM1022 低于盈亏线，只下调，不暂停。':'月度表现用完整归因窗口复盘；下一月预算仍受 ROAS 与利润护栏约束。'}</p><div><b>3</b><small>父体动作</small><b>2</b><small>可执行</small><b>1</b><small>继续观察</small></div></article>
-      <article className="card evidence-card"><span>判断依据</span><h2>每条动作必须回答“为什么”</h2><ul><li><b>样本门槛：</b>点击达到 20 次后才做止损判断。</li><li><b>效率护栏：</b>ROAS 与 3.54× 盈亏线比较，不只看订单数。</li><li><b>归因窗口：</b>周报结束后保留 7 天回看，避免误杀延迟转化。</li><li><b>经营 Gate：</b>库存、Catalog 状态和利润任一异常，动作暂缓。</li></ul></article>
+      <article className="card decision-card"><span>历史趋势 · 前周期 + 当前周期</span><h2>广告花费与归因成熟度</h2><div className="ad-history">{(data?.history||[]).map(x=><div key={x.date} title={`${x.date} · ${money(x.spend)} · ${x.orders}单`}><i style={{height:`${Math.max(3,x.spend/trendMax*100)}%`}}></i><small>{x.date.slice(5)}</small></div>)}</div><p>{data?.range.mature?'所选周期已越过14天归因窗口，可生成动作候选。':'所选周期尚未成熟，只展示观察数据；不会生成可审批动作。'}</p></article>
+      <article className="card evidence-card"><span>决策证据链</span><h2>每个对象独立计算，不用全店统一模板</h2><ul><li><b>历史：</b>当前周期与等长前周期并列，另保留逐日走势。</li><li><b>链接：</b>评分评论与整改Gate来自月度Playbook快照；缺失即阻断。</li><li><b>盈利：</b>优先SKU贡献毛利；缺失时标记店铺估算，不伪称精确。</li><li><b>计划：</b>预算为0、永久剔除或不在目标池的Listing禁止加价。</li><li><b>库存：</b>覆盖天数尚未接入，因此第一阶段所有写动作保持阻断。</li></ul></article>
     </section>
-    <section className="card action-ledger"><div className="section-head"><div><span>EXECUTION LEDGER</span><h2>{tab==='week'?'本周父体执行清单':'月度复盘动作清单'}</h2></div><b>只在父体层审批 · 不会自动执行</b></div>
-      <div className="group-switch"><button className={group==='sku'?'active':''} onClick={()=>setGroup('sku')}>按 SKU 父体</button><button className={group==='campaign'?'active':''} onClick={()=>setGroup('campaign')}>按广告父体</button><span>子 Listing 作为证据展开，不生成重复审批。</span></div>
-      <div className="action-list"><div className="action-head"><span>父体对象 / 包含子体</span><span>执行动作</span><span>数据证据</span><span>经营 Gate</span><span>状态</span></div>{actions.map(row=><article key={row.id}><div><strong>{row.id}</strong><small>{row.children}</small></div><b>{row.action}</b><p>{row.evidence}</p><span className={row.gate.includes('正常')||row.gate.includes('通过')?'good':'warn'}>{row.gate}</span><div><em>{approved.includes(row.id)?'已批准':row.state}</em><button disabled={approved.includes(row.id)||row.state!=='待审批'} onClick={()=>setApproved([...approved,row.id])}>审批</button></div></article>)}</div>
+    <section className="card action-ledger"><div className="section-head"><div><span>OPERATING QUEUE</span><h2>{tab==='week'?'SKU / Listing 周执行清单':'月度广告复盘清单'}</h2></div><b>父体审阅 · Listing精确载荷 · 生产写入关闭</b></div>
+      <div className="group-switch"><span>排序：可执行优先，其次按花费影响；每条显示历史、质量、盈利和计划依据。</span></div>
+      <div className="action-list rich"><div className="action-head"><span>Listing / Campaign</span><span>当前 vs 前周期</span><span>质量 · 盈利 · 计划</span><span>建议动作</span><span>状态</span></div>{(data?.listings||[]).map(row=><article key={`${row.campaignId}:${row.listing}`}><div><strong>{row.listing}</strong><small>Campaign {row.campaignId} · {row.parts.join(' / ')||'Part未映射'}</small></div><p><b>{money(row.current.spend)} · {row.current.orders}单 · {row.current.wscRoas.toFixed(2)}×</b><br/>前期 {money(row.previous.spend)} · {row.previous.orders}单 · {row.previous.wscRoas.toFixed(2)}×</p><p><b>链接：</b>{row.linkQuality.rating??'缺失'}分 / {row.linkQuality.reviews??'—'}评<br/><b>保本：</b>{row.economics.breakEvenRoas.toFixed(2)}×（{row.economics.marginMode==='PLAN_SKU'?'SKU毛利':'店铺估算'}）<br/><b>计划：</b>{row.plan?`${row.plan.role} · ${money(row.plan.budget)}`:'未建档'}</p><div><b>{row.action.label}</b><small>{row.action.blockers.slice(0,2).join('；')||'Gate已通过'}</small></div><div><em className={row.action.execution==='BLOCKED'?'bad':row.action.execution==='API_DRY_RUN'?'good':'warn'}>{row.action.execution==='BLOCKED'?'已阻断':row.action.execution==='API_DRY_RUN'?'可Dry-run':'人工任务'}</em><button disabled>审批关闭</button></div></article>)}{!loading&&!data?.listings.length&&<p className="empty-state">所选周期没有Listing广告数据</p>}</div>
     </section>
+    <div className="scope-alert"><b>执行边界</b><span>Advertising API仅支持Listing Bid与启停。Daily Cap、tROAS、Keyword Bid和否词只能生成带参数的人工任务；本阶段不执行生产写入。</span></div>
   </>;
 }
 
 function Review() {
-  const [report,setReport]=useState(0); const reports=["8月150单完整增长 Playbook","2026年6月月度复盘总览","店铺诊断：6月增长成立","SKU 广告执行清单","类目对标与主图替代"];
+  const [report,setReport]=useState(0); const selected=REPORTS[report];
   return <><Hero eyebrow="MONTHLY REVIEW · NEXT PLAN" title="月度复盘" text="经营事实、广告月复盘、执行证据与下月计划" side={<button className="hero-button">补充复盘资料</button>} />
-    <div className="review-grid"><aside className="card report-list"><div><span>EVIDENCE LIBRARY</span><h2>复盘资料</h2><b>13</b></div>{reports.map((x,i)=><button className={report===i?'active':''} onClick={()=>setReport(i)} key={x}><strong>{x}</strong><small>2026/07/15 · {i===0?'57':'35'} KB</small></button>)}</aside><article className="card report-native"><header><span>PLAYBOOK</span><h2>{reports[report]}</h2><p>150单拆到 SKU、Listing、周节奏和广告预算；Conditional Offers 只是其中一个模块。</p></header><div className="report-metrics">{[["月度目标","150 单"],["基础预算","$1,800"],["预算上限","$2,500"],["放量 ROAS","≥ 4.0×"],["Fill Rate","≥ 95%"]].map(x=><div key={x[0]}><span>{x[0]}</span><strong>{x[1]}</strong></div>)}</div><div className="report-sections">{reportSections.map(x=><section key={x[0]}><b>{x[0]}</b><h3>{x[1]}</h3><p>{x[2]}</p></section>)}</div></article></div>
+    <section className="review-context"><div><span>复盘事实月</span><b>2026-06</b></div><i>→</i><div><span>当前经营月</span><b>2026-07 · 目标未建档</b></div><i>→</i><div><span>下一计划月</span><b>2026-08 · 150 Units</b></div></section>
+    <div className="review-grid"><aside className="card report-list"><div><span>EVIDENCE LIBRARY</span><h2>完整复盘资料</h2><b>{REPORTS.length}</b></div>{REPORTS.map((x,i)=><button className={report===i?'active':''} onClick={()=>setReport(i)} key={x.file}><strong>{x.title}</strong><small>{x.kind} · 2026/07/15</small></button>)}</aside><article className="card report-native"><header><span>{selected.kind}</span><h2>{selected.title}</h2><p>{selected.summary}</p><small>{selected.file}</small></header>{report===0&&<div className="report-metrics">{[["目标口径","150 Units"],["6月基线","90 Units"],["基础预算","$1,800"],["预算硬上限","$2,500"],["WSC ROAS","≥ 3.2×"]].map(x=><div key={x[0]}><span>{x[0]}</span><strong>{x[1]}</strong></div>)}</div>}<div className="report-sections">{selected.sections.map(x=><section key={x[0]}><b>{x[0]}</b><h3>{x[1]}</h3><p>{x[2]}</p></section>)}</div><div className="report-source"><b>证据来源</b><span>{selected.file} · 每份资料展示自己的结构化结论，不再重复同一块静态正文。</span></div></article></div>
   </>;
 }
 
@@ -249,7 +303,7 @@ function Catalog() {
 }
 
 function Sources() {
-  const sources=[['Outlook 邮件日报','已同步','2026-07-16','风险与待办'],['Ops API · 库存 + 订单','生产','同一套 OAuth 应用','库存写 · 订单读'],['Advertising API','生产','凭证已配置','报表读 · Bid 写'],['Catalog Read V2','生产','双版本权限','商品、Listing 与诊断'],['月度报告资料库','已同步','13 份报告','复盘证据与计划'],['订单历史缓存','运行中','D1 增量预载','15 分钟刷新']];
+  const sources=[['Outlook 邮件日报','已同步','2026-07-16','风险与待办'],['Ops API · 库存 + 订单','生产','同一套 OAuth 应用','库存写 · 订单读'],['Advertising API','生产','官方报表已连接','Campaign / Listing历史报表 · 写关闭'],['Catalog Read V2','生产','双版本权限','商品、Listing 与诊断'],['月度报告资料库','已同步','13 份报告','复盘证据、SKU目标与预算Gate'],['订单与广告缓存','运行中','D1 增量预载','订单15分钟 · 广告30分钟']];
   return <><Hero eyebrow="DATA SOURCES · PERMISSION CONTROL" title="数据源" text="库存与订单共用 Ops 应用；每个连接只承担明确的数据职责" /><div className="source-grid">{sources.map(x=><article className="card source-card" key={x[0]}><span className="connected">{x[1]}</span><h2>{x[0]}</h2><p>{x[2]}</p><small>{x[3]}</small></article>)}</div></>;
 }
 

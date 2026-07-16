@@ -15,7 +15,9 @@ test("renders the Wayfair AI operations product", async () => {
   assert.match(html, /Wayfair AI 运营中台/);
   assert.match(html, /经营日报/);
   assert.match(html, /最近 7 天/);
-  assert.match(html, /估算利润/);
+  assert.match(html, /广告前商品毛利/);
+  assert.match(html, /广告后店铺贡献/);
+  assert.doesNotMatch(html, /实际利润/);
   assert.match(html, /广告优化/);
   assert.match(html, /Ops API（库存 \+ 订单）/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);

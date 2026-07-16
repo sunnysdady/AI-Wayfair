@@ -1,3 +1,5 @@
+import { cachedAdSpend } from "../../../../lib/wayfair-ads";
+
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const ORDER_ENDPOINT = "https://api.wayfair.com/v1/graphql";
 const DEFAULT_MARGIN_RATE = 0.2826;
@@ -110,13 +112,19 @@ async function metrics(start: string, end: string) {
     FROM order_items i JOIN orders o ON o.po_number=i.po_number LEFT JOIN sku_costs c ON c.part_number=i.part_number
     WHERE datetime(o.po_date) >= datetime(?) AND datetime(o.po_date) < datetime(?)`).bind(isoFromDate(start), isoFromDate(endExclusive)).first<{ known_profit_cents: number; unknown_revenue_cents: number; item_revenue_cents: number }>();
   const estimatedProfitCents = Number(profit?.known_profit_cents || 0) + Math.round(Number(profit?.unknown_revenue_cents || 0) * DEFAULT_MARGIN_RATE);
+  const advertising = await cachedAdSpend(db, start, end);
+  const advertisingBeforeGrossProfit = estimatedProfitCents / 100;
+  const contributionAfterAds = advertising.spend === null ? null : advertisingBeforeGrossProfit - advertising.spend;
   return {
     orders: Number(row?.orders || 0),
     revenue: Number(row?.revenue_cents || 0) / 100,
     units: Number(row?.units || 0),
     aov: Number(row?.orders || 0) ? Number(row?.revenue_cents || 0) / 100 / Number(row?.orders || 0) : 0,
-    profit: estimatedProfitCents / 100,
-    profitMode: Number(profit?.unknown_revenue_cents || 0) > 0 ? "estimated" : "actual",
+    advertisingBeforeGrossProfit,
+    contributionAfterAds,
+    advertisingSpend: advertising.spend,
+    advertisingCoverage: advertising.coverage,
+    profitMode: Number(profit?.unknown_revenue_cents || 0) > 0 ? "estimated" : "cost-covered",
     costCoverage: Number(profit?.item_revenue_cents || 0) ? 1 - Number(profit?.unknown_revenue_cents || 0) / Number(profit?.item_revenue_cents || 0) : 0,
     marginRate: DEFAULT_MARGIN_RATE,
   };
