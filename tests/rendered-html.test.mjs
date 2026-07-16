@@ -39,3 +39,51 @@ test("keeps July execution and BFIJ strategy between June review and August prep
   assert.match(plan, /officialEventRange: "2026-07-23\/2026-07-28"/);
   assert.match(plan, /flashConfirmationDeadline: "2026-07-17"/);
 });
+
+test("separates the visible advertising period from the mature weekly decision window", async () => {
+  const [page, ads] = await Promise.all([
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /成熟周（推荐）/);
+  assert.match(page, /最近 14 天/);
+  assert.match(page, /加入本周执行单/);
+  assert.match(page, /保本ROAS/);
+  assert.match(ads, /attributionWindowDays: ATTRIBUTION_DAYS/);
+  assert.match(ads, /rolling56d/);
+  assert.match(ads, /ad_decision_runs/);
+  assert.match(ads, /ad_report_rows/);
+  assert.match(ads, /inventory/);
+});
+
+test("persists real inventory snapshots and uploaded monthly reports", async () => {
+  const [page, inventory, reportRoute, hosting] = await Promise.all([
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/inventory.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/reports/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /补充复盘资料/);
+  assert.match(page, /直接阅读完整原报告/);
+  assert.match(page, /选择领星库存 XLSX/);
+  assert.match(inventory, /inventory_snapshots/);
+  assert.match(inventory, /inventory_snapshot_rows/);
+  assert.match(reportRoute, /env\.FILES\.put/);
+  assert.match(reportRoute, /export async function DELETE/);
+  assert.match(hosting, /"r2": "FILES"/);
+});
+
+test("ships the complete evidence library instead of summary placeholders", async () => {
+  const files = [
+    "Wayfair_7月推广计划_v3真实基线_20260623.html",
+    "Wayfair 北美地区 Black Friday in July官宣定档！.pdf",
+    "YB店_8月150单完整增长Playbook.html",
+    "YB店_店铺诊断报告.html",
+    "YB店_SKU健康体检.html",
+    "YB店_SKU广告重构执行清单_2026-07-15.xlsx",
+  ];
+  for (const file of files) {
+    const contents = await readFile(new URL(`../public/reports/${file}`, import.meta.url));
+    assert.ok(contents.byteLength > 100, `${file} should contain a real report`);
+  }
+});

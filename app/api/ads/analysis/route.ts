@@ -1,7 +1,7 @@
 import { getAdvertisingAnalysis } from "../../../../lib/wayfair-ads";
 
 async function bindings() {
-  return (await import("cloudflare:workers")).env as unknown as Record<string, string> & { DB?: never };
+  return (await import("cloudflare:workers")).env;
 }
 
 function date(value: string | null, name: string) {

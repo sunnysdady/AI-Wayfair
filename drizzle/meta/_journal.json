@@ -8,6 +8,34 @@
       "when": 1784173259541,
       "tag": "0000_motionless_silver_fox",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784187935238,
+      "tag": "0001_stormy_madripoor",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784188028134,
+      "tag": "0002_sweet_skin",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784189553399,
+      "tag": "0003_new_ultimates",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784191198999,
+      "tag": "0004_skinny_the_fallen",
+      "breakpoints": true
     }
   ]
 }

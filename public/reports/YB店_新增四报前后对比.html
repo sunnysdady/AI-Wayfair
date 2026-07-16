@@ -1,0 +1,120 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>YB新增四报前后对比 — 从经营诊断升级为商品治理</title><style>
+:root{--ink:#eee9df;--muted:#a9a397;--paper:#151817;--panel:#1d211f;--line:#343a36;--green:#72b88f;--amber:#d9ad5b;--red:#dc7770;--blue:#7fa7d7;--purple:#a78bd4}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(circle at 10% 0,#283027 0,transparent 30%),linear-gradient(145deg,#0e1110,#191d1b 55%,#111412);font-family:Inter,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.13;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.28'/%3E%3C/svg%3E")}
+nav{position:sticky;top:0;z-index:10;display:flex;gap:8px;flex-wrap:wrap;padding:10px max(16px,calc((100vw - 1320px)/2));background:#111513ee;border-bottom:1px solid var(--line);backdrop-filter:blur(10px)}nav a{color:var(--muted);text-decoration:none;padding:6px 10px;border-radius:999px;border:1px solid transparent}nav a:hover{color:var(--ink);border-color:var(--line)}
+.page{max-width:1320px;margin:auto;padding:52px 24px 90px}.hero{padding:46px;border:1px solid var(--line);border-radius:26px;background:linear-gradient(135deg,#272e2a,#171b19 64%,#292339);box-shadow:0 24px 80px #0006}.eyebrow{color:var(--green);letter-spacing:.16em;text-transform:uppercase;font-size:12px}h1,h2,h3{font-family:Georgia,"Songti SC",serif;line-height:1.18}h1{font-size:clamp(34px,5vw,66px);max-width:1000px;margin:16px 0}h2{font-size:28px;margin:0 0 18px}h3{font-size:20px;margin:20px 0 10px}.subtitle{max-width:920px;color:#cbc6bb;font-size:17px}.meta{margin-top:20px;color:var(--muted);font-size:13px}
+section{margin-top:28px;padding:28px;border:1px solid var(--line);border-radius:20px;background:#191d1bd9;box-shadow:0 18px 55px #0003;animation:rise .6s both}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;margin:18px 0}.card{padding:18px;border:1px solid var(--line);border-radius:14px;background:#202522}.card div{color:var(--muted);font-size:13px}.card strong{display:block;margin-top:6px;font-size:28px;font-family:Georgia,serif}.card.good{border-color:#38664d}.card.warn{border-color:#755f35}.card.bad{border-color:#74403c}.card.info{border-color:#3e5875}
+.callout{padding:16px 18px;margin:14px 0;border-left:4px solid var(--blue);background:#202725;border-radius:5px 12px 12px 5px}.callout.bad{border-color:var(--red);background:#2b201f}.callout.good{border-color:var(--green)}.callout.warn{border-color:var(--amber)}.small{color:var(--muted);font-size:13px}.empty{color:var(--muted);text-align:center;padding:28px}.badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line);white-space:nowrap}.badge.good{color:#a4e0bd;border-color:#45775a}.badge.warn{color:#f0c873;border-color:#806837}.badge.bad{color:#ef9c96;border-color:#824b47}.badge.info{color:#a7c4e5;border-color:#496887}.badge.muted{color:#bbb5aa}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px;margin:14px 0}table{width:100%;border-collapse:collapse;min-width:860px;background:#161a18}th,td{padding:11px 12px;border-bottom:1px solid #2c322f;text-align:right;white-space:nowrap}th{position:sticky;top:0;background:#262c29;color:#d7d2c7;cursor:pointer;font-size:12px;letter-spacing:.02em}th:first-child,td:first-child{text-align:left}tbody tr:hover{background:#202723}td{font-size:13px}.tasks{display:grid;gap:8px;margin:14px 0}.task{display:flex;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#171b19}.task input{accent-color:var(--green)}button{border:1px solid var(--line);background:#2a302d;color:var(--ink);padding:9px 13px;border-radius:9px;cursor:pointer}button:hover{background:#343c38}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.audit{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.audit div{padding:14px;border:1px solid var(--line);border-radius:12px;background:#171b19}.audit strong{display:block;margin-bottom:6px}.bar{height:12px;border-radius:999px;background:#303633;overflow:hidden}.bar span{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--amber));animation:grow 1s both;transform-origin:left}.source-list{font-size:13px;color:var(--muted)}footer{margin-top:40px;color:var(--muted);font-size:12px;text-align:center}@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@media(max-width:760px){.page{padding:24px 12px 60px}.hero{padding:28px 20px}section{padding:20px}.grid2{grid-template-columns:1fr}nav{position:relative}}
+@media print{nav,button{display:none}.page{max-width:none;padding:0}.hero,section{break-inside:avoid;background:#fff;color:#111;box-shadow:none}.small,.meta,.source-list{color:#555}body{background:#fff;color:#111}table{background:#fff;color:#111}th{background:#eee;color:#111}}
+</style><meta name="theme-color" content="#f4f7fb"><link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20rx='14'%20width='64'%20height='64'%20fill='%231f6097'/%3E%3Cpath%20d='M14%2018h9l9%2024%209-24h9L36%2050h-8z'%20fill='white'/%3E%3C/svg%3E"><style id="light-theme-20260715">
+:root{
+  --ink:#17243b;--muted:#66758a;--paper:#f4f7fb;--panel:#ffffff;--line:#dbe5ef;
+  --green:#13866f;--amber:#b86b12;--red:#c64e4e;--blue:#246aa8;--purple:#6d5fa8;
+}
+html{background:var(--paper)}
+body{
+  color:var(--ink);
+  overflow-x:hidden;
+  background:
+    radial-gradient(circle at 8% 0%,rgba(36,106,168,.11),transparent 27rem),
+    radial-gradient(circle at 92% 9%,rgba(19,134,111,.08),transparent 25rem),
+    linear-gradient(180deg,#f8fbfe 0%,#f2f6fa 44%,#edf3f8 100%);
+  font-family:"Avenir Next","SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif;
+  font-weight:450;
+}
+body:before{
+  opacity:.025;
+  mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.45'/%3E%3C/svg%3E");
+}
+nav{
+  top:0;padding-top:11px;padding-bottom:11px;
+  background:rgba(255,255,255,.91);border-bottom:1px solid rgba(193,208,222,.8);
+  box-shadow:0 5px 22px rgba(39,76,110,.08);backdrop-filter:blur(18px) saturate(150%);
+}
+nav a{color:#64748b;border-radius:8px;padding:7px 10px;font-size:14px;font-weight:560;transition:color .2s,background .2s,transform .2s}
+nav a:hover{color:#174f82;background:#eaf2f9;border-color:transparent;transform:translateY(-1px)}
+nav a:active{transform:translateY(0) scale(.98)}
+nav a.active{color:#fff;background:#1f6097;box-shadow:0 5px 14px rgba(31,96,151,.2)}
+nav a:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid rgba(36,106,168,.3);outline-offset:2px}
+.page{max-width:1360px;padding-top:46px}
+.hero{
+  position:relative;overflow:hidden;padding:48px 50px 52px;
+  color:var(--ink);border:1px solid rgba(198,215,230,.95);border-radius:24px;
+  background:
+    radial-gradient(circle at 92% 0%,rgba(19,134,111,.11),transparent 19rem),
+    linear-gradient(132deg,#ffffff 0%,#f5f9fd 60%,#eef6fb 100%);
+  box-shadow:0 22px 55px rgba(52,84,115,.13),inset 0 1px 0 #fff;
+}
+.hero:after{content:"";position:absolute;right:-72px;top:-115px;width:280px;height:280px;border-radius:50%;border:1px solid rgba(36,106,168,.12);box-shadow:0 0 0 42px rgba(36,106,168,.035),0 0 0 84px rgba(19,134,111,.025);pointer-events:none}
+.eyebrow{color:#117663;font-weight:720;letter-spacing:.13em}
+h1,h2,h3{font-family:"Iowan Old Style","Songti SC","STSong",serif;color:#162a43;text-wrap:balance}
+h1{font-size:clamp(36px,4.45vw,61px);line-height:1.08;letter-spacing:-.025em;margin:15px 0 18px;max-width:1080px}
+h1,.subtitle,.meta,.callout,.task{overflow-wrap:anywhere;word-break:break-word}
+h2{font-size:28px;letter-spacing:-.012em;margin-bottom:20px}
+h3{color:#244866;font-size:20px}
+.subtitle{color:#43566d;max-width:880px;font-size:17px;line-height:1.72;text-wrap:pretty}
+.meta{color:#718096;border-top:1px solid #dfe8f1;padding-top:15px;max-width:1120px;line-height:1.65}
+section{
+  margin-top:26px;padding:30px;border:1px solid rgba(207,219,230,.9);border-radius:18px;
+  background:rgba(255,255,255,.94);box-shadow:0 12px 36px rgba(50,82,111,.09);
+  animation:none;transition:box-shadow .25s,border-color .25s;
+}
+section:hover{border-color:#c2d6e6;box-shadow:0 16px 42px rgba(50,82,111,.12)}
+.cards{gap:14px;margin:20px 0}
+.card{padding:19px 20px;border:1px solid #dce6ef;border-radius:13px;background:#f8fafc;box-shadow:0 5px 15px rgba(53,82,108,.045)}
+.card div{color:#68798e;font-weight:570}
+.card strong{color:#19324f;font-family:"Avenir Next","SF Pro Display","PingFang SC",sans-serif;font-size:28px;font-weight:730;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.card.good{border-color:#a9d9c9;background:#eff9f5}.card.good strong{color:#0f735f}
+.card.warn{border-color:#ecd29f;background:#fff8e9}.card.warn strong{color:#9a5b0c}
+.card.bad{border-color:#edb9b5;background:#fff2f1}.card.bad strong{color:#b33f3f}
+.card.info{border-color:#b8d4eb;background:#f0f7fd}.card.info strong{color:#1e6098}
+.callout{color:#29445c;border-left-color:var(--blue);background:#edf5fb;border-radius:6px 12px 12px 6px;box-shadow:inset 0 0 0 1px rgba(79,139,188,.08)}
+.callout strong{color:#183b59}
+.callout.good{border-color:var(--green);background:#edf8f4}.callout.good strong{color:#0d6e5c}
+.callout.warn{border-color:var(--amber);background:#fff7e9}.callout.warn strong{color:#8b520d}
+.callout.bad{border-color:var(--red);background:#fff0ef}.callout.bad strong{color:#a63b3b}
+.small,.empty,.source-list{color:var(--muted)}
+.badge{border-radius:6px;background:#fff;font-weight:620}
+.badge.good{color:#0f735f;border-color:#9ccfbe;background:#edf8f4}
+.badge.warn{color:#92550d;border-color:#e4c68f;background:#fff7e9}
+.badge.bad{color:#af4040;border-color:#e8aaa5;background:#fff0ef}
+.badge.info{color:#1f6097;border-color:#aacbe4;background:#edf5fb}
+.badge.muted{color:#607086;background:#f5f7f9}
+.table-wrap{border:1px solid #d7e2eb;border-radius:12px;background:#fff;box-shadow:0 7px 22px rgba(45,76,103,.06)}
+table{background:#fff;font-variant-numeric:tabular-nums}
+th,td{border-bottom:1px solid #e2eaf1}
+th{top:0;background:#1c4e78;color:#fff;font-weight:650;letter-spacing:.025em;box-shadow:inset 0 -1px 0 rgba(255,255,255,.13)}
+th:hover{background:#245f91}
+td{color:#30445a;background:#fff}
+tbody tr:nth-child(even) td{background:#f7fafc}
+tbody tr:hover td{background:#eaf3fa}
+.tasks{gap:10px}
+.task{border:1px solid #dce6ef;background:#f8fafc;color:#30445a;transition:background .2s,border-color .2s,transform .2s}
+.task:hover{background:#eef6fb;border-color:#bcd3e5;transform:translateX(2px)}
+.task input{accent-color:var(--green)}
+button{border:0;background:#1f6097;color:#fff;font-weight:650;box-shadow:0 7px 17px rgba(31,96,151,.2);transition:background .2s,transform .2s,box-shadow .2s}
+button:hover{background:#174f82;transform:translateY(-1px);box-shadow:0 10px 22px rgba(31,96,151,.24)}
+button:active{transform:translateY(0) scale(.98)}
+.audit div{border:1px solid #dce6ef;background:#f8fafc;color:#30445a}
+.audit a,.audit a[style]{color:#1f659e!important;font-weight:620}
+.audit a:hover,.audit a[style]:hover{color:#134b77!important}
+.bar{background:#e2eaf0}.bar span{background:linear-gradient(90deg,#16836d,#3f82b8)}
+a{color:#1f659e;text-underline-offset:3px}a:hover{color:#134b77}
+footer{color:#728196;border-top:1px solid #d9e3ec;padding-top:24px}
+@media(max-width:760px){
+  body{background:#f3f7fa}.page{padding:24px 12px 60px}.hero{padding:31px 22px 34px;border-radius:18px}.hero:after{opacity:.45}
+  h1{font-size:clamp(31px,10.6vw,43px)}section{padding:21px;border-radius:14px}.cards{grid-template-columns:1fr}nav{position:relative;gap:4px}nav a{font-size:12px;padding:6px 8px}th{top:0}
+}
+@media print{
+  body{background:#fff}.hero,section{background:#fff!important;color:#17243b!important;box-shadow:none!important;border-color:#cfdbe5!important}
+  h1,h2,h3,.subtitle,.meta,.card strong,td{color:#17243b!important}th{background:#e8eef4!important;color:#17243b!important}.callout{background:#f4f7fa!important}
+}
+</style><style id="target-closure-style">tfoot td{background:#e7f2f8!important;color:#163e5d!important;font-weight:750;border-top:2px solid #6da1c6} table#yb-revised-targets tbody tr:first-child td{background:#edf8f4;font-weight:650}</style></head><body><nav><a href="index.html">总览</a><a href="YB%E5%BA%97_%E5%BA%97%E9%93%BA%E8%AF%8A%E6%96%AD%E6%8A%A5%E5%91%8A.html">店铺诊断</a><a href="YB%E5%BA%97_%E5%BA%97%E9%93%BA%E5%AF%B9%E6%A0%87_%E7%B1%BB%E7%9B%AE%E5%9D%87%E5%80%BC.html">类目对标</a><a href="YB%E5%BA%97_SKU%E5%81%A5%E5%BA%B7%E4%BD%93%E6%A3%80.html">SKU体检</a><a href="YB%E5%BA%97_%E5%B9%BF%E5%91%8A%E8%AF%8A%E6%96%AD%E6%8A%A5%E5%91%8A.html">广告诊断</a><a href="YB%E5%BA%97_%E5%B9%BF%E5%91%8A%E6%B7%B1%E5%BA%A6%E5%88%86%E6%9E%90_%E5%95%86%E5%93%81+%E5%85%B3%E9%94%AE%E8%AF%8D.html">广告深度</a><a href="YB%E5%BA%97_%E6%96%B0%E5%A2%9E%E5%9B%9B%E6%8A%A5%E5%89%8D%E5%90%8E%E5%AF%B9%E6%AF%94.html" aria-current="page" class="active">新增四报对比</a><a href="YB%E5%BA%97_%E8%BF%90%E8%90%A5ToDoList_%E8%AF%A6%E7%BB%86%E6%8C%87%E5%BC%95.html">运营ToDo</a><a href="YB%E5%BA%97_8%E6%9C%88150%E5%8D%95%E5%AE%8C%E6%95%B4%E5%A2%9E%E9%95%BFPlaybook.html">8月150单Playbook</a><a href="YB%E5%BA%97_150%E5%8D%95SKU%E4%B8%8E%E5%B9%BF%E5%91%8A%E9%A2%84%E7%AE%97%E5%88%86%E9%85%8D%E8%AE%BA%E8%AF%81_2026-07-15.html">SKU预算论证</a><a href="YB%E5%BA%97_SKU%E5%B9%BF%E5%91%8A%E9%87%8D%E6%9E%84%E6%89%A7%E8%A1%8C%E6%B8%85%E5%8D%95_2026-07-15.html">SKU广告执行</a></nav><main class="page"><header class="hero"><div class="eyebrow">MAKEACE · WAYFAIR OPERATING REVIEW</div><h1>YB新增四报前后对比 — 从经营诊断升级为商品治理</h1><p class="subtitle">新增报告没有改写6月总账，但显著修正了Tag判断，并把目录、评论和内容问题落到了具体Part。</p><div class="meta">业务周期：2026年6月 · 广告导出：2026-06-14 至 2026-07-13（30天，含最后2天短周期） · 目录/评论快照：2026-07-13 · 内容日志截至：2026-07-06 · 生成：2026-07-14</div></header><section><h2>01 对比结论</h2><div class="cards"><article class="card info"><div>旧业务主表</div><strong>86个Part</strong></article><article class="card good"><div>新目录底账</div><strong>90个Part</strong></article><article class="card bad"><div>原始Tag%</div><strong>42.0%</strong></article><article class="card good"><div>校正Tag%</div><strong>100.0%</strong></article><article class="card bad"><div>新增明确异常</div><strong>12个Part</strong></article><article class="card info"><div>新增评论明细</div><strong>103条</strong></article></div><div class="callout good"><strong>经营结论没有被推翻：</strong>6月营收+52%、流量与CVR同步增长仍成立。</div><div class="callout bad"><strong>商品治理结论发生实质变化：</strong>此前最大范围异常看起来是Tag 42%；新增目录问题表后，真正有明确证据的上线损失变成6个法规限制和2个缺图Not Live。Tag从“全量补字段”改为“平台原始42%继续监控、校正100%用于运营动作”。</div></section><section><h2>02 前后能力与结论逐项对比</h2><div class="table-wrap"><table id="yb-before-after"><thead><tr><th onclick="sortTable('yb-before-after',0)">维度 ↕</th><th onclick="sortTable('yb-before-after',1)">此前可判断 ↕</th><th onclick="sortTable('yb-before-after',2)">新增后可判断 ↕</th><th onclick="sortTable('yb-before-after',3)">核心差异 ↕</th><th onclick="sortTable('yb-before-after',4)">对诊断的影响 ↕</th></tr></thead><tbody><tr><td data-sort="SKU覆盖范围">SKU覆盖范围</td><td data-sort="业务/Listing Health并集86个Part">业务/Listing Health并集86个Part</td><td data-sort="目录摘要90个Part">目录摘要90个Part</td><td data-sort="新增4个未进入6月业务主表的目录Part">新增4个未进入6月业务主表的目录Part</td><td data-sort="从销售样本扩展到完整目录治理">从销售样本扩展到完整目录治理</td></tr><tr><td data-sort="Tag完整度">Tag完整度</td><td data-sort="平台原始42%；85个有数据Part低于100%">平台原始42%；85个有数据Part低于100%</td><td data-sort="0个Part有明确Missing Required Info；校正100%">0个Part有明确Missing Required Info；校正100%</td><td data-sort="DNA/Not Apply不再被误算为缺失">DNA/Not Apply不再被误算为缺失</td><td data-sort="推翻“全量补Tag”，仅修明确异常">推翻“全量补Tag”，仅修明确异常</td></tr><tr><td data-sort="商品上线状态">商品上线状态</td><td data-sort="只能看到Listing Health/Cost Stack状态">只能看到Listing Health/Cost Stack状态</td><td data-sort="Live 78；部分站点Live 6；Not Live 2；停产 4">Live 78；部分站点Live 6；Not Live 2；停产 4</td><td data-sort="获得全目录、分站点可售状态">获得全目录、分站点可售状态</td><td data-sort="识别2个缺图未上线和6个部分站点受限">识别2个缺图未上线和6个部分站点受限</td></tr><tr><td data-sort="目录问题根因">目录问题根因</td><td data-sort="Tag/Image Health只给健康状态">Tag/Image Health只给健康状态</td><td data-sort="12个异常Part：6法规、2缺图、4停产">12个异常Part：6法规、2缺图、4停产</td><td data-sort="从颜色状态下钻到原因和处理路径">从颜色状态下钻到原因和处理路径</td><td data-sort="新增CPSC 16 CFR 1303与补图P0清单">新增CPSC 16 CFR 1303与补图P0清单</td></tr><tr><td data-sort="评论与评分">评论与评分</td><td data-sort="只有累计评论数、均分和Customer Feedback摘要">只有累计评论数、均分和Customer Feedback摘要</td><td data-sort="103条评论原文/标注；30个Part；19条≤3星">103条评论原文/标注；30个Part；19条≤3星</td><td data-sort="能定位低分Part与具体抱怨主题">能定位低分Part与具体抱怨主题</td><td data-sort="识别9个均分&lt;4.2的救分池">识别9个均分&lt;4.2的救分池</td></tr><tr><td data-sort="内容变更追踪">内容变更追踪</td><td data-sort="无变更历史">无变更历史</td><td data-sort="2,546条去重事件；6月105条">2,546条去重事件；6月105条</td><td data-sort="区分Wayfair改动与供应商改动">区分Wayfair改动与供应商改动</td><td data-sort="可审计谁改了什么、何时改，避免重复返工">可审计谁改了什么、何时改，避免重复返工</td></tr><tr><td data-sort="广告判断">广告判断</td><td data-sort="按曝光/CTR/CVR/ROAS做效率判断">按曝光/CTR/CVR/ROAS做效率判断</td><td data-sort="叠加目录状态、评分和评论风险">叠加目录状态、评分和评论风险</td><td data-sort="从“效率好就加投”升级为“先过商品健康闸”">从“效率好就加投”升级为“先过商品健康闸”</td><td data-sort="低评分或受限Part不因表面ROAS直接扩量">低评分或受限Part不因表面ROAS直接扩量</td></tr><tr><td data-sort="经营大盘">经营大盘</td><td data-sort="营收、订单、Sessions、CVR、Fill Rate">营收、订单、Sessions、CVR、Fill Rate</td><td data-sort="经营总数不变">经营总数不变</td><td data-sort="新增报表是商品治理快照，不改写6月Account总账">新增报表是商品治理快照，不改写6月Account总账</td><td data-sort="增长+52%的结论得到保留">增长+52%的结论得到保留</td></tr></tbody></table></div></section><section><h2>03 四份新增报告各自带来了什么</h2><div class="table-wrap"><table id="yb-report-map"><thead><tr><th onclick="sortTable('yb-report-map',0)">新增报告 ↕</th><th onclick="sortTable('yb-report-map',1)">新增字段 ↕</th><th onclick="sortTable('yb-report-map',2)">补足能力 ↕</th><th onclick="sortTable('yb-report-map',3)">YB本次发现 ↕</th></tr></thead><tbody><tr><td data-sort="Product Listings Summary">Product Listings Summary</td><td data-sort="Part / SKU / Status / Class / Collection / Cost / Images">Part / SKU / Status / Class / Collection / Cost / Images</td><td data-sort="建立90个Part完整目录底账">建立90个Part完整目录底账</td><td data-sort="新增4个目录Part；78 Live、6部分站点Live、2 Not Live、4停产">新增4个目录Part；78 Live、6部分站点Live、2 Not Live、4停产</td></tr><tr><td data-sort="Product Listings Problems">Product Listings Problems</td><td data-sort="问题数 / Missing Images / Legal Compliance / Discontinued / Sites">问题数 / Missing Images / Legal Compliance / Discontinued / Sites</td><td data-sort="给出不可售或部分站点受限的明确根因">给出不可售或部分站点受限的明确根因</td><td data-sort="6个法规限制、2个缺图、4个停产">6个法规限制、2个缺图、4个停产</td></tr><tr><td data-sort="Product Reviews">Product Reviews</td><td data-sort="评论日期 / Rating / Review Text / Annotations">评论日期 / Rating / Review Text / Annotations</td><td data-sort="从汇总评分下钻到评论原文和主题">从汇总评分下钻到评论原文和主题</td><td data-sort="103条评论，均分4.31；19条≤3星；9个Part低于4.2">103条评论，均分4.31；19条≤3星；9个Part低于4.2</td></tr><tr><td data-sort="Product Content Changes">Product Content Changes</td><td data-sort="字段 / 前后值 / 来源 / 修改人 / 影响站点">字段 / 前后值 / 来源 / 修改人 / 影响站点</td><td data-sort="补上近12个月内容审计链">补上近12个月内容审计链</td><td data-sort="4,825原始行去重为2,546事件；6月105条">4,825原始行去重为2,546事件；6月105条</td></tr></tbody></table></div></section><section><h2>04 行动优先级怎么变了</h2><div class="table-wrap"><table id="yb-action-change"><thead><tr><th onclick="sortTable('yb-action-change',0)">优先级 ↕</th><th onclick="sortTable('yb-action-change',1)">此前动作 ↕</th><th onclick="sortTable('yb-action-change',2)">新增后的动作 ↕</th><th onclick="sortTable('yb-action-change',3)">变化类型 ↕</th></tr></thead><tbody><tr><td data-sort="P0">P0</td><td data-sort="按平台42%大面积补Tag">按平台42%大面积补Tag</td><td data-sort="取消泛化补Tag；先处理6个CPSC限制与2个缺图Not Live">取消泛化补Tag；先处理6个CPSC限制与2个缺图Not Live</td><td data-sort="结论被修正">结论被修正</td></tr><tr><td data-sort="P1">P1</td><td data-sort="按ROAS/点击止损和迁预算">按ROAS/点击止损和迁预算</td><td data-sort="保留广告迁移，但增加评分&lt;4.0、受限/Not Live商品不得扩量">保留广告迁移，但增加评分&lt;4.0、受限/Not Live商品不得扩量</td><td data-sort="旧结论加闸门">旧结论加闸门</td></tr><tr><td data-sort="P2">P2</td><td data-sort="根据累计评分做笼统救分">根据累计评分做笼统救分</td><td data-sort="点名LFC-4B、VF-ZH-4B、5T-1600-800、2T-Kayak、LFC-3W">点名LFC-4B、VF-ZH-4B、5T-1600-800、2T-Kayak、LFC-3W</td><td data-sort="从泛化到SKU清单">从泛化到SKU清单</td></tr><tr><td data-sort="监控">监控</td><td data-sort="只能看最新Listing Health状态">只能看最新Listing Health状态</td><td data-sort="按内容变更日志追踪Wayfair/供应商改动并复核结果">按内容变更日志追踪Wayfair/供应商改动并复核结果</td><td data-sort="新增闭环能力">新增闭环能力</td></tr></tbody></table></div></section><section><h2>05 哪些旧结论保留、修正、补强</h2><div class="grid2"><div class="callout good"><strong>保留</strong><br>6月增长成立；Filing Cabinets是主航道但CVR仍低于类目；广告应迁移预算而非整体停投；缺真实成本和库存仍不可判。</div><div class="callout bad"><strong>修正</strong><br>不再依据平台42%判定所有Part“没填Tag”；DNA/Not Apply剔除，只有明确Missing Required Info才进入补字段任务。</div><div class="callout warn"><strong>补强</strong><br>广告扩量增加商品健康闸：法规受限、Not Live、评分&lt;4.0的Part先修复，不因表面ROAS高直接加投。</div><div class="callout"><strong>新增</strong><br>建立目录状态池、法规/缺图问题池、评论救分池和内容变更审计池，能追到具体Part和修改人。</div></div></section><section><h2>06 对比口径限制</h2><p>校正Tag 100%是基于当前Product Listings Problems中90个Part均无明确Missing Required Info所得的“可验证异常口径”。若后续能导出字段级Tag清单（字段值、DNA/Not Apply、是否Required），可进一步计算精确的适用字段分子/分母；当前不把平台覆盖率42%直接当作内容缺失率。</p></section><footer>YB店 · 数据驱动月度复盘 · 原始口径与校正口径分开展示</footer></main><script>
+function sortTable(id,col){const t=document.getElementById(id),b=t.tBodies[0],rows=[...b.rows];const asc=t.dataset.sortCol!=col||t.dataset.sortDir!='asc';rows.sort((a,b)=>{let x=a.cells[col].dataset.sort||'',y=b.cells[col].dataset.sort||'';let nx=parseFloat(String(x).replace(/[$,%×,−]/g,m=>m==='−'?'-':'')),ny=parseFloat(String(y).replace(/[$,%×,−]/g,m=>m==='−'?'-':''));if(!Number.isNaN(nx)&&!Number.isNaN(ny)){x=nx;y=ny}return (x<y?-1:x>y?1:0)*(asc?1:-1)});rows.forEach(r=>b.appendChild(r));t.dataset.sortCol=col;t.dataset.sortDir=asc?'asc':'desc'}
+document.querySelectorAll('[data-task]').forEach(c=>{c.checked=localStorage.getItem(c.dataset.task)==='1';c.addEventListener('change',()=>localStorage.setItem(c.dataset.task,c.checked?'1':'0'))});
+function copyTasks(btn){const items=[...btn.previousElementSibling.querySelectorAll('.task')].filter(x=>!x.querySelector('input').checked).map(x=>'☐ '+x.innerText.trim());navigator.clipboard.writeText(items.join('\n'));btn.innerText='已复制';setTimeout(()=>btn.innerText='复制未完成任务',1200)}
+</script></body></html>

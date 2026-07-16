@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { invalidateClientCache, readClientCache, writeClientCache } from "../lib/client-cache";
 
 type View = "daily" | "plan" | "inventory" | "ads" | "review" | "catalog" | "sources";
 
@@ -9,7 +10,7 @@ const NAV: { id: View; label: string; meta: string }[] = [
   { id: "plan", label: "运营计划", meta: "本月" },
   { id: "inventory", label: "库存更新", meta: "Gate" },
   { id: "ads", label: "广告优化", meta: "每周" },
-  { id: "review", label: "月度复盘", meta: "15" },
+  { id: "review", label: "月度复盘", meta: "资料" },
   { id: "catalog", label: "商品数据", meta: "V2" },
   { id: "sources", label: "数据源", meta: "6/6" },
 ];
@@ -43,12 +44,14 @@ type AdListing = {
   plan: null | { budget: number; augustUnits?: number; julyTargetOrders?: number; role: string; gate: string; eligible: boolean; adRole: string; rating?: number; reviews?: number };
   economics: { marginRate: number; marginMode: string; breakEvenRoas: number };
   linkQuality: { rating: number | null; reviews: number | null; pass: boolean; source: string };
-  action: { type: string; label: string; execution: string; blockers: string[]; before: Record<string, unknown>; proposed: Record<string, unknown> };
+  inventory: { known: boolean; coverDays: number | null; quantityOnHand: number; snapshotAt: string | null };
+  action: { type: string; label: string; recommendation: string; execution: string; confidence: string; reasons: string[]; blockers: string[]; warnings: string[]; before: Record<string, unknown>; proposed: Record<string, unknown> };
 };
 type AdAnalysis = {
   current: AdMetric; previous: AdMetric; history: ({ date: string } & AdMetric)[]; listings: AdListing[];
   range: { start: string; end: string; previousStart: string; previousEnd: string; asOf: string; matureThrough: string; mature: boolean };
-  generatedAt: string; attributionWindowDays: number; cache?: { hit?: boolean; updatedAt?: string }; safety: { reason: string }; error?: string;
+  decisionRange: { start: string; end: string; previousStart: string; previousEnd: string; cadence: string; rule: string };
+  runKey: string; generatedAt: string; attributionWindowDays: number; cache?: { hit?: boolean; layer?: string; updatedAt?: string }; safety: { reason: string }; error?: string;
 };
 type PlanProgress = {
   plan: { month: string; orderTarget: number; baselineOrders: number; floorOrders: number; stretchOrders: number; adBudget: number; estimatedNetProfit: number; source: string; sourceAsOf: string; scopeWarning: string };
@@ -89,6 +92,18 @@ function rangeFor(preset: string) {
   return { start: dateText(lastMonth), end: dateText(lastMonthEnd) };
 }
 
+const adPresetOptions = [["matureWeek","成熟周（推荐）"],["7d","最近 7 天"],["14d","最近 14 天"],["month","本月"],["lastMonth","上月"],["custom","自定义"]] as const;
+
+function adRangeFor(preset: string) {
+  const today = dateText(new Date());
+  if (preset === "matureWeek") { const end = shiftDate(today, -14); return { start: shiftDate(end, -6), end }; }
+  if (preset === "7d") return { start: shiftDate(today, -6), end: today };
+  if (preset === "14d") return { start: shiftDate(today, -13), end: today };
+  if (preset === "month") return { start: `${today.slice(0, 7)}-01`, end: today };
+  const [year, month] = today.split("-").map(Number);
+  return { start: dateText(new Date(Date.UTC(year, month - 2, 1, 12))), end: dateText(new Date(Date.UTC(year, month - 1, 0, 12))) };
+}
+
 function money(value = 0) { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value); }
 function change(current = 0, previous = 0) {
   if (!previous) return current ? "新发生" : "无变化";
@@ -96,6 +111,7 @@ function change(current = 0, previous = 0) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}% 较前周期`;
 }
 type EvidenceReport = { title: string; file: string; kind: string; date?: string; summary: string; metrics?: string[][]; sections: string[][] };
+type UploadedReport = { id: string; fileName: string; title: string; kind: string; contentType: string; createdAt: string };
 const REPORTS: EvidenceReport[] = [
   { title: "7月推广计划 v3.1 真实基线", file: "Wayfair_7月推广计划_v3真实基线_20260623.html", kind: "当前计划", date: "2026/06/23", summary: "以6月真实基线制定7月128 Orders目标、$790广告预算、SKU责任和活动节奏。", metrics: [["主目标","128 Orders"],["真实基线","102 Orders"],["广告预算","$790"],["预计净利","$3,394"],["冲刺目标","145 Orders"]], sections: [["01","目标阶梯","保底112、主目标128、冲刺145；长尾激活待新产品SOP，不计入承诺目标。"],["02","SKU责任","10个Listing拆解128 Orders；系统用订单API关联实际订单与件数。"],["03","数据冲突","正文基线102、SKU表合计100；DMOM1022正文10单、表格5单，均保留待确认。"],["04","广告联动","月预算、SKU角色、利润与链接Gate直接约束当前广告动作。"]] },
   { title: "Black Friday in July 官宣与广告策略", file: "Wayfair 北美地区 Black Friday in July官宣定档！.pdf", kind: "活动", date: "2026/07/16", summary: "官方活动规则已转成独立阶段策略，活动预算包含在7月$790内。", metrics: [["北美主活动","07/23–07/28"],["Canada Co-Invest","07/23–07/27"],["Flash窗口","07/26–07/27"],["活动广告上限","$330"],["商品锁定","07/21–07/28"]], sections: [["01","资格与费用","Flash Deal须07/17前确认；受邀SKU上线收取$75固定费，必须计入利润。"],["02","投放节奏","资格确认、预热、Member Day衔接、主活动、Flash窗口、收尾六阶段独立预算。"],["03","价格与商品","普通折扣不叠加；Conditional Offer会叠加；商品编辑在07/21–07/28锁定。"],["04","执行护栏","促销、利润、库存、链接和历史ROAS全部通过后，才释放活动Bid与Cap。"]] },
@@ -144,14 +160,17 @@ function Daily({ onNavigate }: { onNavigate: (view: View) => void }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const cacheKey = `orders:${start}:${end}`;
+    const cached = readClientCache<OrderSummary>(cacheKey);
     const controller = new AbortController();
+    if (cached) queueMicrotask(()=>{if(!controller.signal.aborted){setData(cached);setLoading(false);setError("");}});
     fetch(`/api/orders/summary?start=${start}&end=${end}`, { signal: controller.signal })
       .then(async (response) => {
         const body = await response.json() as OrderSummary;
         if (!response.ok) throw new Error(body.error || "订单数据读取失败");
         return body;
       })
-      .then(setData)
+      .then((body) => { setData(body); writeClientCache(cacheKey, body); })
       .catch((reason) => { if (reason.name !== "AbortError") setError(reason.message || "订单数据读取失败"); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
@@ -219,7 +238,7 @@ function Daily({ onNavigate }: { onNavigate: (view: View) => void }) {
 function Plan({ onNavigate }: { onNavigate: (view: View) => void }) {
   const [data,setData]=useState<PlanProgress|null>(null); const [error,setError]=useState('');
   const [tab,setTab]=useState<'july'|'bfij'|'august'>('july');
-  useEffect(()=>{fetch('/api/plan/progress').then(async r=>{const body=await r.json() as PlanProgress;if(!r.ok)throw new Error(body.error||'计划读取失败');return body;}).then(setData).catch(e=>setError(e.message));},[]);
+  useEffect(()=>{const cached=readClientCache<PlanProgress>('plan:progress');if(cached){queueMicrotask(()=>setData(cached));return;}fetch('/api/plan/progress').then(async r=>{const body=await r.json() as PlanProgress;if(!r.ok)throw new Error(body.error||'计划读取失败');return body;}).then(body=>{setData(body);writeClientCache('plan:progress',body);}).catch(e=>setError(e.message));},[]);
   const p=data?.progress; const actual=data?.actual;
   return <><Hero eyebrow="MONTHLY OPERATING PLAN" title="目标与执行" text="6月复盘 → 7月真实基线执行 → 8月下一阶段准备；目标、利润与广告共用同一套运营计划" side={<button className="hero-button" onClick={() => onNavigate("review")}>查看完整复盘证据</button>} />
     <section className="context-strip"><div><span>复盘月</span><b>2026-06</b><small>经营事实已归档</small></div><div className="active"><span>当前经营月</span><b>{data?.currentOperatingMonth.month||'2026-07'} · 128 Orders</b><small>{data?.currentOperatingMonth.note||'真实基线计划读取中'}</small></div><div><span>下一计划月</span><b>2026-08 · 150 Units</b><small>准备阶段，不与7月目标混算</small></div></section>
@@ -249,49 +268,64 @@ function Plan({ onNavigate }: { onNavigate: (view: View) => void }) {
 }
 
 function Inventory() {
-  const [file, setFile] = useState(""); const [state, setState] = useState("等待库存文件");
-  return <><Hero eyebrow="INVENTORY UPDATE · CONTROLLED WRITE" title="库存更新" text="上传、校验、Dry-run、确认推送；发货操作不在本系统内" side={<div className="hero-side"><b>Gate</b><span>{state}</span></div>} />
-    <div className="inventory-grid"><article className="card upload-card"><span className="step">STEP 01</span><h2>更新最新库存</h2><label className="drop"><input type="file" accept=".xlsx" onChange={e=>{setFile(e.target.files?.[0]?.name||'');setState('文件待校验')}}/><b>{file || "选择领星库存 XLSX"}</b><span>系统套用 Supplier / SKU 映射</span></label><button className="primary" disabled={!file} onClick={()=>setState('Dry-run 已通过')}>校验并生成库存</button></article><article className="card gate-card"><span className="step">STEP 02</span><h2>推送前检查</h2><div className="gate-metrics">{[["可推送行","258"],["Supplier","1"],["零库存","14"],["未匹配","0"]].map(x=><div key={x[0]}><span>{x[0]}</span><strong>{state==='Dry-run 已通过'?x[1]:'—'}</strong></div>)}</div><div className="soft-note">正式推送需要再次确认；库存为零的记录会影响商品可售状态。</div><button className="primary dark" disabled={state!=='Dry-run 已通过'} onClick={()=>setState('等待正式确认')}>进入正式推送确认</button></article></div>
+  type Preview={snapshotId?:string;sourceFile?:string;createdAt?:string;canPush?:boolean;summary?:{totalRows:number;supplierCount:number;zeroStockRows:number;missingCombinations:number;totalQuantityOnHand:number;ignoredStockRows:number};warnings?:{message:string}[];errors?:{message:string}[];error?:string};
+  const [file,setFile]=useState<File|null>(null);const [preview,setPreview]=useState<Preview|null>(null);const [state,setState]=useState("读取最近快照");const [busy,setBusy]=useState(false);const [confirmation,setConfirmation]=useState("");const [zeroConfirmed,setZeroConfirmed]=useState(false);const [message,setMessage]=useState("");
+  useEffect(()=>{const controller=new AbortController();fetch('/api/inventory/preview',{signal:controller.signal}).then(async r=>await r.json() as Preview).then(body=>{if(body.snapshotId){setPreview(body);setState('最近快照可用');}else setState('等待库存文件');}).catch(()=>setState('等待库存文件'));return()=>controller.abort();},[]);
+  async function validate(){if(!file)return;setBusy(true);setMessage('');setState('正在解析与校验');try{const form=new FormData();form.set('file',file);const response=await fetch('/api/inventory/preview',{method:'POST',body:form});const body=await response.json() as Preview;if(!response.ok)throw new Error(`${body.error||'库存校验失败'}${body.errors?.[0]?.message?`：${body.errors[0].message}`:''}`);setPreview(body);invalidateClientCache('ads:');setState('校验通过 · 已入库');setMessage(`已保存库存快照 ${body.snapshotId?.slice(0,8)}；广告放量Gate将在下次打开时自动读取。`);}catch(error){setState('校验未通过');setMessage(error instanceof Error?error.message:'库存校验失败');}finally{setBusy(false);}}
+  async function push(dryRun:boolean){if(!preview?.snapshotId)return;setBusy(true);setMessage('');setState(dryRun?'正在执行Dry-run':'正在提交Wayfair');try{const response=await fetch('/api/inventory/push',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({snapshotId:preview.snapshotId,dryRun,confirmation,zeroStockConfirmed:zeroConfirmed})});const body=await response.json() as {error?:string;itemCount?:number;batchCount?:number;mode?:string};if(!response.ok)throw new Error(body.error||'库存推送失败');setState(dryRun?'Dry-run 已通过':'已提交Wayfair');setMessage(dryRun?`Dry-run完成：${body.itemCount}条记录，拆分${body.batchCount}个批次；尚未写入Wayfair。`:`正式库存已提交，共${body.itemCount}条。`);}catch(error){setState(dryRun?'Dry-run 失败':'正式推送被阻止');setMessage(error instanceof Error?error.message:'库存推送失败');}finally{setBusy(false);}}
+  const metrics=[["可推送行",preview?.summary?.totalRows],["Supplier",preview?.summary?.supplierCount],["零库存",preview?.summary?.zeroStockRows],["未匹配组合",preview?.summary?.missingCombinations]];
+  return <><Hero eyebrow="INVENTORY UPDATE · CONTROLLED WRITE" title="库存更新" text="真实解析领星库存、套用SKU/仓库映射、持久化快照，再执行Dry-run与受控推送" side={<div className="hero-side"><b>{state}</b><span>{preview?.sourceFile||'尚无库存快照'}</span></div>} />
+    <div className="inventory-grid"><article className="card upload-card"><span className="step">STEP 01 · SOURCE & VALIDATION</span><h2>生成库存快照</h2><label className="drop"><input type="file" accept=".xlsx" onChange={e=>{const next=e.target.files?.[0]||null;setFile(next);setState(next?'文件待校验':preview?'最近快照可用':'等待库存文件');setMessage('');}}/><b>{file?.name||preview?.sourceFile||"选择领星库存 XLSX"}</b><span>读取品名、SKU、仓库、可用量、锁定量、待到货与调拨在途；映射表已固化为当前生产版本</span></label><button className="primary" disabled={!file||busy} onClick={validate}>{busy&&state.includes('解析')?'校验中…':'校验并保存快照'}</button>{preview?.createdAt&&<div className="snapshot-note">最近快照 {new Date(preview.createdAt).toLocaleString('zh-CN')} · 库存合计 {preview.summary?.totalQuantityOnHand||0}</div>}</article><article className="card gate-card"><span className="step">STEP 02 · DRY-RUN & CONFIRMATION</span><h2>推送前检查</h2><div className="gate-metrics">{metrics.map(([label,value])=><div key={String(label)}><span>{label}</span><strong>{value??'—'}</strong></div>)}</div>{preview?.warnings?.length?<div className="soft-note">{preview.warnings.map(item=>item.message).join('；')}</div>:<div className="soft-note">只有真实校验通过的D1快照可进入Dry-run；正式推送不会复用浏览器临时状态。</div>}<button className="primary" disabled={!preview?.canPush||busy} onClick={()=>push(true)}>执行 Wayfair API Dry-run</button><div className="live-confirm"><label>正式确认<input value={confirmation} onChange={e=>setConfirmation(e.target.value)} placeholder="输入：正式推送"/></label><label className="zero-check"><input type="checkbox" checked={zeroConfirmed} onChange={e=>setZeroConfirmed(e.target.checked)}/>确认零库存记录会改变可售状态</label><button className="primary dark" disabled={!preview?.canPush||busy||confirmation!=='正式推送'} onClick={()=>push(false)}>正式推送库存</button></div>{message&&<div className={state.includes('失败')||state.includes('阻止')||state.includes('未通过')?'inventory-message bad':'inventory-message good'}>{message}</div>}</article></div>
   </>;
 }
 
 function Ads() {
-  const [tab,setTab]=useState<'week'|'month'>('week');
-  const matureEnd=shiftDate(dateText(new Date()),-14); const defaultStart=shiftDate(matureEnd,-27);
-  const [start,setStart]=useState(defaultStart); const [end,setEnd]=useState(matureEnd); const [requested,setRequested]=useState({start:defaultStart,end:matureEnd,refresh:false});
+  const initial=adRangeFor('matureWeek');
+  const [preset,setPreset]=useState('matureWeek');
+  const [start,setStart]=useState(initial.start); const [end,setEnd]=useState(initial.end); const [requested,setRequested]=useState({start:initial.start,end:initial.end,refresh:false});
   const [data,setData]=useState<AdAnalysis|null>(null); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
-  useEffect(()=>{const controller=new AbortController();fetch(`/api/ads/analysis?start=${requested.start}&end=${requested.end}${requested.refresh?'&refresh=1':''}`,{signal:controller.signal}).then(async r=>{const body=await r.json() as AdAnalysis;if(!r.ok)throw new Error(body.error||'广告分析失败');return body;}).then(setData).catch(e=>{if(e.name!=='AbortError')setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();},[requested]);
-  function setMode(next:'week'|'month'){setTab(next);const e=matureEnd;const s=next==='week'?shiftDate(e,-6):`${e.slice(0,7)}-01`;setStart(s);setEnd(e);setLoading(true);setError('');setRequested({start:s,end:e,refresh:false});}
+  const [queueState,setQueueState]=useState<Record<string,string>>({});
+  useEffect(()=>{const cacheKey=`ads:${requested.start}:${requested.end}`;const cached=!requested.refresh&&readClientCache<AdAnalysis>(cacheKey);const controller=new AbortController();if(cached){queueMicrotask(()=>{if(!controller.signal.aborted){setData(cached);setLoading(false);setError('');}});return()=>controller.abort();}fetch(`/api/ads/analysis?start=${requested.start}&end=${requested.end}${requested.refresh?'&refresh=1':''}`,{signal:controller.signal}).then(async r=>{const body=await r.json() as AdAnalysis;if(!r.ok)throw new Error(body.error||'广告分析失败');return body;}).then(body=>{setData(body);writeClientCache(cacheKey,body);}).catch(e=>{if(e.name!=='AbortError')setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();},[requested]);
+  function selectAdPreset(next:string){setPreset(next);if(next==='custom')return;const range=adRangeFor(next);setStart(range.start);setEnd(range.end);setLoading(true);setError('');setRequested({...range,refresh:false});}
+  async function queueAction(row:AdListing){const key=`${row.campaignId}:${row.listing}`;setQueueState(value=>({...value,[key]:'saving'}));try{const response=await fetch('/api/ads/actions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({runKey:data?.runKey,listing:row.listing,campaignId:row.campaignId,actionType:row.action.type,before:row.action.before,proposed:row.action.proposed})});const body=await response.json() as {message?:string;error?:string};if(!response.ok)throw new Error(body.error||'执行单保存失败');setQueueState(value=>({...value,[key]:'saved'}));}catch(reason){setQueueState(value=>({...value,[key]:reason instanceof Error?reason.message:'保存失败'}));}}
   const trendMax=Math.max(1,...(data?.history||[]).map(x=>x.spend));
-  const executable=data?.listings.filter(x=>x.action.execution!=='BLOCKED').length||0;
-  return <><Hero eyebrow="WEEKLY OPTIMIZATION · MONTHLY REVIEW" title="广告运营清单" text="官方历史报表 × 链接质量 × SKU盈利 × 月度推广计划；缺任一Gate即禁止执行" side={<div className="hero-side"><b>{loading?'同步中':error?'需检查':data?.range.mature?'归因成熟':'只观察'}</b><span>14天归因 · 生产报表只读</span></div>} />
-    <section className="period-bar"><div><button className={tab==='week'?'active':''} onClick={()=>setMode('week')}>成熟周优化</button><button className={tab==='month'?'active':''} onClick={()=>setMode('month')}>月度广告复盘</button></div><label>开始<input type="date" value={start} onChange={e=>setStart(e.target.value)}/></label><label>结束<input type="date" value={end} max={dateText(new Date())} onChange={e=>setEnd(e.target.value)}/></label><button disabled={loading||start>end} onClick={()=>{setLoading(true);setError('');setRequested({start,end,refresh:false});}}>读取官方报表</button><button disabled={loading} onClick={()=>{setLoading(true);setError('');setRequested({start,end,refresh:true});}}>强制刷新</button><span>{error||`${requested.start} → ${requested.end} · ${data?.cache?.hit?'D1缓存':'Advertising API'} · 成熟截止 ${data?.range.matureThrough||matureEnd}`}</span></section>
+  const ready=data?.listings.filter(x=>x.action.recommendation==='READY').length||0;
+  const needsInput=data?.listings.filter(x=>x.action.execution==='NEEDS_INPUT').length||0;
+  const noChange=data?.listings.filter(x=>x.action.recommendation==='NO_CHANGE').length||0;
+  return <><Hero eyebrow="WEEKLY AI AD OPTIMIZATION" title="广告周优化" text="每周自动用成熟7天数据生成SKU动作；最近7/14天用于观察，不再因为归因窗口让整张清单失去操作性" side={<div className="hero-side"><b>{loading?'同步中':error?'需检查':'本周建议已生成'}</b><span>{data?.cache?.layer==='ADVERTISING_API'?'Advertising API已入库':'D1数据库直接读取'} · 生产写入需确认</span></div>} />
+    <section className="ai-cadence"><article><span>01 · 每周触发</span><b>打开中台自动检查</b><small>同一成熟周只生成一版决策快照</small></article><i>→</i><article><span>02 · 成熟归因</span><b>{data?.decisionRange.start||'—'} → {data?.decisionRange.end||'—'}</b><small>T-14滚动7天，与前一成熟周比较</small></article><i>→</i><article><span>03 · AI建议</span><b>{ready}项调整 · {noChange}项保持</b><small>历史、利润、链接与月计划共同判断</small></article><i>→</i><article><span>04 · 执行单</span><b>人工确认后执行</b><small>Bid/启停走API；Cap等生成后台任务</small></article></section>
+    <section className="period-bar ad-period"><div>{adPresetOptions.map(([id,label])=><button key={id} className={preset===id?'active':''} onClick={()=>selectAdPreset(id)}>{label}</button>)}</div>{preset==='custom'&&<><label>开始<input type="date" value={start} onChange={e=>setStart(e.target.value)}/></label><label>结束<input type="date" value={end} max={dateText(new Date())} onChange={e=>setEnd(e.target.value)}/></label><button disabled={loading||start>end} onClick={()=>{setLoading(true);setError('');setRequested({start,end,refresh:false});}}>读取</button></>}<button disabled={loading} onClick={()=>{setLoading(true);setError('');setRequested({start,end,refresh:true});}}>刷新底层数据</button><span>{error||`展示 ${requested.start} → ${requested.end} · 决策固定使用成熟周 ${data?.decisionRange.start||'—'} → ${data?.decisionRange.end||'—'}`}</span></section>
     {error&&<div className="inline-error">{error}；系统未展示任何静态替代建议。</div>}
     <section className="stat-grid six ad-kpis">{[
-      [loading?'—':money(data?.current.spend),"广告花费",change(data?.current.spend,data?.previous.spend)],
-      [loading?'—':String(data?.current.orders||0),"归因订单",change(data?.current.orders,data?.previous.orders)],
-      [loading?'—':`${(data?.current.wscRoas||0).toFixed(2)}×`,"WSC ROAS",`前周期 ${(data?.previous.wscRoas||0).toFixed(2)}×`],
-      [loading?'—':`${((data?.current.ctr||0)*100).toFixed(2)}%`,"CTR",`${data?.current.clicks||0} 点击`],
-      [loading?'—':`${((data?.current.cvr||0)*100).toFixed(2)}%`,"广告CVR",`${data?.current.impressions||0} 曝光`],
-      [loading?'—':String(executable),"可进入执行",`其余因Gate阻断`],
+      [loading?'—':money(data?.current.spend),"所选周期花费",change(data?.current.spend,data?.previous.spend)],
+      [loading?'—':String(data?.current.orders||0),"所选周期归因订单",change(data?.current.orders,data?.previous.orders)],
+      [loading?'—':`${(data?.current.wscRoas||0).toFixed(2)}×`,"所选周期ROAS",`前周期 ${(data?.previous.wscRoas||0).toFixed(2)}×`],
+      [loading?'—':String(ready),"AI调整建议",`基于成熟周，不受展示周期影响`],
+      [loading?'—':String(needsInput),"需补条件",`建议仍可读，可加入补数待办`],
+      [loading?'—':String(noChange),"本周保持",`不是阻断，是明确的不调整结论`],
     ].map(([value,label,note])=><article className="stat" key={label}><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}</section>
     <section className="ad-decision-grid">
-      <article className="card decision-card"><span>历史趋势 · 前周期 + 当前周期</span><h2>广告花费与归因成熟度</h2><div className="ad-history">{(data?.history||[]).map(x=><div key={x.date} title={`${x.date} · ${money(x.spend)} · ${x.orders}单`}><i style={{height:`${Math.max(3,x.spend/trendMax*100)}%`}}></i><small>{x.date.slice(5)}</small></div>)}</div><p>{data?.range.mature?'所选周期已越过14天归因窗口，可生成动作候选。':'所选周期尚未成熟，只展示观察数据；不会生成可审批动作。'}</p></article>
-      <article className="card evidence-card"><span>决策证据链</span><h2>每个对象独立计算，不用全店统一模板</h2><ul><li><b>历史：</b>当前周期与等长前周期并列，另保留逐日走势。</li><li><b>链接：</b>评分评论与整改Gate来自月度Playbook快照；缺失即阻断。</li><li><b>盈利：</b>优先SKU贡献毛利；缺失时标记店铺估算，不伪称精确。</li><li><b>计划：</b>预算为0、永久剔除或不在目标池的Listing禁止加价。</li><li><b>库存：</b>覆盖天数尚未接入，因此第一阶段所有写动作保持阻断。</li></ul></article>
+      <article className="card decision-card"><span>所选周期观察</span><h2>花费与归因走势</h2><div className="ad-history">{(data?.history||[]).filter(x=>x.date>=requested.start&&x.date<=requested.end).map(x=><div key={x.date} title={`${x.date} · ${money(x.spend)} · ${x.orders}单`}><i style={{height:`${Math.max(3,x.spend/trendMax*100)}%`}}></i><small>{x.date.slice(5)}</small></div>)}</div><p>{data?.range.mature?'所选周期已成熟，可用于复盘；本周动作仍统一使用上方成熟周。':'这是观察窗口，转化仍在回补；AI不会拿未成熟订单直接加减Bid。'}</p></article>
+      <article className="card evidence-card"><span>每周决策规则</span><h2>14天归因不等于14天才操作一次</h2><ul><li><b>调整频率：</b>每周执行一次，固定读取截至T-14的最近7天成熟数据。</li><li><b>加预算：</b>至少2单、CVR≥2%、ROAS高于保本线与4×，且计划、链接、库存、利润通过。</li><li><b>降Bid：</b>成熟点击≥20且0单，或花费≥$20且ROAS低于保本线，下调10%。</li><li><b>保持：</b>没有触发增减条件时明确保持，不再显示成“被阻断”。</li><li><b>数据库：</b>日级报表与每周决策快照持久化；切换模块直接复用，不重复拉取。</li></ul></article>
     </section>
-    <section className="card action-ledger"><div className="section-head"><div><span>OPERATING QUEUE</span><h2>{tab==='week'?'SKU / Listing 周执行清单':'月度广告复盘清单'}</h2></div><b>父体审阅 · Listing精确载荷 · 生产写入关闭</b></div>
-      <div className="group-switch"><span>排序：可执行优先，其次按花费影响；每条显示历史、质量、盈利和计划依据。</span></div>
-      <div className="action-list rich"><div className="action-head"><span>Listing / Campaign</span><span>当前 vs 前周期</span><span>质量 · 盈利 · 计划</span><span>建议动作</span><span>状态</span></div>{(data?.listings||[]).map(row=><article key={`${row.campaignId}:${row.listing}`}><div><strong>{row.listing}</strong><small>Campaign {row.campaignId} · {row.parts.join(' / ')||'Part未映射'}</small></div><p><b>{money(row.current.spend)} · {row.current.orders}单 · {row.current.wscRoas.toFixed(2)}×</b><br/>前期 {money(row.previous.spend)} · {row.previous.orders}单 · {row.previous.wscRoas.toFixed(2)}×</p><p><b>链接：</b>{row.linkQuality.rating??'缺失'}分 / {row.linkQuality.reviews??'—'}评<br/><b>保本：</b>{row.economics.breakEvenRoas.toFixed(2)}×（{row.economics.marginMode==='PLAN_SKU'?'SKU毛利':'店铺估算'}）<br/><b>计划：</b>{row.plan?`${row.plan.role} · ${money(row.plan.budget)}`:'未建档'}</p><div><b>{row.action.label}</b><small>{row.action.blockers.slice(0,2).join('；')||'Gate已通过'}</small></div><div><em className={row.action.execution==='BLOCKED'?'bad':row.action.execution==='API_DRY_RUN'?'good':'warn'}>{row.action.execution==='BLOCKED'?'已阻断':row.action.execution==='API_DRY_RUN'?'可Dry-run':'人工任务'}</em><button disabled>审批关闭</button></div></article>)}{!loading&&!data?.listings.length&&<p className="empty-state">所选周期没有Listing广告数据</p>}</div>
+    <section className="card action-ledger"><div className="section-head"><div><span>WEEKLY ACTION PLAN</span><h2>SKU / Listing 本周执行单</h2></div><b>建议自动生成 · 人工确认 · 保存前值与回滚值</b></div>
+      <div className="group-switch"><span>排序：需要调整优先，其次按成熟周花费；建议结论与执行Gate分开。</span></div>
+      <div className="action-list rich"><div className="action-head"><span>Listing / Campaign</span><span>成熟周证据</span><span>利润 · 链接 · 库存 · 计划</span><span>AI建议与依据</span><span>执行</span></div>{(data?.listings||[]).map(row=>{const key=`${row.campaignId}:${row.listing}`;const queued=queueState[key];return <article key={key}><div><strong>{row.listing}</strong><small>Campaign {row.campaignId} · {row.parts.join(' / ')||'Part未映射'}</small></div><p><b>{money(row.current.spend)} · {row.current.clicks}点击 · {row.current.orders}单</b><br/>ROAS {row.current.wscRoas.toFixed(2)}× · 前周 {row.previous.wscRoas.toFixed(2)}×</p><p><b>保本：</b>{row.economics.breakEvenRoas.toFixed(2)}×（{row.economics.marginMode==='PLAN_SKU'?'SKU毛利':'店铺估算'}）<br/><b>链接：</b>{row.linkQuality.rating??'缺失'}分 / {row.linkQuality.reviews??'—'}评<br/><b>库存：</b>{row.inventory.known?`${row.inventory.quantityOnHand}件 · ${row.inventory.coverDays}天`:'未入库'}<br/><b>计划：</b>{row.plan?`${row.plan.role} · ${money(row.plan.budget)}`:'未建档'}</p><div><span className={row.action.recommendation==='READY'?'recommend-ready':'recommend-hold'}>{row.action.recommendation==='READY'?'建议调整':'建议保持'} · {row.action.confidence}</span><b>{row.action.label}</b><small>{row.action.reasons.join('；')}</small>{row.action.blockers.length?<small className="gate-warning">执行前补：{row.action.blockers.join('；')}</small>:null}</div><div><em className={row.action.execution==='READY_FOR_PLAN'?'good':row.action.execution==='NEEDS_INPUT'?'warn':'neutral'}>{row.action.execution==='READY_FOR_PLAN'?'可加入执行单':row.action.execution==='NEEDS_INPUT'?'需补条件':'本周不调整'}</em><button disabled={row.action.type==='HOLD'||queued==='saving'||queued==='saved'} onClick={()=>queueAction(row)}>{queued==='saving'?'保存中':queued==='saved'?'已加入':row.action.execution==='NEEDS_INPUT'?'加入补数待办':'加入本周执行单'}</button>{queued&&!['saving','saved'].includes(queued)&&<small className="bad">{queued}</small>}</div></article>})}{!loading&&!data?.listings.length&&<p className="empty-state">成熟周没有Listing广告数据</p>}</div>
     </section>
-    <div className="scope-alert"><b>执行边界</b><span>Advertising API仅支持Listing Bid与启停。Daily Cap、tROAS、Keyword Bid和否词只能生成带参数的人工任务；本阶段不执行生产写入。</span></div>
+    <div className="scope-alert"><b>本阶段执行边界</b><span>AI每周自动算建议并持久化；点击后进入周执行单。Listing Bid与启停可生成API载荷，Campaign Cap等生成Partner Home人工任务。正式写入仍保留一次人工确认和回滚。</span></div>
   </>;
 }
 
 function Review() {
-  const [report,setReport]=useState(0); const selected=REPORTS[report];
-  return <><Hero eyebrow="MONTHLY REVIEW · NEXT PLAN" title="月度复盘" text="经营事实、广告月复盘、执行证据与下月计划" side={<button className="hero-button">补充复盘资料</button>} />
+  const [report,setReport]=useState(0);const [uploads,setUploads]=useState<UploadedReport[]>([]);const [uploading,setUploading]=useState(false);const [uploadMessage,setUploadMessage]=useState('');
+  useEffect(()=>{const controller=new AbortController();fetch('/api/reports',{signal:controller.signal}).then(async r=>await r.json() as {reports?:UploadedReport[]}).then(body=>setUploads(body.reports||[])).catch(()=>{});return()=>controller.abort();},[]);
+  const allReports=useMemo(()=>[...REPORTS.map(item=>({...item,assetUrl:`/reports/${encodeURIComponent(item.file)}`,uploaded:false})),...uploads.map(item=>({title:item.title,file:item.fileName,kind:item.kind,date:new Date(item.createdAt).toLocaleDateString('zh-CN'),summary:'用户补充的复盘证据，原文件已持久化保存。',sections:[],assetUrl:`/api/reports/file?id=${encodeURIComponent(item.id)}`,uploaded:true}))],[uploads]);
+  const selected=allReports[Math.min(report,allReports.length-1)];const spreadsheet=selected.file.endsWith('.xlsx');
+  async function uploadReport(file:File|null){if(!file)return;setUploading(true);setUploadMessage('');try{const form=new FormData();form.set('file',file);const response=await fetch('/api/reports',{method:'POST',body:form});const body=await response.json() as UploadedReport&{error?:string};if(!response.ok)throw new Error(body.error||'报告上传失败');setUploads(value=>[body,...value]);setReport(REPORTS.length);setUploadMessage('报告已保存并加入资料库。');}catch(error){setUploadMessage(error instanceof Error?error.message:'报告上传失败');}finally{setUploading(false);}}
+  return <><Hero eyebrow="MONTHLY REVIEW · FULL REPORTS" title="月度复盘" text="直接阅读完整原报告，不再用四个摘要框代替正文" side={<label className="hero-button upload-report">{uploading?'上传中…':'补充复盘资料'}<input type="file" accept=".html,.htm,.pdf,.xlsx" disabled={uploading} onChange={e=>uploadReport(e.target.files?.[0]||null)}/></label>} />
     <section className="review-context"><div><span>复盘事实月</span><b>2026-06 · 已归档</b></div><i>→</i><div><span>当前经营月</span><b>2026-07 · 128 Orders执行中</b></div><i>→</i><div><span>下一计划月</span><b>2026-08 · 150 Units准备中</b></div></section>
-    <div className="review-grid"><aside className="card report-list"><div><span>EVIDENCE LIBRARY</span><h2>完整复盘资料</h2><b>{REPORTS.length}</b></div>{REPORTS.map((x,i)=><button className={report===i?'active':''} onClick={()=>setReport(i)} key={x.file}><strong>{x.title}</strong><small>{x.kind} · {x.date||'2026/07/15'}</small></button>)}</aside><article className="card report-native"><header><span>{selected.kind}</span><h2>{selected.title}</h2><p>{selected.summary}</p><small>{selected.file}</small></header>{selected.metrics&&<div className="report-metrics">{selected.metrics.map(x=><div key={x[0]}><span>{x[0]}</span><strong>{x[1]}</strong></div>)}</div>}<div className="report-sections">{selected.sections.map(x=><section key={x[0]}><b>{x[0]}</b><h3>{x[1]}</h3><p>{x[2]}</p></section>)}</div><div className="report-source"><b>证据来源</b><span>{selected.file} · 每份资料展示自己的结构化结论，不再重复同一块静态正文。</span></div></article></div>
+    {uploadMessage&&<div className="upload-message">{uploadMessage}</div>}
+    <div className="review-grid full-reader"><aside className="card report-list"><div><span>EVIDENCE LIBRARY</span><h2>完整复盘资料</h2><b>{allReports.length}</b></div>{allReports.map((x,i)=><button className={report===i?'active':''} onClick={()=>setReport(i)} key={`${x.uploaded?'upload':'builtin'}:${x.file}`}><strong>{x.title}</strong><small>{x.kind} · {x.date||'2026/07/15'}</small></button>)}</aside><article className="card report-reader"><header><div><span>{selected.kind} · 完整原报告</span><h2>{selected.title}</h2><p>{selected.summary}</p></div><a href={selected.assetUrl} target="_blank" rel="noreferrer">{spreadsheet?'下载原表格':'在新窗口打开'}</a></header>{spreadsheet?<div className="sheet-download"><b>执行清单为 XLSX 原表格</b><p>点击右上角下载完整文件；同一内容的可读版请在左侧打开“SKU广告重构执行清单”。</p><a href={selected.assetUrl} download>下载 {selected.file}</a></div>:<iframe key={selected.assetUrl} title={selected.title} src={selected.assetUrl} sandbox={selected.uploaded?'':'allow-same-origin allow-scripts allow-popups'} />}</article></div>
   </>;
 }
 
@@ -301,7 +335,8 @@ function Catalog() {
   useEffect(()=>{
     const controller=new AbortController();
     const params=new URLSearchParams({page:String(page),pageSize:'20'}); if(submitted)params.set('q',submitted); if(status)params.set('status',status);
-    fetch(`/api/catalog/items?${params}`,{signal:controller.signal}).then(async response=>{const body=await response.json() as CatalogResponse;if(!response.ok)throw new Error(body.error||'商品数据读取失败');return body;}).then(body=>{setData(body);setSelected(body.items?.[0]||null);}).catch(reason=>{if(reason.name!=='AbortError')setError(reason.message||'商品数据读取失败');}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    const cacheKey=`catalog:${params}`;const cached=refresh===0?readClientCache<CatalogResponse>(cacheKey):null;if(cached){queueMicrotask(()=>{if(!controller.signal.aborted){setData(cached);setSelected(cached.items?.[0]||null);setLoading(false);}});return()=>controller.abort();}
+    fetch(`/api/catalog/items?${params}`,{signal:controller.signal}).then(async response=>{const body=await response.json() as CatalogResponse;if(!response.ok)throw new Error(body.error||'商品数据读取失败');return body;}).then(body=>{setData(body);setSelected(body.items?.[0]||null);writeClientCache(cacheKey,body);}).catch(reason=>{if(reason.name!=='AbortError')setError(reason.message||'商品数据读取失败');}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>controller.abort();
   },[submitted,status,page,refresh]);
   const pages=data?.paginationInfo;
@@ -318,12 +353,13 @@ function Catalog() {
 }
 
 function Sources() {
-  const sources=[['Outlook 邮件日报','已同步','2026-07-16','风险与待办'],['Ops API · 库存 + 订单','生产','同一套 OAuth 应用','库存写 · 订单读'],['Advertising API','生产','官方报表已连接','Campaign / Listing历史报表 · 写关闭'],['Catalog Read V2','生产','双版本权限','商品、Listing 与诊断'],['月度报告资料库','已同步','15 份报告','6月复盘 · 7月执行 · BFIJ · 8月准备'],['订单与广告缓存','运行中','D1 增量预载','订单15分钟 · 广告30分钟']];
+  const sources=[['Outlook 邮件日报','已同步','2026-07-16','风险与待办'],['Ops API · 库存 + 订单','生产','同一套 OAuth 应用','库存写 · 订单读'],['Advertising API','生产','官方报表已连接','Campaign / Listing历史报表 · 写关闭'],['Catalog Read V2','生产','双版本权限','商品、Listing 与诊断'],['月度报告资料库','已同步','15+ 份报告','6月复盘 · 7月执行 · BFIJ · 8月准备'],['运营数据库','运行中','D1 + R2 持久化','订单、广告、商品、库存、执行单与补充报告']];
   return <><Hero eyebrow="DATA SOURCES · PERMISSION CONTROL" title="数据源" text="库存与订单共用 Ops 应用；每个连接只承担明确的数据职责" /><div className="source-grid">{sources.map(x=><article className="card source-card" key={x[0]}><span className="connected">{x[1]}</span><h2>{x[0]}</h2><p>{x[2]}</p><small>{x[3]}</small></article>)}</div></>;
 }
 
 export default function OpsCenter() {
   const [view,setView]=useState<View>('daily');
+  useEffect(()=>{window.scrollTo(0,0);const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view]);
   const page=useMemo(()=>({daily:<Daily onNavigate={setView}/>,plan:<Plan onNavigate={setView}/>,inventory:<Inventory/>,ads:<Ads/>,review:<Review/>,catalog:<Catalog/>,sources:<Sources/>})[view],[view]);
   return <div className="app"><ShellHeader active={view} onNavigate={setView}/><main>{page}</main><footer><span>Wayfair AI 运营中台 · 个人测试阶段</span><span>写操作均保留确认与审计</span></footer></div>;
 }
