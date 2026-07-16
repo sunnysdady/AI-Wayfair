@@ -230,7 +230,7 @@ function Plan({ onNavigate }: { onNavigate: (view: View) => void }) {
       [`${p?.forecastOrders||0}`,"月末订单预测",`剩余 ${p?.remainingOrders??128} Orders`],
       [`${p?.requiredDailyOrders||0}`,"后续所需日均",`按剩余天数计算 · 截至 ${data?.asOf||'—'}`],
       [actual?.adSpend==null?'待广告同步':money(actual.adSpend),"7月广告实际",`月预算 $790 · ${actual?.adCoverage||'未覆盖'}`],
-      [actual?.contributionAfterAds==null?'待广告同步':money(actual.contributionAfterAds),"广告后店铺贡献",`计划预计净利 $3,394 · 成本覆盖 ${Math.round((actual?.costCoverage||0)*100)}%`],
+      [actual?.contributionAfterAds==null?'待广告同步':money(actual.contributionAfterAds),"广告后店铺贡献",`${actual?.adCoverage==='FULL'?'广告完整覆盖':'广告仅部分覆盖'} · 成本覆盖 ${Math.round((actual?.costCoverage||0)*100)}% · 计划预计净利 $3,394`],
     ].map(([value,label,note])=><article className="stat" key={label}><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}</section>
     <div className="plan-tabs"><button className={tab==='july'?'active':''} onClick={()=>setTab('july')}>7月执行计划</button><button className={tab==='bfij'?'active':''} onClick={()=>setTab('bfij')}>BFIJ 活动广告策略</button><button className={tab==='august'?'active':''} onClick={()=>setTab('august')}>8月准备计划</button></div>
     {tab==='july'&&<><div className="plan-workspace">
