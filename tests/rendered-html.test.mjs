@@ -102,4 +102,6 @@ test("restores persisted weekly actions after the advertising page reloads", asy
   });
   assert.match(page, /\/api\/ads\/actions\?runKey=/);
   assert.match(page, /queuedActionState/);
+  assert.match(page, /本周执行批次/);
+  assert.match(page, /确认进入 API 预检/);
 });
