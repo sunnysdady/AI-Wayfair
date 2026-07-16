@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildCampaignUpdates, queuedActionState } from "../lib/ad-action-queue.mjs";
+import {
+  WAYFAIR_ADVERTISING_AUDIENCE,
+  buildCampaignUpdates,
+  canRetryAction,
+  queuedActionState,
+} from "../lib/ad-action-queue.mjs";
 
 test("maps persisted queue statuses to visible workflow states", () => {
   assert.deepEqual(queuedActionState([
@@ -63,4 +68,14 @@ test("blocks invalid and below-minimum bids before any API request", () => {
     proposed_payload: JSON.stringify({ bid: 0.04 }),
     status: "APPROVED",
   }]), /0\.05/);
+});
+
+test("uses Wayfair's production OAuth audience for Advertising API writes", () => {
+  assert.equal(WAYFAIR_ADVERTISING_AUDIENCE, "https://api.wayfair.com/");
+});
+
+test("allows failed actions to re-enter approval and dry-run, but never replays completed actions", () => {
+  assert.equal(canRetryAction("FAILED"), true);
+  assert.equal(canRetryAction("EXECUTED"), false);
+  assert.equal(canRetryAction("EXECUTING"), false);
 });
