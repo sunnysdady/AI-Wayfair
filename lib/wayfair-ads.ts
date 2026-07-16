@@ -246,7 +246,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     let actionType = "HOLD";
     let proposed: Record<string, unknown> = {};
     const currentBid = number(current.latest, "product_default_bid");
-    const lowerBid = currentBid > 0 ? Math.max(.01, Math.floor(currentBid * .9 * 100) / 100) : 0;
+    const lowerBid = currentBid >= .05 ? Math.max(.05, Math.floor(currentBid * .9 * 100) / 100) : currentBid;
     const lowerBidLabel = `Listing Bid 从 $${currentBid.toFixed(2)} 下调至 $${lowerBid.toFixed(2)}`;
     if (plan?.adRole === "exclude" && current.spend > 0) { label = "暂停计划外 Listing"; actionType = "SET_LISTING_ACTIVE"; proposed = { active: false }; }
     else if (current.clicks >= 20 && current.orders === 0 && lowerBid < currentBid) { label = `${lowerBidLabel}并创建链接整改`; actionType = "SET_LISTING_BID"; proposed = { bid: lowerBid }; }

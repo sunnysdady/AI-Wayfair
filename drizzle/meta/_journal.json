@@ -36,6 +36,20 @@
       "when": 1784191198999,
       "tag": "0004_skinny_the_fallen",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1784196321570,
+      "tag": "0005_productive_banshee",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784196944250,
+      "tag": "0006_thick_prowler",
+      "breakpoints": true
     }
   ]
 }

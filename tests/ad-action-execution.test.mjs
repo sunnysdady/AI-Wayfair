@@ -8,12 +8,14 @@ test("maps persisted queue statuses to visible workflow states", () => {
     { campaign_id: "622741", listing: "DMOM1000", status: "PLANNED" },
     { campaign_id: "622742", listing: "DMOM1001", status: "APPROVED" },
     { campaign_id: "622743", listing: "DMOM1002", status: "VALIDATED" },
+    { campaign_id: "622746", listing: "DMOM1005", status: "EXECUTING" },
     { campaign_id: "622744", listing: "DMOM1003", status: "EXECUTED" },
     { campaign_id: "622745", listing: "DMOM1004", status: "FAILED" },
   ]), {
     "622741:DMOM1000": "saved",
     "622742:DMOM1001": "approved",
     "622743:DMOM1002": "validated",
+    "622746:DMOM1005": "executing",
     "622744:DMOM1003": "executed",
     "622745:DMOM1004": "failed",
   });

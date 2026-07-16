@@ -74,6 +74,19 @@ export const adActionQueue = sqliteTable("ad_action_queue", {
   updatedAt: text("updated_at").notNull(),
 }, (table) => [index("ad_action_queue_run_idx").on(table.runKey)]);
 
+export const adActionEvents = sqliteTable("ad_action_events", {
+  id: text("id").primaryKey(),
+  actionId: text("action_id").notNull(),
+  eventType: text("event_type").notNull(),
+  payload: text("payload").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [index("ad_action_events_action_idx").on(table.actionId)]);
+
+export const adExecutionLocks = sqliteTable("ad_execution_locks", {
+  runKey: text("run_key").primaryKey(),
+  acquiredAt: text("acquired_at").notNull(),
+});
+
 export const inventorySnapshots = sqliteTable("inventory_snapshots", {
   id: text("id").primaryKey(),
   sourceFile: text("source_file").notNull(),
