@@ -7,7 +7,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: "Wayfair AI 运营中台",
-  description: "连接日报、库存、广告优化与月度复盘的 Wayfair 运营工作台。",
+  description: "连接 Dashboard、广告管理、计划复盘与商品库存的 Wayfair 运营工作台。",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

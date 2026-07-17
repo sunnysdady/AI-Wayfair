@@ -14,7 +14,7 @@ type AdvertisingEnv = {
   WAYFAIR_AD_CLIENT_ID?: string;
   WAYFAIR_AD_CLIENT_SECRET?: string;
 };
-type Metric = { impressions: number; clicks: number; spend: number; orders: number; units: number; wsc: number; ctr: number; cvr: number; wscRoas: number };
+type Metric = { impressions: number; clicks: number; spend: number; orders: number; units: number; retail: number; wsc: number; ctr: number; cvr: number; cpa: number; retailRoas: number; wscRoas: number };
 type ReportType = "CAMPAIGN_REPORT" | "LISTING_REPORT";
 type InventoryEvidence = { quantityOnHand: number; units30d: number; coverDays: number; snapshotAt: string };
 type GoalEvidence = {
@@ -162,7 +162,7 @@ function number(row: CsvRow, key: string) {
   return Number.isFinite(value) ? value : 0;
 }
 
-function emptyMetric(): Metric { return { impressions: 0, clicks: 0, spend: 0, orders: 0, units: 0, wsc: 0, ctr: 0, cvr: 0, wscRoas: 0 }; }
+function emptyMetric(): Metric { return { impressions: 0, clicks: 0, spend: 0, orders: 0, units: 0, retail: 0, wsc: 0, ctr: 0, cvr: 0, cpa: 0, retailRoas: 0, wscRoas: 0 }; }
 
 function addMetric(metric: Metric, row: CsvRow) {
   metric.impressions += number(row, "impressions");
@@ -170,15 +170,18 @@ function addMetric(metric: Metric, row: CsvRow) {
   metric.spend += number(row, "spend_USD");
   metric.orders += number(row, "attributed_orders_window_view_through_Day_14");
   metric.units += number(row, "attributed_units_window_view_through_Day_14");
+  metric.retail += number(row, "attributed_retail_sales_window_view_through_USD_Day_14");
   metric.wsc += number(row, "attributed_wholesale_cost_window_view_through_USD_Day_14");
 }
 
 function finalize(metric: Metric): Metric {
   return {
     impressions: Math.round(metric.impressions), clicks: Math.round(metric.clicks), orders: Math.round(metric.orders), units: Math.round(metric.units),
-    spend: Number(metric.spend.toFixed(2)), wsc: Number(metric.wsc.toFixed(2)),
+    spend: Number(metric.spend.toFixed(2)), retail: Number(metric.retail.toFixed(2)), wsc: Number(metric.wsc.toFixed(2)),
     ctr: metric.impressions ? Number((metric.clicks / metric.impressions).toFixed(4)) : 0,
     cvr: metric.clicks ? Number((metric.orders / metric.clicks).toFixed(4)) : 0,
+    cpa: metric.orders ? Number((metric.spend / metric.orders).toFixed(2)) : 0,
+    retailRoas: metric.spend ? Number((metric.retail / metric.spend).toFixed(2)) : 0,
     wscRoas: metric.spend ? Number((metric.wsc / metric.spend).toFixed(2)) : 0,
   };
 }
@@ -359,6 +362,8 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     const confidence = plan && (goal.marginKnown || plan.marginRate) && qualityKnown && strategy.benchmark.cpc !== null ? "HIGH" : plan ? "MEDIUM" : "LOW";
     return {
       listing, campaignId: current.latest.campaign_id, campaignName: current.latest.campaign_name, site: current.latest.store_url,
+      productName: current.latest.product_name, className: current.latest.class_name,
+      isB2b: current.latest.isB2b, campaignStatus: current.latest.campaign_status,
       parts: String(current.latest.first_10_part_numbers || "").split(",").map((item) => item.trim()).filter(Boolean),
       bid: number(current.latest, "product_default_bid"), status: current.latest.product_status,
       current: { ...current, latest: undefined }, previous: previous ? { ...previous, latest: undefined } : emptyMetric(),
@@ -379,7 +384,23 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
   const historyStart = previousStart < decisionPreviousStart ? previousStart : decisionPreviousStart;
   const historyMap = aggregate(campaignRows, "Date", historyStart, end > decisionEnd ? end : decisionEnd);
   const history = [...historyMap].map(([date, metric]) => ({ date, ...metric, latest: undefined })).sort((a, b) => a.date.localeCompare(b.date));
-  const campaigns = [...aggregate(campaignRows, "campaign_id", start, end)].map(([campaignId, metric]) => ({ campaignId, name: metric.latest.campaign_name, targetingType: metric.latest.targeting_type, site: metric.latest.store_url, dailyCap: metric.latest.campaign_daily_cap_USD, strategy: metric.latest.bidding_strategy, ...metric, latest: undefined })).sort((a, b) => b.spend - a.spend);
+  const campaigns = [...aggregate(campaignRows, "campaign_id", start, end)].map(([campaignId, metric]) => ({
+    campaignId,
+    name: metric.latest.campaign_name,
+    targetingType: metric.latest.targeting_type,
+    site: metric.latest.store_url,
+    status: metric.latest.campaign_status,
+    isActive: metric.latest.campaign_is_active,
+    isB2b: metric.latest.isB2b,
+    dailyCap: metric.latest.campaign_daily_cap_USD,
+    lifetimeBudget: metric.latest.campaign_lifetime_budget_USD,
+    startDate: metric.latest.campaign_start_date,
+    endDate: metric.latest.campaign_end_date,
+    strategy: metric.latest.bidding_strategy,
+    targetRoas: metric.latest.target_roas_percentage,
+    ...metric,
+    latest: undefined,
+  })).sort((a, b) => b.spend - a.spend);
   const runKey = `weekly:${decisionStart}:${decisionEnd}`;
   return {
     source: "Wayfair Advertising API + D1", generatedAt: new Date().toISOString(), attributionWindowDays: ATTRIBUTION_DAYS, runKey,
@@ -405,7 +426,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const today = todayShanghai();
   const fetchEnd = [end, decisionEnd, today].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v7:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v8:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
     const cached = await env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>();
     if (cached && Date.now() - Date.parse(cached.updated_at) < ANALYSIS_CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, layer: "D1_ANALYSIS", updatedAt: cached.updated_at } };

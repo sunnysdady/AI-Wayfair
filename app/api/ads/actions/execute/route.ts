@@ -1,4 +1,4 @@
-import { WAYFAIR_ADVERTISING_AUDIENCE, buildCampaignUpdates } from "@/lib/ad-action-queue.mjs";
+import { WAYFAIR_ADVERTISING_AUDIENCE, buildCampaignUpdates, executeCampaignUpdates } from "@/lib/ad-action-queue.mjs";
 
 type QueueRow = {
   id: string; run_key: string; listing: string; campaign_id: string; action_type: string;
@@ -94,25 +94,37 @@ export async function POST(request: Request) {
     await env.DB.prepare("DELETE FROM ad_execution_locks WHERE acquired_at<?").bind(staleBefore).run();
     try { await env.DB.prepare("INSERT INTO ad_execution_locks(run_key,acquired_at) VALUES(?,?)").bind(body.runKey, new Date().toISOString()).run(); }
     catch { return Response.json({ error: "该周执行批次正在处理，请勿重复提交" }, { status: 409 }); }
-    const completed: string[] = [];
     const allActionIds = campaigns.flatMap((campaign) => campaign.actionIds);
     try {
       for (const actionId of allActionIds) await record(env.DB, [actionId], "EXECUTING", { runKey: body.runKey }, "EXECUTING");
-      const accessToken = await token(env);
-      for (const campaign of campaigns) {
-        const response = await updateCampaign(accessToken, campaign.campaignId, campaign.listings);
-        await record(env.DB, campaign.actionIds, "EXECUTED", { campaignId: campaign.campaignId, response }, "EXECUTED");
-        completed.push(...campaign.actionIds);
+      let accessToken: string;
+      try {
+        accessToken = await token(env);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "Wayfair OAuth 失败";
+        await record(env.DB, allActionIds, "FAILED", { error: detail }, "FAILED");
+        return Response.json({ error: `${detail}；尚未向 Wayfair 提交任何 Campaign` }, { status: 502 });
       }
+      const outcomes = await executeCampaignUpdates(campaigns, (campaign) => updateCampaign(accessToken, campaign.campaignId, campaign.listings));
+      for (const outcome of outcomes) {
+        if (outcome.ok) {
+          await record(env.DB, outcome.actionIds, "EXECUTED", { campaignId: outcome.campaignId, response: outcome.response }, "EXECUTED");
+        } else {
+          await record(env.DB, outcome.actionIds, "FAILED", { campaignId: outcome.campaignId, error: outcome.error }, "FAILED");
+        }
+      }
+      const successCount = outcomes.filter((item) => item.ok).reduce((sum, item) => sum + item.actionIds.length, 0);
+      const failedCount = outcomes.filter((item) => !item.ok).reduce((sum, item) => sum + item.actionIds.length, 0);
+      const message = failedCount
+        ? `执行完成：成功 ${successCount} 项，失败 ${failedCount} 项。每项结果与原因已显示在批次表。`
+        : `已成功执行 ${successCount} 项广告修改。`;
+      return Response.json({ mode: "live", campaignCount: campaigns.length, actionCount: successCount, successCount, failedCount, outcomes, message }, { status: failedCount ? 207 : 200 });
     } catch (error) {
-      const pending = allActionIds.filter((id) => !completed.includes(id));
-      if (pending.length) await record(env.DB, pending, "FAILED", { error: error instanceof Error ? error.message : "执行失败", completed: completed.length }, "FAILED");
       const detail = error instanceof Error ? error.message : "广告执行失败";
-      return Response.json({ error: `${detail}；已成功 ${completed.length} 项，失败项已留痕` }, { status: 502 });
+      return Response.json({ error: `${detail}；已写入 Wayfair 的结果不会被覆盖，请刷新批次查看逐项状态` }, { status: 500 });
     } finally {
       await env.DB.prepare("DELETE FROM ad_execution_locks WHERE run_key=?").bind(body.runKey).run();
     }
-    return Response.json({ mode: "live", campaignCount: campaigns.length, actionCount: completed.length, message: `已执行 ${completed.length} 项广告修改。` });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "广告执行失败" }, { status: 500 });
   }

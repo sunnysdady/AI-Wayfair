@@ -23,9 +23,16 @@ export async function GET(request: Request) {
     await ensureActionQueue(env.DB);
     const url = new URL(request.url);
     const runKey = url.searchParams.get("runKey");
+    const resultJoin = `SELECT q.*,e.event_type AS result_event_type,e.payload AS result_payload,e.created_at AS result_at
+      FROM ad_action_queue q
+      LEFT JOIN ad_action_events e ON e.id=(
+        SELECT e2.id FROM ad_action_events e2
+        WHERE e2.action_id=q.id AND e2.event_type IN ('VALIDATED','EXECUTED','FAILED')
+        ORDER BY e2.created_at DESC LIMIT 1
+      )`;
     const query = runKey
-      ? env.DB.prepare("SELECT * FROM ad_action_queue WHERE run_key=? ORDER BY created_at DESC").bind(runKey)
-      : env.DB.prepare("SELECT * FROM ad_action_queue ORDER BY created_at DESC LIMIT 100");
+      ? env.DB.prepare(`${resultJoin} WHERE q.run_key=? ORDER BY q.created_at DESC`).bind(runKey)
+      : env.DB.prepare(`${resultJoin} ORDER BY q.created_at DESC LIMIT 100`);
     const rows = await query.all();
     return Response.json({ actions: rows.results || [], liveEnabled: env.ALLOW_WAYFAIR_AD_LIVE_CHANGES === "true" });
   } catch (error) {

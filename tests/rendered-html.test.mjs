@@ -19,7 +19,7 @@ test("renders the Wayfair AI operations product", async () => {
   assert.match(html, /广告前商品毛利/);
   assert.match(html, /广告后店铺贡献/);
   assert.doesNotMatch(html, /实际利润/);
-  assert.match(html, /广告管理器/);
+  assert.match(html, />广告</);
   assert.match(html, /Ops API（库存 \+ 订单）/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
 });
@@ -167,15 +167,15 @@ test("organizes the operating product around four primary workspaces", async () 
   assert.doesNotMatch(page, /label: "广告优化"/);
   assert.doesNotMatch(page, /label: "月度复盘"/);
   assert.doesNotMatch(page, /label: "商品数据"/);
-  assert.match(page, /aria-label="广告二级导航"/);
-  assert.match(page, />广告管理器</);
-  assert.match(page, />AI 优化</);
-  assert.match(page, /aria-label="计划与复盘二级导航"/);
-  assert.match(page, />运营计划</);
-  assert.match(page, />复盘资料</);
-  assert.match(page, /aria-label="商品与库存二级导航"/);
-  assert.match(page, />库存更新</);
-  assert.match(page, />商品数据</);
+  assert.match(page, /label="广告二级导航"/);
+  assert.match(page, /label:'广告管理器'/);
+  assert.match(page, /label:'AI 优化'/);
+  assert.match(page, /label="计划与复盘二级导航"/);
+  assert.match(page, /label:'运营计划'/);
+  assert.match(page, /label:'复盘资料'/);
+  assert.match(page, /label="商品与库存二级导航"/);
+  assert.match(page, /label:'库存更新'/);
+  assert.match(page, /label:'商品数据'/);
 });
 
 test("keeps an API-backed advertising manager ahead of AI recommendations", async () => {
@@ -194,8 +194,39 @@ test("keeps an API-backed advertising manager ahead of AI recommendations", asyn
   assert.match(page, /Daily Cap/);
   assert.match(page, /Bid/);
   assert.match(page, /归因销售额/);
+  assert.match(page, /Retail 销售额/);
+  assert.match(page, /Retail ROAS/);
+  assert.match(page, /CPA/);
+  assert.match(page, /Lifetime Budget/);
+  assert.match(page, /Target ROAS/);
+  assert.match(page, /投放周期/);
+  assert.match(page, /商品名称 \/ 类目/);
   assert.match(ads, /CAMPAIGN_REPORT/);
   assert.match(ads, /LISTING_REPORT/);
   assert.match(ads, /campaign_daily_cap_USD/);
+  assert.match(ads, /campaign_lifetime_budget_USD/);
+  assert.match(ads, /campaign_start_date/);
+  assert.match(ads, /campaign_end_date/);
+  assert.match(ads, /target_roas_percentage/);
+  assert.match(ads, /attributed_retail_sales_window_view_through_USD_Day_14/);
+  assert.match(ads, /cpa:/);
   assert.match(ads, /product_default_bid/);
+  assert.match(ads, /product_name/);
+  assert.match(ads, /class_name/);
+});
+
+test("gives advertising recommendations a readable action and evidence hierarchy", async () => {
+  const [page, styles] = await Promise.all([
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /className="recommendation-cell"/);
+  assert.match(page, /className="recommendation-title"/);
+  assert.match(page, /className="recommendation-reason"/);
+  assert.match(page, /className="recommendation-evidence"/);
+  assert.match(page, /className="recommendation-alerts"/);
+  assert.match(styles, /\.recommendation-cell\{/);
+  assert.match(styles, /\.recommendation-evidence>div\{/);
+  assert.doesNotMatch(styles, /action-list\.rich article>div:nth-child\(4\)/);
 });
