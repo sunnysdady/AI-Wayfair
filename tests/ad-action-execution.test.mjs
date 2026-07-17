@@ -8,6 +8,8 @@ import {
   isBulkApprovable,
   canRetryAction,
   queuedActionState,
+  executeCampaignUpdates,
+  executionResultForAction,
 } from "../lib/ad-action-queue.mjs";
 
 test("maps persisted queue statuses to visible workflow states", () => {
@@ -98,4 +100,51 @@ test("bulk confirmation accepts only planned and failed API actions", () => {
   assert.equal(isBulkApprovable({ status: "FAILED", action_type: "SET_LISTING_ACTIVE" }), true);
   assert.equal(isBulkApprovable({ status: "VALIDATED", action_type: "SET_LISTING_BID" }), false);
   assert.equal(isBulkApprovable({ status: "PLANNED", action_type: "INCREASE_DAILY_CAP" }), false);
+});
+
+test("continues executing other campaigns when a paused campaign is rejected", async () => {
+  const visited = [];
+  const outcomes = await executeCampaignUpdates([
+    { campaignId: "622723", actionIds: ["paused"], listings: {} },
+    { campaignId: "622741", actionIds: ["live"], listings: {} },
+  ], async (campaign) => {
+    visited.push(campaign.campaignId);
+    if (campaign.campaignId === "622723") throw new Error("Cannot update campaign 622723 because it has status: paused (HTTP 400)");
+    return { accepted: true };
+  });
+
+  assert.deepEqual(visited, ["622723", "622741"]);
+  assert.equal(outcomes[0].ok, false);
+  assert.match(outcomes[0].error, /Campaign 622723 已暂停/);
+  assert.equal(outcomes[1].ok, true);
+  assert.deepEqual(outcomes[1].response, { accepted: true });
+});
+
+test("turns persisted terminal events into an operator-readable result column", () => {
+  assert.deepEqual(executionResultForAction({
+    status: "EXECUTED",
+    result_event_type: "EXECUTED",
+    result_payload: JSON.stringify({ campaignId: "622741", response: { accepted: true } }),
+    result_at: "2026-07-17T02:00:00.000Z",
+  }), {
+    tone: "success",
+    title: "已写入 Wayfair",
+    detail: "Campaign 622741 · 2026-07-17 10:00",
+  });
+
+  const failed = executionResultForAction({
+    status: "FAILED",
+    result_event_type: "FAILED",
+    result_payload: JSON.stringify({ error: "Campaign 622723 已暂停，Wayfair 不允许修改其中的 Listing。" }),
+    result_at: "2026-07-17T02:01:00.000Z",
+  });
+  assert.equal(failed.tone, "error");
+  assert.equal(failed.title, "未写入");
+  assert.match(failed.detail, /622723 已暂停/);
+
+  assert.deepEqual(executionResultForAction({ status: "PLANNED" }), {
+    tone: "neutral",
+    title: "尚未执行",
+    detail: "等待确认并预检",
+  });
 });

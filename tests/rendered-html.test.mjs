@@ -137,6 +137,10 @@ test("ships the compact operations shell and bulk advertising workflow", async (
   assert.match(page, /className="sidebar"/);
   assert.match(page, /label: "帮助"/);
   assert.match(page, /批量加入执行单/);
+  assert.match(page, /确认并预检/);
+  assert.match(page, /执行已预检项/);
+  assert.match(page, /执行结果/);
+  assert.doesNotMatch(page, /输入：执行广告修改/);
   assert.match(page, /批量确认或重试/);
   assert.match(page, /筛选 Listing、Campaign 或 Part/);
   assert.doesNotMatch(page, /className="workspace"/);
