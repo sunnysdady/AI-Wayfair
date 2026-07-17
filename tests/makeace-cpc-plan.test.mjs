@@ -114,7 +114,7 @@ test("uses campaign cap instead of raising bid for a proven BFIJ winner while Ju
   assert.match(result.label, /保持 Bid/);
 });
 
-test("blocks BFIJ expansion when July demand would consume August's reserved stock", () => {
+test("does not let plan inventory reservations override mature profitable ad evidence", () => {
   const result = recommendCpcAction({
     listing: "DMOM1021",
     currentBid: 0.68,
@@ -133,8 +133,8 @@ test("blocks BFIJ expansion when July demand would consume August's reserved sto
     augustReserveUnits: 50,
   });
 
-  assert.equal(result.actionType, "HOLD");
-  assert.match(result.blockers.join("；"), /8月.*预留库存/);
+  assert.equal(result.actionType, "INCREASE_DAILY_CAP");
+  assert.deepEqual(result.blockers, []);
 });
 
 test("moves a weak listing toward the CPC anchor in stages instead of applying the final bid at once", () => {
