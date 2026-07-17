@@ -4,8 +4,32 @@ import test from "node:test";
 import {
   MAKEACE_CPC_PLAN,
   benchmarkForListing,
+  executionGateForAction,
   recommendCpcAction,
 } from "../lib/makeace-cpc-plan.mjs";
+
+test("gates only budget increases and never blocks Bid optimization by plan membership", () => {
+  assert.deepEqual(executionGateForAction({
+    actionType: "SET_LISTING_BID",
+    strategyBlockers: ["未进入月度计划", "缺库存快照"],
+    hasMonthlyPlan: false,
+    goalEvidenceReliable: false,
+  }), []);
+
+  assert.deepEqual(executionGateForAction({
+    actionType: "INCREASE_DAILY_CAP",
+    strategyBlockers: ["缺库存快照"],
+    hasMonthlyPlan: false,
+    goalEvidenceReliable: false,
+  }), ["缺库存快照", "未设置月度预算归属", "缺月度目标进度证据"]);
+
+  assert.deepEqual(executionGateForAction({
+    actionType: "HOLD",
+    strategyBlockers: ["缺库存快照"],
+    hasMonthlyPlan: false,
+    goalEvidenceReliable: false,
+  }), []);
+});
 
 test("uses Makeace page 22 BM CPC as a July-August category anchor, never as a literal bid", () => {
   assert.equal(MAKEACE_CPC_PLAN.sourcePage, 22);
