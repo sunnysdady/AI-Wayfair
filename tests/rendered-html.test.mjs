@@ -47,7 +47,7 @@ test("separates the visible advertising period from the mature weekly decision w
   ]);
   assert.match(page, /成熟周（推荐）/);
   assert.match(page, /最近 14 天/);
-  assert.match(page, /加入本周执行单/);
+  assert.match(page, /批量加入执行单/);
   assert.match(page, /保本ROAS/);
   assert.match(ads, /attributionWindowDays: ATTRIBUTION_DAYS/);
   assert.match(ads, /rolling56d/);
@@ -103,8 +103,8 @@ test("restores persisted weekly actions after the advertising page reloads", asy
   assert.match(page, /\/api\/ads\/actions\?runKey=/);
   assert.match(page, /queuedActionState/);
   assert.match(page, /本周执行批次/);
-  assert.match(page, /确认进入 API 预检/);
-  assert.match(page, /重新进入 API 预检/);
+  assert.match(page, /批量确认或重试/);
+  assert.match(page, /执行 API Dry-run 预检/);
 });
 
 test("ships the compact operations shell and bulk advertising workflow", async () => {
@@ -116,5 +116,5 @@ test("ships the compact operations shell and bulk advertising workflow", async (
   assert.match(page, /筛选 Listing、Campaign 或 Part/);
   assert.doesNotMatch(page, /className="workspace"/);
   assert.doesNotMatch(page, /className="ai-cadence"/);
-  assert.doesNotMatch(page, /className="scope-alert"/);
+  assert.doesNotMatch(page, /本阶段执行边界/);
 });
