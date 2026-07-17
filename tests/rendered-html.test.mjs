@@ -108,7 +108,10 @@ test("restores persisted weekly actions after the advertising page reloads", asy
 });
 
 test("ships the compact operations shell and bulk advertising workflow", async () => {
-  const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
+  const [page, styles] = await Promise.all([
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
   assert.match(page, /className="sidebar"/);
   assert.match(page, /label: "帮助"/);
   assert.match(page, /批量加入执行单/);
@@ -117,4 +120,8 @@ test("ships the compact operations shell and bulk advertising workflow", async (
   assert.doesNotMatch(page, /className="workspace"/);
   assert.doesNotMatch(page, /className="ai-cadence"/);
   assert.doesNotMatch(page, /本阶段执行边界/);
+  assert.doesNotMatch(page, /meta: "(?:今天|本月|Gate|每周|资料|V2|6\/6|\?)"/);
+  assert.doesNotMatch(page, /item\.meta/);
+  assert.match(styles, /--type-body:14px/);
+  assert.match(styles, /\.action-list\.rich \.action-head\.selectable/);
 });
