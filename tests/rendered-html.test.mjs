@@ -125,8 +125,8 @@ test("restores persisted weekly actions after the advertising page reloads", asy
   assert.match(page, /\/api\/ads\/actions\?runKey=/);
   assert.match(page, /queuedActionState/);
   assert.match(page, /本周执行批次/);
-  assert.match(page, /批量确认或重试/);
-  assert.match(page, /执行 API Dry-run 预检/);
+  assert.match(page, /确认并预检/);
+  assert.match(page, /执行已预检项/);
 });
 
 test("ships the compact operations shell and bulk advertising workflow", async () => {
@@ -141,7 +141,10 @@ test("ships the compact operations shell and bulk advertising workflow", async (
   assert.match(page, /执行已预检项/);
   assert.match(page, /执行结果/);
   assert.doesNotMatch(page, /输入：执行广告修改/);
-  assert.match(page, /批量确认或重试/);
+  assert.match(page, /日级投放效率/);
+  assert.match(page, /归因销售额/);
+  assert.match(page, /无订单消耗/);
+  assert.doesNotMatch(page, /className="ad-history"/);
   assert.match(page, /筛选 Listing、Campaign 或 Part/);
   assert.doesNotMatch(page, /className="workspace"/);
   assert.doesNotMatch(page, /className="ai-cadence"/);
