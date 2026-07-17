@@ -469,7 +469,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const today = todayShanghai();
   const fetchEnd = [end, decisionEnd, today].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v9:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v10:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
     const cached = await env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>();
     if (cached && Date.now() - Date.parse(cached.updated_at) < ANALYSIS_CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, layer: "D1_ANALYSIS", updatedAt: cached.updated_at } };
