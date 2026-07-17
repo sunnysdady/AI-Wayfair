@@ -5,7 +5,7 @@ import { evaluateAdjustment } from "./ad-weekly-memory.mjs";
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
 const ATTRIBUTION_DAYS = 14;
-const ANALYSIS_CACHE_MS = 30 * 60 * 1000;
+const ANALYSIS_CACHE_MS = 60 * 60 * 1000;
 const MUTABLE_REPORT_CACHE_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_MARGIN = .2826;
 

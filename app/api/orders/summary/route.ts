@@ -4,7 +4,7 @@ const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const ORDER_ENDPOINT = "https://api.wayfair.com/v1/graphql";
 const DEFAULT_MARGIN_RATE = 0.2826;
 const PRELOAD_DAYS = 62;
-const FRESH_MS = 15 * 60 * 1000;
+const FRESH_MS = 60 * 60 * 1000;
 
 type Product = { partNumber?: string; quantity?: number; price?: number };
 type PurchaseOrder = { poNumber?: string; poDate?: string; products?: Product[] };

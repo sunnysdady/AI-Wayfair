@@ -2,7 +2,7 @@ const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const CATALOG_ENDPOINT = "https://api.wayfair.io/product-catalog-api/graphql";
 const AUDIENCE = "https://api.wayfair.com/";
 const ALLOWED_STATUSES = new Set(["LIVE", "NOT_LIVE", "LAUNCHING"]);
-const CATALOG_CACHE_MS = 6 * 60 * 60 * 1000;
+const CATALOG_CACHE_MS = 60 * 60 * 1000;
 
 type Insight = {
   insightId?: string;
