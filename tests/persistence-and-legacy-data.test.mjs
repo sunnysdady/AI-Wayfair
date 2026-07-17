@@ -22,17 +22,18 @@ test("keeps one-hour snapshots across page switches without clearing ad actions"
   assert.match(page, /每小时自动同步/);
 });
 
-test("exposes Listing performance and auditable operator Gate override", async () => {
-  const [page, route] = await Promise.all([
+test("exposes Listing performance and keeps Gate UI only for budget increases", async () => {
+  const [page, route, ads] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ads/actions/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
   ]);
   assert.match(page, /id: "listings", label: "Listing 表现"/);
   assert.match(page, /tab==='listings'/);
-  assert.match(page, /运营人工覆盖/);
-  assert.match(page, /toggleQueueSelection/);
-  assert.match(route, /gateOverride/);
-  assert.match(route, /覆盖自动 Gate 时必须保留运营确认原因/);
+  assert.match(page, /预算审批/);
+  assert.doesNotMatch(page, /gateOverrides|toggleQueueSelection|运营人工覆盖|勾选后确认覆盖/);
+  assert.doesNotMatch(route, /gateOverride|覆盖自动 Gate/);
+  assert.doesNotMatch(ads, /未进入7月推广计划/);
 });
 
 test("integrates Git-backed SKU economics and 13-month history", async () => {
