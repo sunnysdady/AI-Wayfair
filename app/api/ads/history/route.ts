@@ -13,6 +13,7 @@ export async function GET() {
       env.DB.prepare(`SELECT q.id,q.run_key,q.listing,q.campaign_id,q.action_type,q.before_payload,q.proposed_payload,q.status,q.updated_at,
         e.event_type AS result_event_type,e.payload AS result_payload,e.created_at AS result_at
         FROM ad_action_queue q LEFT JOIN ad_action_events e ON e.id=(SELECT e2.id FROM ad_action_events e2 WHERE e2.action_id=q.id AND e2.event_type IN ('EXECUTED','FAILED') ORDER BY e2.created_at DESC LIMIT 1)
+        WHERE q.action_type='SET_LISTING_BID'
         ORDER BY q.updated_at DESC LIMIT 200`).all(),
       env.DB.prepare("SELECT action_id,source_run_key,evaluation_run_key,listing,campaign_id,verdict,payload,evaluated_at FROM ad_weekly_reviews ORDER BY evaluated_at DESC LIMIT 200").all(),
     ]);
