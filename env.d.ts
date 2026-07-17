@@ -11,6 +11,7 @@ interface WayfairEnvBindings {
   WAYFAIR_CATALOG_SUPPLIER_ID?: string;
   ALLOW_WAYFAIR_AD_LIVE_CHANGES?: string;
   ALLOW_WAYFAIR_LIVE_PUSH?: string;
+  OUTLOOK_INGEST_TOKEN?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

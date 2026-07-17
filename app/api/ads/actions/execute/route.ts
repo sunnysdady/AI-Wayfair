@@ -105,7 +105,7 @@ export async function POST(request: Request) {
         await record(env.DB, allActionIds, "FAILED", { error: detail }, "FAILED");
         return Response.json({ error: `${detail}；尚未向 Wayfair 提交任何 Campaign` }, { status: 502 });
       }
-      const outcomes = await executeCampaignUpdates(campaigns, (campaign) => updateCampaign(accessToken, campaign.campaignId, campaign.listings));
+      const outcomes = await executeCampaignUpdates(campaigns, (campaign: { campaignId: string; listings: Record<string, { bid: string; isActive: boolean }> }) => updateCampaign(accessToken, campaign.campaignId, campaign.listings));
       for (const outcome of outcomes) {
         if (outcome.ok) {
           await record(env.DB, outcome.actionIds, "EXECUTED", { campaignId: outcome.campaignId, response: outcome.response }, "EXECUTED");

@@ -18,11 +18,12 @@ type AdvertisingEnv = {
 type Metric = { impressions: number; clicks: number; spend: number; orders: number; units: number; retail: number; wsc: number; ctr: number; cvr: number; cpa: number; retailRoas: number; wscRoas: number };
 type ReportType = "CAMPAIGN_REPORT" | "LISTING_REPORT";
 type InventoryEvidence = { quantityOnHand: number; units30d: number; coverDays: number; snapshotAt: string };
+type GoalListingEvidence = { actualUnits: number; julyRemainingUnits: number; augustReserveUnits: number; marginRate: number | null; marginKnown: boolean };
 type GoalEvidence = {
   julyPaceGap: number;
   eventPhase: string;
   reliable: boolean;
-  byListing: Map<string, { actualUnits: number; julyRemainingUnits: number; augustReserveUnits: number; marginRate: number | null; marginKnown: boolean }>;
+  byListing: Map<string, GoalListingEvidence>;
 };
 
 async function ensureAdTables(db: D1Database | undefined) {
@@ -65,7 +66,7 @@ function eventPhaseForDate(value: string) {
 }
 
 async function loadGoalEvidence(db: D1Database | undefined, asOf: string): Promise<GoalEvidence> {
-  const base = new Map(JULY_PLAN_LISTINGS.map((july) => {
+  const base = new Map<string, GoalListingEvidence>(JULY_PLAN_LISTINGS.map((july) => {
     const august = AUGUST_PLAN_LISTINGS.find((item) => item.listing === july.listing);
     return [july.listing, {
       actualUnits: 0,
@@ -342,12 +343,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       priorReview: weeklyMemory.get(listing) || null,
     });
     const actionType = strategy.actionType;
-    const blockers = executionGateForAction({
-      actionType,
-      strategyBlockers: strategy.blockers,
-      hasMonthlyPlan: Boolean(plan),
-      goalEvidenceReliable: goals.reliable,
-    });
+    const blockers = executionGateForAction({ actionType });
     const warnings = [
       ...strategy.warnings,
       !goal.marginKnown && !plan?.marginRate ? `保本线按店铺毛利${(DEFAULT_MARGIN * 100).toFixed(2)}%估算` : "",
