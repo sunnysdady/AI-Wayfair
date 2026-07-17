@@ -233,6 +233,16 @@ test("keeps an API-backed advertising manager ahead of AI recommendations", asyn
   assert.match(ads, /class_name/);
 });
 
+test("keeps Listing performance focused on search, filters, sorting and decision metrics", async () => {
+  const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
+  assert.match(page, /tab!=='listings'&&<section className="period-bar ad-period">/);
+  assert.match(page, /tab==='manager'&&<>\s*<section className="stat-grid six ad-manager-kpis">/);
+  assert.match(page, /tab==='listings'&&<section className="card ad-manager-card listing-performance-card"><div className="manager-filters">/);
+  assert.match(page, /api-table listing-manager-table listing-performance-table/);
+  const listingBranch = page.split("{tab==='listings'&&")[1]?.split("</section>}")[0] || "";
+  assert.doesNotMatch(listingBranch, /section-head|manager-source|Retail 销售额|Retail ROAS|field="units"/);
+});
+
 test("gives advertising recommendations a readable action and evidence hierarchy", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
