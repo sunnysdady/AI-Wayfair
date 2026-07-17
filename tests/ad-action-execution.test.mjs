@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   WAYFAIR_ADVERTISING_AUDIENCE,
   buildCampaignUpdates,
+  filterAdActions,
+  isBulkApprovable,
   canRetryAction,
   queuedActionState,
 } from "../lib/ad-action-queue.mjs";
@@ -78,4 +80,22 @@ test("allows failed actions to re-enter approval and dry-run, but never replays 
   assert.equal(canRetryAction("FAILED"), true);
   assert.equal(canRetryAction("EXECUTED"), false);
   assert.equal(canRetryAction("EXECUTING"), false);
+});
+
+test("filters weekly recommendations by search, recommendation and queue status", () => {
+  const rows = [
+    { listing: "DMOM1000", campaignId: "622741", parts: ["5T-1600-800"], action: { recommendation: "READY", execution: "READY_FOR_PLAN" } },
+    { listing: "DMOM1022", campaignId: "622722", parts: ["MFC-D3-B"], action: { recommendation: "NO_CHANGE", execution: "HOLD" } },
+  ];
+  const queue = { "622741:DMOM1000": "saved" };
+
+  assert.deepEqual(filterAdActions(rows, { query: "5t-1600", recommendation: "READY", queue: "queued" }, queue).map((row) => row.listing), ["DMOM1000"]);
+  assert.deepEqual(filterAdActions(rows, { query: "622722", recommendation: "ALL", queue: "unqueued" }, queue).map((row) => row.listing), ["DMOM1022"]);
+});
+
+test("bulk confirmation accepts only planned and failed API actions", () => {
+  assert.equal(isBulkApprovable({ status: "PLANNED", action_type: "SET_LISTING_BID" }), true);
+  assert.equal(isBulkApprovable({ status: "FAILED", action_type: "SET_LISTING_ACTIVE" }), true);
+  assert.equal(isBulkApprovable({ status: "VALIDATED", action_type: "SET_LISTING_BID" }), false);
+  assert.equal(isBulkApprovable({ status: "PLANNED", action_type: "INCREASE_DAILY_CAP" }), false);
 });
