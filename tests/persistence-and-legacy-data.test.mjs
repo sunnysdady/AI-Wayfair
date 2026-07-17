@@ -17,6 +17,8 @@ test("keeps one-hour snapshots across page switches without clearing ad actions"
   assert.match(orders, /60 \* 60 \* 1000/);
   assert.match(catalog, /60 \* 60 \* 1000/);
   assert.match(page, /ad-queue:/);
+  assert.match(page, /ads:v2:/);
+  assert.doesNotMatch(page, /`ads:\$\{/);
   assert.match(page, /writeClientCache\(`ad-queue:/);
   assert.doesNotMatch(page, /setQueuedActions\(\[\]\)/);
   assert.match(page, /每小时自动同步/);
