@@ -1,5 +1,6 @@
 import { AUGUST_PLAN, AUGUST_PLAN_LISTINGS, BFIJ_PLAN, JULY_PLAN, JULY_PLAN_LISTINGS, planForListing } from "./operating-plan";
 import { MAKEACE_CPC_PLAN, recommendCpcAction } from "./makeace-cpc-plan.mjs";
+import { evaluateAdjustment } from "./ad-weekly-memory.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -31,6 +32,8 @@ async function ensureAdTables(db: D1Database | undefined) {
     "CREATE TABLE IF NOT EXISTS ad_report_rows (report_type TEXT NOT NULL, report_date TEXT NOT NULL, entity_key TEXT NOT NULL, payload TEXT NOT NULL, refreshed_at TEXT NOT NULL, PRIMARY KEY(report_type, report_date, entity_key))",
     "CREATE INDEX IF NOT EXISTS ad_report_rows_range_idx ON ad_report_rows(report_type, report_date)",
     "CREATE TABLE IF NOT EXISTS ad_decision_runs (run_key TEXT PRIMARY KEY NOT NULL, decision_start TEXT NOT NULL, decision_end TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS ad_weekly_reviews (action_id TEXT PRIMARY KEY NOT NULL, source_run_key TEXT NOT NULL, evaluation_run_key TEXT NOT NULL, listing TEXT NOT NULL, campaign_id TEXT NOT NULL, verdict TEXT NOT NULL, payload TEXT NOT NULL, evaluated_at TEXT NOT NULL)",
+    "CREATE INDEX IF NOT EXISTS ad_weekly_reviews_listing_idx ON ad_weekly_reviews(listing)",
   ];
   for (const sql of statements) await db.prepare(sql).run();
 }
@@ -291,7 +294,7 @@ function total(rows: CsvRow[], start: string, end: string) {
   return finalize(metric);
 }
 
-function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: string, end: string, decisionStart: string, decisionEnd: string, inventory: Map<string,InventoryEvidence>, goals: GoalEvidence) {
+function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: string, end: string, decisionStart: string, decisionEnd: string, inventory: Map<string,InventoryEvidence>, goals: GoalEvidence, weeklyMemory = new Map<string, Record<string, unknown>>()) {
   const span = daysBetween(start, end);
   const previousEnd = addDays(start, -1);
   const previousStart = addDays(previousEnd, -(span - 1));
@@ -336,6 +339,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       inventoryQuantity: partInventory.reduce((sum,item)=>sum+item.quantityOnHand,0),
       julyRemainingUnits: goal.julyRemainingUnits,
       augustReserveUnits: goal.augustReserveUnits,
+      priorReview: weeklyMemory.get(listing) || null,
     });
     const actionType = strategy.actionType;
     const blockers = [
@@ -374,6 +378,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       inventory: { known: inventoryKnown, coverDays: inventoryCoverDays, quantityOnHand: partInventory.reduce((sum,item)=>sum+item.quantityOnHand,0), snapshotAt: partInventory[0]?.snapshotAt||null },
       cpcBaseline: { ...strategy.benchmark, actualCpc: strategy.actualCpc, source: `${MAKEACE_CPC_PLAN.sourceFile} · P${MAKEACE_CPC_PLAN.sourcePage}`, appliesTo: MAKEACE_CPC_PLAN.appliesTo },
       goalGuardrail: { julyPaceGap: goals.julyPaceGap, eventPhase: goals.eventPhase, julyRemainingUnits: goal.julyRemainingUnits, augustReserveUnits: goal.augustReserveUnits },
+      weeklyReview: weeklyMemory.get(listing) || null,
       action: {
         type: actionType, label: strategy.label, recommendation, execution, confidence, reasons, blockers, warnings,
         before: { bid: currentBid, active: !/inactive|false/i.test(current.latest.product_status || "") }, proposed: strategy.proposed,
@@ -412,6 +417,47 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
   };
 }
 
+async function loadWeeklyMemory(db: D1Database | undefined) {
+  const memory = new Map<string, Record<string, unknown>>();
+  if (!db) return memory;
+  const rows = await db.prepare(`SELECT r.listing,r.payload FROM ad_weekly_reviews r
+    WHERE r.evaluated_at=(SELECT MAX(r2.evaluated_at) FROM ad_weekly_reviews r2 WHERE r2.listing=r.listing)`)
+    .all<{ listing: string; payload: string }>();
+  for (const row of rows.results || []) {
+    try { memory.set(row.listing, JSON.parse(row.payload)); } catch { /* Ignore malformed legacy rows. */ }
+  }
+  return memory;
+}
+
+async function syncWeeklyReviews(db: D1Database | undefined, analysis: ReturnType<typeof buildAnalysis>) {
+  if (!db) return;
+  const actions = await db.prepare(`SELECT q.id,q.run_key,q.listing,q.campaign_id,q.action_type,q.before_payload,q.proposed_payload,
+    e.created_at AS executed_at,d.payload AS source_payload
+    FROM ad_action_queue q
+    JOIN ad_decision_runs d ON d.run_key=q.run_key
+    JOIN ad_action_events e ON e.id=(SELECT e2.id FROM ad_action_events e2 WHERE e2.action_id=q.id AND e2.event_type='EXECUTED' ORDER BY e2.created_at DESC LIMIT 1)
+    WHERE q.status='EXECUTED' AND q.action_type='SET_LISTING_BID'`)
+    .all<{ id:string;run_key:string;listing:string;campaign_id:string;action_type:string;before_payload:string;proposed_payload:string;executed_at:string;source_payload:string }>();
+  const now = new Date().toISOString();
+  for (const action of actions.results || []) {
+    let source: { listings?: Array<{ listing:string; current:Metric; economics?:{breakEvenRoas?:number} }> };
+    try { source = JSON.parse(action.source_payload); } catch { continue; }
+    const baseline = source.listings?.find((row) => row.listing === action.listing);
+    const observed = analysis.listings.find((row) => row.listing === action.listing);
+    if (!baseline || !observed) continue;
+    const executedDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(action.executed_at));
+    const review = evaluateAdjustment({
+      action, baseline: baseline.current, observed: observed.current, executedDate,
+      matureThrough: analysis.range.matureThrough,
+      breakEvenRoas: observed.economics.breakEvenRoas || baseline.economics?.breakEvenRoas || 0,
+    });
+    const payload = { ...review, actionId: action.id, sourceRunKey: action.run_key, evaluationRunKey: analysis.runKey, listing: action.listing, campaignId: action.campaign_id, executedAt: action.executed_at, baseline: baseline.current, observed: observed.current };
+    await db.prepare(`INSERT INTO ad_weekly_reviews(action_id,source_run_key,evaluation_run_key,listing,campaign_id,verdict,payload,evaluated_at)
+      VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(action_id) DO UPDATE SET evaluation_run_key=excluded.evaluation_run_key,verdict=excluded.verdict,payload=excluded.payload,evaluated_at=excluded.evaluated_at`)
+      .bind(action.id, action.run_key, analysis.runKey, action.listing, action.campaign_id, review.verdict, JSON.stringify(payload), now).run();
+  }
+}
+
 export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string, end: string, force = false) {
   await ensureAdTables(env.DB);
   const span = daysBetween(start, end);
@@ -438,8 +484,11 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
     getReportRows(env.DB, "LISTING_REPORT", fetchStart, fetchEnd, token, force),
   ]);
   const [inventory, goals] = await Promise.all([loadInventoryEvidence(env.DB), loadGoalEvidence(env.DB, today)]);
+  const preliminary = buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals);
+  await syncWeeklyReviews(env.DB, preliminary);
+  const weeklyMemory = await loadWeeklyMemory(env.DB);
   const analysis = {
-    ...buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals),
+    ...buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals, weeklyMemory),
     reports: { campaign: campaign.reportId, listing: listing.reportId },
     cache: { hit: campaign.source === "D1_DATABASE" && listing.source === "D1_DATABASE", layer: campaign.source === "D1_DATABASE" && listing.source === "D1_DATABASE" ? "D1_REPORT_ROWS" : "ADVERTISING_API" },
   };

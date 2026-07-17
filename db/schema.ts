@@ -87,6 +87,23 @@ export const adExecutionLocks = sqliteTable("ad_execution_locks", {
   acquiredAt: text("acquired_at").notNull(),
 });
 
+export const adWeeklyReviews = sqliteTable("ad_weekly_reviews", {
+  actionId: text("action_id").primaryKey(),
+  sourceRunKey: text("source_run_key").notNull(),
+  evaluationRunKey: text("evaluation_run_key").notNull(),
+  listing: text("listing").notNull(),
+  campaignId: text("campaign_id").notNull(),
+  verdict: text("verdict").notNull(),
+  payload: text("payload").notNull(),
+  evaluatedAt: text("evaluated_at").notNull(),
+}, (table) => [index("ad_weekly_reviews_listing_idx").on(table.listing)]);
+
+export const outlookDailyBriefs = sqliteTable("outlook_daily_briefs", {
+  briefDate: text("brief_date").primaryKey(),
+  payload: text("payload").notNull(),
+  syncedAt: text("synced_at").notNull(),
+});
+
 export const inventorySnapshots = sqliteTable("inventory_snapshots", {
   id: text("id").primaryKey(),
   sourceFile: text("source_file").notNull(),

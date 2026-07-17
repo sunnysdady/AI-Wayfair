@@ -1,7 +1,7 @@
 import { buildCampaignUpdates } from "@/lib/ad-action-queue.mjs";
 
-const ALLOWED_ACTIONS = new Set(["SET_LISTING_BID", "SET_LISTING_ACTIVE", "INCREASE_DAILY_CAP"]);
-const API_ACTIONS = new Set(["SET_LISTING_BID", "SET_LISTING_ACTIVE"]);
+const ALLOWED_ACTIONS = new Set(["SET_LISTING_BID", "INCREASE_DAILY_CAP"]);
+const API_ACTIONS = new Set(["SET_LISTING_BID"]);
 
 async function bindings() { return (await import("cloudflare:workers")).env; }
 
@@ -110,7 +110,8 @@ export async function DELETE(request: Request) {
     if (!id) return Response.json({ error: "缺少执行单 id" }, { status: 400 });
     const existing = await env.DB.prepare("SELECT status FROM ad_action_queue WHERE id=?").bind(id).first<{status:string}>();
     if (!existing) return Response.json({ error: "执行项不存在" }, { status: 404 });
-    if (existing.status !== "PLANNED") return Response.json({ error: `当前状态 ${existing.status} 不允许删除` }, { status: 409 });
+    if (!["PLANNED", "FAILED"].includes(existing.status)) return Response.json({ error: `当前状态 ${existing.status} 不允许删除` }, { status: 409 });
+    await env.DB.prepare("DELETE FROM ad_action_events WHERE action_id=?").bind(id).run();
     await env.DB.prepare("DELETE FROM ad_action_queue WHERE id=?").bind(id).run();
     return Response.json({ ok: true, id });
   } catch (error) {

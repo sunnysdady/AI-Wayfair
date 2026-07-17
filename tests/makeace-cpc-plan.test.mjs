@@ -137,3 +137,16 @@ test("limits a revenue-producing bid correction to ten percent to protect sales"
   assert.deepEqual(result.proposed, { bid: 0.68 });
   assert.match(result.reasons.join("；"), /单次最多下调10%/);
 });
+
+test("never proposes pausing a listing; exclusions remain visible as a hold decision", () => {
+  const result = recommendCpcAction({
+    listing: "DRCI1007", currentBid: 0.20,
+    current: { spend: 0, clicks: 0, orders: 0, cvr: 0, wscRoas: 0 },
+    rolling28d: { orders: 0, wscRoas: 0 }, breakEvenRoas: 3.54,
+    adRole: "exclude", eventPhase: "event", julyPaceGap: -10,
+    qualityPass: false, marginKnown: false, inventoryKnown: true,
+    inventoryCoverDays: 999, inventoryQuantity: 100, julyRemainingUnits: 0, augustReserveUnits: 0,
+  });
+  assert.equal(result.actionType, "HOLD");
+  assert.doesNotMatch(result.label, /暂停/);
+});
