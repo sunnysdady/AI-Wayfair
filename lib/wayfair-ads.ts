@@ -266,10 +266,15 @@ async function saveReportToDb(db: D1Database | undefined, reportType: ReportType
   for (let i = 0; i < statements.length; i += 80) await db.batch(statements.slice(i, i + 80));
 }
 
-async function getReportRows(db: D1Database | undefined, reportType: ReportType, start: string, end: string, token: () => Promise<string>, force: boolean) {
-  if (!force) {
-    const cached = await loadReportFromDb(db, reportType, start, end);
-    if (cached) return { rows: cached, reportId: null, source: "D1_DATABASE" };
+async function getReportRows(db: D1Database | undefined, reportType: ReportType, start: string, end: string, token: () => Promise<string>, force: boolean, refreshStart = start, refreshEnd = end) {
+  const cached = await loadReportFromDb(db, reportType, start, end);
+  if (cached && !force) return { rows: cached, reportId: null, source: "D1_DATABASE" };
+  if (cached && force) {
+    const fresh = await fetchReport(reportType, refreshStart, refreshEnd, await token());
+    await saveReportToDb(db, reportType, refreshStart, refreshEnd, fresh.rows);
+    const refreshed = await loadReportFromDb(db, reportType, start, end);
+    if (!refreshed) throw new Error("广告快照写入后覆盖范围不完整");
+    return { rows: refreshed, reportId: fresh.reportId, source: "ADVERTISING_API" };
   }
   const fresh = await fetchReport(reportType, start, end, await token());
   await saveReportToDb(db, reportType, start, end, fresh.rows);
@@ -467,7 +472,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const decisionHistoryStart = addDays(decisionEnd, -55);
   const fetchStart = [previousStart, decisionPreviousStart, decisionHistoryStart].sort()[0];
   const today = todayShanghai();
-  const fetchEnd = [end, decisionEnd, today].sort().at(-1) as string;
+  const fetchEnd = [end, decisionEnd].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
   const cacheKey = `ads-analysis:v10:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
@@ -477,8 +482,8 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   let tokenPromise: Promise<string> | null = null;
   const token = () => tokenPromise ||= getToken(env);
   const [campaign, listing] = await Promise.all([
-    getReportRows(env.DB, "CAMPAIGN_REPORT", fetchStart, fetchEnd, token, force),
-    getReportRows(env.DB, "LISTING_REPORT", fetchStart, fetchEnd, token, force),
+    getReportRows(env.DB, "CAMPAIGN_REPORT", fetchStart, fetchEnd, token, force, start, end),
+    getReportRows(env.DB, "LISTING_REPORT", fetchStart, fetchEnd, token, force, start, end),
   ]);
   const [inventory, goals] = await Promise.all([loadInventoryEvidence(env.DB), loadGoalEvidence(env.DB, today)]);
   const preliminary = buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals);

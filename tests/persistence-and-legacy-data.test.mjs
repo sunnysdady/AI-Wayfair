@@ -24,6 +24,14 @@ test("keeps one-hour snapshots across page switches without clearing ad actions"
   assert.match(page, /每小时自动同步/);
 });
 
+test("refreshes only the requested mature advertising window when D1 history is complete", async () => {
+  const ads = await readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8");
+  assert.match(ads, /const fetchEnd = \[end, decisionEnd\]/);
+  assert.match(ads, /fetchReport\(reportType, refreshStart, refreshEnd/);
+  assert.match(ads, /getReportRows\(env\.DB, "CAMPAIGN_REPORT", fetchStart, fetchEnd, token, force, start, end\)/);
+  assert.match(ads, /getReportRows\(env\.DB, "LISTING_REPORT", fetchStart, fetchEnd, token, force, start, end\)/);
+});
+
 test("exposes Listing performance and keeps Gate UI only for budget increases", async () => {
   const [page, route, ads] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
