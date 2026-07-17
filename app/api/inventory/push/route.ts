@@ -1,8 +1,9 @@
 import { loadSnapshotItems } from "@/lib/inventory";
+import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
 const MUTATION = `mutation saveInventory($inventory: [inventoryInput]!, $feedKind: inventoryFeedKind) { inventory { save(inventory: $inventory, feedKind: $feedKind) { id handle status submittedAt completedAt itemCount errorCount errors { key message } } } }`;
 
-async function bindings() { return (await import("cloudflare:workers")).env; }
+const bindings = getRuntimeBindings;
 
 async function token(env: Pick<Env,"WAYFAIR_OPS_CLIENT_ID"|"WAYFAIR_OPS_CLIENT_SECRET">) {
   if(!env.WAYFAIR_OPS_CLIENT_ID||!env.WAYFAIR_OPS_CLIENT_SECRET) throw new Error("库存/订单API凭证未配置");

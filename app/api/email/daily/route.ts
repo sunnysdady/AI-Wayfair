@@ -1,3 +1,5 @@
+import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+
 const seedBrief = {
   briefDate: "2026-07-17",
   syncedAt: "2026-07-17T04:00:00.000Z",
@@ -14,7 +16,7 @@ const seedBrief = {
   ],
 };
 
-async function bindings() { return (await import("cloudflare:workers")).env; }
+const bindings = getRuntimeBindings;
 
 async function ensureTable(db: D1Database) {
   await db.prepare("CREATE TABLE IF NOT EXISTS outlook_daily_briefs (brief_date TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL, synced_at TEXT NOT NULL)").run();

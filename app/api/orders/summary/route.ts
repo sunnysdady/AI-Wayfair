@@ -1,4 +1,5 @@
 import { cachedAdSpend } from "../../../../lib/wayfair-ads";
+import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const ORDER_ENDPOINT = "https://api.wayfair.com/v1/graphql";
@@ -17,9 +18,7 @@ const ORDER_QUERY = `query RecentDropshipOrders($fromDate: IsoDateTime!) {
   }
 }`;
 
-async function bindings() {
-  return (await import("cloudflare:workers")).env;
-}
+const bindings = getRuntimeBindings;
 
 function assertDate(value: string | null, name: string) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {

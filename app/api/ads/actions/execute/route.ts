@@ -1,11 +1,12 @@
 import { WAYFAIR_ADVERTISING_AUDIENCE, buildCampaignUpdates, executeCampaignUpdates } from "@/lib/ad-action-queue.mjs";
+import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
 type QueueRow = {
   id: string; run_key: string; listing: string; campaign_id: string; action_type: string;
   before_payload: string; proposed_payload: string; status: string;
 };
 
-async function bindings() { return (await import("cloudflare:workers")).env; }
+const bindings = getRuntimeBindings;
 
 async function ensureTables(db: D1Database) {
   await db.prepare("CREATE TABLE IF NOT EXISTS ad_action_queue (id TEXT PRIMARY KEY NOT NULL, run_key TEXT NOT NULL, listing TEXT NOT NULL, campaign_id TEXT NOT NULL, action_type TEXT NOT NULL, before_payload TEXT NOT NULL, proposed_payload TEXT NOT NULL, status TEXT DEFAULT 'PLANNED' NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)").run();

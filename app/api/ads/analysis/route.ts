@@ -1,8 +1,7 @@
 import { getAdvertisingAnalysis } from "../../../../lib/wayfair-ads";
+import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
-async function bindings() {
-  return (await import("cloudflare:workers")).env;
-}
+const bindings = getRuntimeBindings;
 
 function date(value: string | null, name: string) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) throw new Error(`${name} 必须是 YYYY-MM-DD`);

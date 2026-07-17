@@ -1,9 +1,10 @@
 import { buildCampaignUpdates } from "@/lib/ad-action-queue.mjs";
+import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
 const ALLOWED_ACTIONS = new Set(["SET_LISTING_BID", "INCREASE_DAILY_CAP"]);
 const API_ACTIONS = new Set(["SET_LISTING_BID"]);
 
-async function bindings() { return (await import("cloudflare:workers")).env; }
+const bindings = getRuntimeBindings;
 
 function sameOrigin(request: Request) {
   const origin = request.headers.get("origin");

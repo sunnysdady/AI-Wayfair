@@ -1,6 +1,7 @@
 import { parseStockWorkbook, saveInventorySnapshot } from "@/lib/inventory";
+import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
-async function bindings() { return (await import("cloudflare:workers")).env; }
+const bindings = getRuntimeBindings;
 
 export async function GET() {
   try {

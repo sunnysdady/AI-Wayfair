@@ -9,10 +9,11 @@ import {
   WEEKLY_MILESTONES,
 } from "../../../../lib/operating-plan";
 import { cachedAdSpend } from "../../../../lib/wayfair-ads";
+import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
 const DEFAULT_MARGIN_RATE = .2826;
 
-async function bindings() { return (await import("cloudflare:workers")).env; }
+const bindings = getRuntimeBindings;
 
 function addDays(value: string, days: number) {
   const date = new Date(`${value}T00:00:00Z`);

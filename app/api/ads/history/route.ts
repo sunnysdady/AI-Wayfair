@@ -1,4 +1,6 @@
-async function bindings() { return (await import("cloudflare:workers")).env; }
+import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+
+const bindings = getRuntimeBindings;
 
 async function ensureTables(db: D1Database) {
   await db.prepare("CREATE TABLE IF NOT EXISTS ad_weekly_reviews (action_id TEXT PRIMARY KEY NOT NULL, source_run_key TEXT NOT NULL, evaluation_run_key TEXT NOT NULL, listing TEXT NOT NULL, campaign_id TEXT NOT NULL, verdict TEXT NOT NULL, payload TEXT NOT NULL, evaluated_at TEXT NOT NULL)").run();

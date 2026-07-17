@@ -1,3 +1,5 @@
+import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const CATALOG_ENDPOINT = "https://api.wayfair.io/product-catalog-api/graphql";
 const AUDIENCE = "https://api.wayfair.com/";
@@ -52,9 +54,7 @@ fragment InsightFields on Insight {
   resolution { resolutionId url description }
 }`;
 
-async function bindings() {
-  return (await import("cloudflare:workers")).env;
-}
+const bindings = getRuntimeBindings;
 
 function positiveInteger(value: string | null, fallback: number, maximum: number) {
   const parsed = Number(value || fallback);

@@ -1,7 +1,9 @@
+import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+
 const MAX_REPORT_SIZE=20*1024*1024;
 const ALLOWED_TYPES=new Set(["text/html","application/pdf","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]);
 
-async function bindings(){return (await import("cloudflare:workers")).env;}
+const bindings = getRuntimeBindings;
 
 async function ensure(db:D1Database){await db.prepare("CREATE TABLE IF NOT EXISTS report_uploads (id TEXT PRIMARY KEY NOT NULL, file_name TEXT NOT NULL, title TEXT NOT NULL, kind TEXT NOT NULL, content_type TEXT NOT NULL, object_key TEXT NOT NULL, created_at TEXT NOT NULL)").run();}
 
