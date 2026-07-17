@@ -21,7 +21,7 @@ test("gates only budget increases and never blocks Bid optimization by plan memb
     strategyBlockers: ["缺库存快照"],
     hasMonthlyPlan: false,
     goalEvidenceReliable: false,
-  }), ["缺库存快照", "未设置月度预算归属", "缺月度目标进度证据"]);
+  }), ["增加预算需运营确认"]);
 
   assert.deepEqual(executionGateForAction({
     actionType: "HOLD",
@@ -29,6 +29,30 @@ test("gates only budget increases and never blocks Bid optimization by plan memb
     hasMonthlyPlan: false,
     goalEvidenceReliable: false,
   }), []);
+});
+
+test("scales a mature profitable listing even when the monthly plan does not prioritize it", () => {
+  const result = recommendCpcAction({
+    listing: "DMOM1042",
+    currentBid: 0.45,
+    current: { spend: 60, clicks: 70, orders: 4, cvr: 0.057, wscRoas: 5.5 },
+    rolling28d: { orders: 9, wscRoas: 4.9 },
+    breakEvenRoas: 3.54,
+    adRole: "observe",
+    eventPhase: "closed",
+    julyPaceGap: 8,
+    qualityPass: false,
+    marginKnown: true,
+    inventoryKnown: false,
+    inventoryCoverDays: 0,
+    inventoryQuantity: 0,
+    julyRemainingUnits: 0,
+    augustReserveUnits: 0,
+  });
+
+  assert.equal(result.actionType, "INCREASE_DAILY_CAP");
+  assert.deepEqual(result.proposed, { change: "+20%", manual: true });
+  assert.match(result.reasons.join("；"), /月度计划仅作辅助/);
 });
 
 test("uses Makeace page 22 BM CPC as a July-August category anchor, never as a literal bid", () => {
