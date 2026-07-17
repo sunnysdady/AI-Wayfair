@@ -5,6 +5,11 @@ import { invalidateClientCache, readClientCache, writeClientCache } from "../lib
 import { executionResultForAction, filterAdActions, isBulkApprovable, queuedActionState } from "../lib/ad-action-queue.mjs";
 
 type View = "dashboard" | "ads" | "planning" | "products" | "sources" | "help";
+type AdsTab = "manager" | "ai";
+type PlanningTab = "plan" | "review";
+type ProductTab = "inventory" | "catalog";
+type PlanSection = "july" | "bfij" | "august";
+type SubView = AdsTab | PlanningTab | ProductTab;
 
 const PRIMARY_NAV: { id: View; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
@@ -17,6 +22,12 @@ const SYSTEM_NAV: { id: View; label: string }[] = [
   { id: "sources", label: "数据源" },
   { id: "help", label: "帮助" },
 ];
+
+const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
+  ads: [{ id: "manager", label: "广告管理器" }, { id: "ai", label: "AI 优化" }],
+  planning: [{ id: "plan", label: "运营计划" }, { id: "review", label: "复盘资料" }],
+  products: [{ id: "inventory", label: "库存更新" }, { id: "catalog", label: "商品数据" }],
+};
 
 type OrderMetric = { revenue: number; orders: number; units: number; aov: number; advertisingBeforeGrossProfit: number; contributionAfterAds: number | null; advertisingSpend: number | null; advertisingCoverage: string; profitMode: "estimated" | "cost-covered"; costCoverage: number; marginRate: number };
 type OrderSummary = {
@@ -161,21 +172,18 @@ const REPORTS: EvidenceReport[] = [
   { title: "执行清单 XLSX", file: "YB店_SKU广告重构执行清单_2026-07-15.xlsx", kind: "表格", summary: "可下载、核对和执行的SKU广告参数账本。", sections: [["01","精确载荷","保存Listing、Campaign、当前Bid和建议Bid。"],["02","人工动作","Daily Cap、tROAS、关键词与否词分开列示。"],["03","回滚","每个动作保存原值和触发回滚的条件。"],["04","审批","个人测试阶段仅Dry-run，不执行生产写入。"]] },
 ];
 
-function ShellHeader({ active, onNavigate }: { active: View; onNavigate: (view: View) => void }) {
+function ShellHeader({ active, activeSub, onNavigate, onSubNavigate }: { active: View; activeSub: SubView | null; onNavigate: (view: View) => void; onSubNavigate: (view: SubView) => void }) {
+  useEffect(()=>{if(window.innerWidth>760)return;const frame=requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.sidebar button[aria-current="page"]')?.scrollIntoView({block:'nearest',inline:'center'}));return()=>cancelAnimationFrame(frame);},[active,activeSub]);
   return <aside className="sidebar">
     <button className="brand" onClick={() => onNavigate("dashboard")}><span>W</span><strong>Wayfair AI</strong><small>运营中台</small></button>
     <nav className="nav" aria-label="主导航">
-      {PRIMARY_NAV.map((item) => <button key={item.id} className={active === item.id ? "active" : ""} onClick={() => onNavigate(item.id)}>{item.label}</button>)}
+      {PRIMARY_NAV.map((item) => <div className={`nav-group ${active === item.id ? "expanded" : ""}`} key={item.id}><button className={active === item.id ? "active" : ""} aria-current={active===item.id&&!SUB_NAV[item.id]?.length?'page':undefined} aria-expanded={SUB_NAV[item.id]?.length?active===item.id:undefined} onClick={() => onNavigate(item.id)}>{item.label}</button>{active === item.id && SUB_NAV[item.id]?.length ? <div className="nav-submenu" aria-label={`${item.label}子菜单`}>{SUB_NAV[item.id]?.map((child) => <button key={child.id} className={activeSub === child.id ? "active" : ""} aria-current={activeSub===child.id?'page':undefined} onClick={() => onSubNavigate(child.id)}>{child.label}</button>)}</div> : null}</div>)}
     </nav>
     <nav className="nav utility-nav" aria-label="系统导航">
-      {SYSTEM_NAV.map((item) => <button key={item.id} className={active === item.id ? "active" : ""} onClick={() => onNavigate(item.id)}>{item.label}</button>)}
+      {SYSTEM_NAV.map((item) => <button key={item.id} className={active === item.id ? "active" : ""} aria-current={active===item.id?'page':undefined} onClick={() => onNavigate(item.id)}>{item.label}</button>)}
     </nav>
     <div className="system"><i></i><span><strong>生产数据已连接</strong><small>写操作需人工确认</small></span></div>
   </aside>;
-}
-
-function SecondaryNav<T extends string>({ label, value, items, onChange }: { label: string; value: T; items: { id: T; label: string }[]; onChange: (value: T) => void }) {
-  return <nav className="secondary-nav" aria-label={label}>{items.map((item) => <button key={item.id} className={value === item.id ? "active" : ""} onClick={() => onChange(item.id)}>{item.label}</button>)}</nav>;
 }
 
 function Hero({ eyebrow, title, text, side }: { eyebrow: string; title: string; text: string; side?: React.ReactNode }) {
@@ -254,7 +262,7 @@ function Dashboard() {
           {[['DS - SP - OTS','1.96','Yellow','≤ 1.4'],['Induction Fill Rate','89.66%','Yellow','≥ 93%'],['Inventory Inaccuracy Rate','1.45%','Yellow','< 0.51%']].map(row => <div key={row[0]}>{row.map(cell => <span key={cell}>{cell}</span>)}</div>)}
         </div>
         <p><b>建议：</b>今天先定位库存准确率和揽收链路；发货事项转交履约同事，中台只跟踪结果。</p>
-        <button className="text-link">在 Outlook 打开原邮件</button>
+        <a className="text-link" href="https://outlook.office.com/mail/" target="_blank" rel="noreferrer">打开 Outlook 查看邮件</a>
       </article>
       <aside className="side-stack">
         <article className="card risk-card"><h2>最高风险</h2><div className="risk-number"><strong>3</strong><span>项黄色指标</span></div><p>最高风险来自 Supplier Scorecard，而不是财务扣款或订单异常。优先级高于培训和市场资讯。</p><div className="soft-note"><b>当前无新增：</b>订单取消、退款、退货、扣款、账号权限、合规封禁或产品下架。</div></article>
@@ -264,13 +272,12 @@ function Dashboard() {
   </>;
 }
 
-function Plan({ embedded = false, onOpenReview }: { embedded?: boolean; onOpenReview: () => void }) {
+function Plan({ embedded = false, onOpenReview, tab, onTabChange }: { embedded?: boolean; onOpenReview: () => void; tab: PlanSection; onTabChange: (tab: PlanSection) => void }) {
   const [data,setData]=useState<PlanProgress|null>(null); const [error,setError]=useState('');
-  const [tab,setTab]=useState<'july'|'bfij'|'august'>('july');
   useEffect(()=>{const cached=readClientCache<PlanProgress>('plan:progress');if(cached){queueMicrotask(()=>setData(cached));return;}fetch('/api/plan/progress').then(async r=>{const body=await r.json() as PlanProgress;if(!r.ok)throw new Error(body.error||'计划读取失败');return body;}).then(body=>{setData(body);writeClientCache('plan:progress',body);}).catch(e=>setError(e.message));},[]);
   const p=data?.progress; const actual=data?.actual;
-  return <>{!embedded&&<Hero eyebrow="MONTHLY OPERATING PLAN" title="目标与执行" text="6月复盘 → 7月真实基线执行 → 8月下一阶段准备；目标、利润与广告共用同一套运营计划" side={<button className="hero-button" onClick={onOpenReview}>查看完整复盘证据</button>} />}{embedded&&<div className="subpage-heading"><div><span>当前经营月</span><h2>运营计划</h2></div><button onClick={onOpenReview}>查看复盘资料</button></div>}
-    <section className="context-strip"><div><span>复盘月</span><b>2026-06</b><small>经营事实已归档</small></div><div className="active"><span>当前经营月</span><b>{data?.currentOperatingMonth.month||'2026-07'} · 128 Orders</b><small>{data?.currentOperatingMonth.note||'真实基线计划读取中'}</small></div><div><span>下一计划月</span><b>2026-08 · 150 Units</b><small>准备阶段，不与7月目标混算</small></div></section>
+  return <>{!embedded&&<Hero eyebrow="MONTHLY OPERATING PLAN" title="目标与执行" text="6月复盘 → 7月真实基线执行 → 8月下一阶段准备；目标、利润与广告共用同一套运营计划" side={<button className="hero-button" onClick={onOpenReview}>查看完整复盘证据</button>} />}
+    <section className="context-strip" aria-label="经营月份导航"><button aria-label="打开6月复盘资料" onClick={onOpenReview}><span>复盘月</span><b>2026-06</b><small>经营事实已归档</small></button><button aria-label="查看7月执行计划" className={tab!=='august'?'active':''} onClick={()=>onTabChange('july')}><span>当前经营月</span><b>{data?.currentOperatingMonth.month||'2026-07'} · 128 Orders</b><small>{data?.currentOperatingMonth.note||'真实基线计划读取中'}</small></button><button aria-label="查看8月准备计划" className={tab==='august'?'active':''} onClick={()=>onTabChange('august')}><span>下一计划月</span><b>2026-08 · 150 Units</b><small>准备阶段，不与7月目标混算</small></button></section>
     {error&&<div className="inline-error">{error}</div>}
     <section className="stat-grid six plan-kpis">{[
       [`${actual?.orders||0} / 128`,"7月订单完成",`${((p?.orderCompletion||0)*100).toFixed(1)}% · ${actual?.units||0} 件`],
@@ -280,7 +287,7 @@ function Plan({ embedded = false, onOpenReview }: { embedded?: boolean; onOpenRe
       [actual?.adSpend==null?'待广告同步':money(actual.adSpend),"7月广告实际",`月预算 $790 · ${actual?.adCoverage||'未覆盖'}`],
       [actual?.contributionAfterAds==null?'待广告同步':money(actual.contributionAfterAds),"广告后店铺贡献",`${actual?.adCoverage==='FULL'?'广告完整覆盖':'广告仅部分覆盖'} · 成本覆盖 ${Math.round((actual?.costCoverage||0)*100)}% · 计划预计净利 $3,394`],
     ].map(([value,label,note])=><article className="stat" key={label}><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}</section>
-    <div className="plan-tabs"><button className={tab==='july'?'active':''} onClick={()=>setTab('july')}>7月执行计划</button><button className={tab==='bfij'?'active':''} onClick={()=>setTab('bfij')}>BFIJ 活动广告策略</button><button className={tab==='august'?'active':''} onClick={()=>setTab('august')}>8月准备计划</button></div>
+    <div className="plan-tabs"><button className={tab==='july'?'active':''} onClick={()=>onTabChange('july')}>7月执行计划</button><button className={tab==='bfij'?'active':''} onClick={()=>onTabChange('bfij')}>BFIJ 活动广告策略</button><button className={tab==='august'?'active':''} onClick={()=>onTabChange('august')}>8月准备计划</button></div>
     {tab==='july'&&<><div className="plan-workspace">
       <article className="card target-card"><div className="section-head"><div><span>SKU 责任</span><h2>128 Orders责任拆解与订单API实际</h2></div><b>来源：真实基线 v3.1 · 2026-06-23</b></div><div className="plan-table july"><div className="plan-row head"><span>Listing / Part</span><span>6月基线</span><span>7月目标</span><span>实际订单 / 件</span><span>广告预算</span><span>策略与Gate</span></div>{(data?.listings||[]).map(item=><div className="plan-row" key={item.listing}><span><b>{item.listing}</b><small>{item.parts.join(' · ')}</small></span><span>{item.juneBaselineOrders}</span><span><b>{item.julyTargetOrders}</b></span><span><b>{item.actualOrders} / {item.actualUnits}</b><small>{money(item.actualRevenue)}</small></span><span>{money(item.budget)}<small>预计净利 {money(item.estimatedNetProfit)}</small></span><span><b>{item.role} · {item.tactic}</b><small>{item.gate}{item.sourceWarning?` · ${item.sourceWarning}`:''}</small></span></div>)}</div></article>
       <aside className="card milestone-card"><div className="section-head"><div><span>活动节点</span><h2>活动节奏</h2></div></div><div className="milestones">{(data?.events||[]).map(item=><div key={item.label}><b>{item.label}<small>{item.range}</small></b><strong>{item.range.includes('23')?'当前重点':'记录'}</strong><p>{item.note}</p></div>)}</div></aside>
@@ -303,14 +310,13 @@ function Inventory({ embedded = false }: { embedded?: boolean }) {
   async function validate(){if(!file)return;setBusy(true);setMessage('');setState('正在解析与校验');try{const form=new FormData();form.set('file',file);const response=await fetch('/api/inventory/preview',{method:'POST',body:form});const body=await response.json() as Preview;if(!response.ok)throw new Error(`${body.error||'库存校验失败'}${body.errors?.[0]?.message?`：${body.errors[0].message}`:''}`);setPreview(body);invalidateClientCache('ads:');setState('校验通过 · 已入库');setMessage(`已保存库存快照 ${body.snapshotId?.slice(0,8)}；广告放量Gate将在下次打开时自动读取。`);}catch(error){setState('校验未通过');setMessage(error instanceof Error?error.message:'库存校验失败');}finally{setBusy(false);}}
   async function push(dryRun:boolean){if(!preview?.snapshotId)return;setBusy(true);setMessage('');setState(dryRun?'正在执行Dry-run':'正在提交Wayfair');try{const response=await fetch('/api/inventory/push',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({snapshotId:preview.snapshotId,dryRun,confirmation,zeroStockConfirmed:zeroConfirmed})});const body=await response.json() as {error?:string;itemCount?:number;batchCount?:number;mode?:string};if(!response.ok)throw new Error(body.error||'库存推送失败');setState(dryRun?'Dry-run 已通过':'已提交Wayfair');setMessage(dryRun?`Dry-run完成：${body.itemCount}条记录，拆分${body.batchCount}个批次；尚未写入Wayfair。`:`正式库存已提交，共${body.itemCount}条。`);}catch(error){setState(dryRun?'Dry-run 失败':'正式推送被阻止');setMessage(error instanceof Error?error.message:'库存推送失败');}finally{setBusy(false);}}
   const metrics=[["可推送行",preview?.summary?.totalRows],["Supplier",preview?.summary?.supplierCount],["零库存",preview?.summary?.zeroStockRows],["未匹配组合",preview?.summary?.missingCombinations]];
-  return <>{!embedded&&<Hero eyebrow="INVENTORY UPDATE · CONTROLLED WRITE" title="库存更新" text="真实解析领星库存、套用SKU/仓库映射、持久化快照，再执行Dry-run与受控推送" side={<div className="hero-side"><b>{state}</b><span>{preview?.sourceFile||'尚无库存快照'}</span></div>} />}{embedded&&<div className="subpage-heading"><div><span>库存同步</span><h2>库存更新</h2></div><b>{state}</b></div>}
+  return <>{!embedded&&<Hero eyebrow="INVENTORY UPDATE · CONTROLLED WRITE" title="库存更新" text="真实解析领星库存、套用SKU/仓库映射、持久化快照，再执行Dry-run与受控推送" side={<div className="hero-side"><b>{state}</b><span>{preview?.sourceFile||'尚无库存快照'}</span></div>} />}
     <div className="inventory-grid"><article className="card upload-card"><span className="step">库存文件与校验</span><h2>生成库存快照</h2><label className="drop"><input type="file" accept=".xlsx" onChange={e=>{const next=e.target.files?.[0]||null;setFile(next);setState(next?'文件待校验':preview?'最近快照可用':'等待库存文件');setMessage('');}}/><b>{file?.name||preview?.sourceFile||"选择领星库存 XLSX"}</b><span>读取品名、SKU、仓库、可用量、锁定量、待到货与调拨在途；映射表已固化为当前生产版本</span></label><button className="primary" disabled={!file||busy} onClick={validate}>{busy&&state.includes('解析')?'校验中…':'校验并保存快照'}</button>{preview?.createdAt&&<div className="snapshot-note">最近快照 {new Date(preview.createdAt).toLocaleString('zh-CN')} · 库存合计 {preview.summary?.totalQuantityOnHand||0}</div>}</article><article className="card gate-card"><span className="step">预检与确认</span><h2>推送前检查</h2><div className="gate-metrics">{metrics.map(([label,value])=><div key={String(label)}><span>{label}</span><strong>{value??'-'}</strong></div>)}</div>{preview?.warnings?.length?<div className="soft-note">{preview.warnings.map(item=>item.message).join('；')}</div>:<div className="soft-note">只有真实校验通过的D1快照可进入Dry-run；正式推送不会复用浏览器临时状态。</div>}<button className="primary" disabled={!preview?.canPush||busy} onClick={()=>push(true)}>执行 Wayfair API Dry-run</button><div className="live-confirm"><label>正式确认<input value={confirmation} onChange={e=>setConfirmation(e.target.value)} placeholder="输入：正式推送"/></label><label className="zero-check"><input type="checkbox" checked={zeroConfirmed} onChange={e=>setZeroConfirmed(e.target.checked)}/>确认零库存记录会改变可售状态</label><button className="primary dark" disabled={!preview?.canPush||busy||confirmation!=='正式推送'} onClick={()=>push(false)}>正式推送库存</button></div>{message&&<div className={state.includes('失败')||state.includes('阻止')||state.includes('未通过')?'inventory-message bad':'inventory-message good'}>{message}</div>}</article></div>
   </>;
 }
 
-function Ads() {
+function Ads({ tab }: { tab: AdsTab }) {
   const initial=adRangeFor('matureWeek');
-  const [tab,setTab]=useState<'manager'|'ai'>('manager');
   const [preset,setPreset]=useState('matureWeek');
   const [start,setStart]=useState(initial.start); const [end,setEnd]=useState(initial.end); const [requested,setRequested]=useState({start:initial.start,end:initial.end,refresh:false});
   const [data,setData]=useState<AdAnalysis|null>(null); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
@@ -343,8 +349,7 @@ function Ads() {
   const normalizedManagerQuery=managerQuery.trim().toLowerCase();
   const managerCampaigns=(data?.campaigns||[]).filter(row=>!normalizedManagerQuery||[row.campaignId,row.name,row.targetingType,row.site].some(value=>String(value||'').toLowerCase().includes(normalizedManagerQuery)));
   const managerListings=(data?.listings||[]).filter(row=>(managerStatus==='ALL'||String(row.status||'').toUpperCase().includes(managerStatus))&&(!normalizedManagerQuery||[row.listing,row.campaignId,row.campaignName,row.productName,row.className,row.site,...row.parts].some(value=>String(value||'').toLowerCase().includes(normalizedManagerQuery))));
-  return <><Hero eyebrow="" title="广告" text="" side={<div className="hero-side compact-status"><b>{loading?'同步中':error?'需检查':tab==='manager'?`${data?.campaigns.length||0} 个 Campaign`:`${ready} 项待处理`}</b><span>{requested.start} 至 {requested.end}</span></div>} />
-    <SecondaryNav label="广告二级导航" value={tab} onChange={setTab} items={[{id:'manager',label:'广告管理器'},{id:'ai',label:'AI 优化'}]} />
+  return <><Hero eyebrow="" title={tab==='manager'?'广告管理器':'广告 AI 优化'} text="" side={<div className="hero-side compact-status"><b>{loading?'同步中':error?'需检查':tab==='manager'?`${data?.campaigns.length||0} 个 Campaign`:`${ready} 项待处理`}</b><span>{requested.start} 至 {requested.end}</span></div>} />
     <section className="period-bar ad-period"><div>{adPresetOptions.map(([id,label])=><button key={id} className={preset===id?'active':''} onClick={()=>selectAdPreset(id)}>{label}</button>)}</div>{preset==='custom'&&<><label>开始<input type="date" value={start} onChange={e=>setStart(e.target.value)}/></label><label>结束<input type="date" value={end} max={dateText(new Date())} onChange={e=>setEnd(e.target.value)}/></label><button disabled={loading||start>end} onClick={()=>{setLoading(true);setError('');setRequested({start,end,refresh:false});}}>读取</button></>}<button disabled={loading} onClick={()=>{setLoading(true);setError('');setRequested({start,end,refresh:true});}}>刷新底层数据</button><span>{error||`展示 ${requested.start} → ${requested.end} · 决策固定使用成熟周 ${data?.decisionRange.start||'-'} → ${data?.decisionRange.end||'-'}`}</span></section>
     {error&&<div className="inline-error">{error}；系统未展示任何静态替代建议。</div>}
     {tab==='manager'&&<>
@@ -386,16 +391,16 @@ function Ads() {
   </>;
 }
 
-function Review({ embedded = false }: { embedded?: boolean }) {
+function Review({ embedded = false, onOpenPlan }: { embedded?: boolean; onOpenPlan: (section: PlanSection) => void }) {
   const [report,setReport]=useState(0);const [uploads,setUploads]=useState<UploadedReport[]>([]);const [uploading,setUploading]=useState(false);const [uploadMessage,setUploadMessage]=useState('');
   useEffect(()=>{const controller=new AbortController();fetch('/api/reports',{signal:controller.signal}).then(async r=>await r.json() as {reports?:UploadedReport[]}).then(body=>setUploads(body.reports||[])).catch(()=>{});return()=>controller.abort();},[]);
   const allReports=useMemo(()=>[...REPORTS.map(item=>({...item,assetUrl:`/reports/${encodeURIComponent(item.file)}`,uploaded:false})),...uploads.map(item=>({title:item.title,file:item.fileName,kind:item.kind,date:new Date(item.createdAt).toLocaleDateString('zh-CN'),summary:'用户补充的复盘证据，原文件已持久化保存。',sections:[],assetUrl:`/api/reports/file?id=${encodeURIComponent(item.id)}`,uploaded:true}))],[uploads]);
   const selected=allReports[Math.min(report,allReports.length-1)];const spreadsheet=selected.file.endsWith('.xlsx');
   async function uploadReport(file:File|null){if(!file)return;setUploading(true);setUploadMessage('');try{const form=new FormData();form.set('file',file);const response=await fetch('/api/reports',{method:'POST',body:form});const body=await response.json() as UploadedReport&{error?:string};if(!response.ok)throw new Error(body.error||'报告上传失败');setUploads(value=>[body,...value]);setReport(REPORTS.length);setUploadMessage('报告已保存并加入资料库。');}catch(error){setUploadMessage(error instanceof Error?error.message:'报告上传失败');}finally{setUploading(false);}}
-  return <>{!embedded&&<Hero eyebrow="MONTHLY REVIEW · FULL REPORTS" title="月度复盘" text="直接阅读完整原报告，不再用四个摘要框代替正文" side={<label className="hero-button upload-report">{uploading?'上传中…':'补充复盘资料'}<input type="file" accept=".html,.htm,.pdf,.xlsx" disabled={uploading} onChange={e=>uploadReport(e.target.files?.[0]||null)}/></label>} />}{embedded&&<div className="subpage-heading"><div><span>资料库</span><h2>复盘资料</h2></div><label className="compact-upload">{uploading?'上传中…':'补充复盘资料'}<input type="file" accept=".html,.htm,.pdf,.xlsx" disabled={uploading} onChange={e=>uploadReport(e.target.files?.[0]||null)}/></label></div>}
-    <section className="review-context"><div><span>复盘事实月</span><b>2026-06 · 已归档</b></div><i>→</i><div><span>当前经营月</span><b>2026-07 · 128 Orders执行中</b></div><i>→</i><div><span>下一计划月</span><b>2026-08 · 150 Units准备中</b></div></section>
+  return <>{!embedded&&<Hero eyebrow="MONTHLY REVIEW · FULL REPORTS" title="月度复盘" text="直接阅读完整原报告，不再用四个摘要框代替正文" side={<label className="hero-button upload-report">{uploading?'上传中…':'补充复盘资料'}<input type="file" accept=".html,.htm,.pdf,.xlsx" disabled={uploading} onChange={e=>uploadReport(e.target.files?.[0]||null)}/></label>} />}
+    <section className="review-context" aria-label="复盘与计划月份导航"><button aria-label="查看6月月度复盘" onClick={()=>setReport(REPORTS.findIndex(item=>item.title==='2026年6月月度复盘总览'))}><span>复盘事实月</span><b>2026-06 · 已归档</b></button><i>→</i><button aria-label="返回7月执行计划" onClick={()=>onOpenPlan('july')}><span>当前经营月</span><b>2026-07 · 128 Orders执行中</b></button><i>→</i><button aria-label="查看8月准备计划" onClick={()=>onOpenPlan('august')}><span>下一计划月</span><b>2026-08 · 150 Units准备中</b></button></section>
     {uploadMessage&&<div className="upload-message">{uploadMessage}</div>}
-    <div className="review-grid full-reader"><aside className="card report-list"><div><span>复盘资料</span><h2>完整复盘资料</h2><b>{allReports.length}</b></div>{allReports.map((x,i)=><button className={report===i?'active':''} onClick={()=>setReport(i)} key={`${x.uploaded?'upload':'builtin'}:${x.file}`}><strong>{x.title}</strong><small>{x.kind} · {x.date||'2026/07/15'}</small></button>)}</aside><article className="card report-reader"><header><div><span>{selected.kind} · 完整原报告</span><h2>{selected.title}</h2><p>{selected.summary}</p></div><a href={selected.assetUrl} target="_blank" rel="noreferrer">{spreadsheet?'下载原表格':'在新窗口打开'}</a></header>{spreadsheet?<div className="sheet-download"><b>执行清单为 XLSX 原表格</b><p>点击右上角下载完整文件；同一内容的可读版请在左侧打开“SKU广告重构执行清单”。</p><a href={selected.assetUrl} download>下载 {selected.file}</a></div>:<iframe key={selected.assetUrl} title={selected.title} src={selected.assetUrl} sandbox={selected.uploaded?'':'allow-same-origin allow-scripts allow-popups'} />}</article></div>
+    <div className="review-grid full-reader"><aside className="card report-list"><div><span>复盘资料</span><h2>完整复盘资料</h2><b>{allReports.length}</b></div>{allReports.map((x,i)=><button className={report===i?'active':''} onClick={()=>setReport(i)} key={`${x.uploaded?'upload':'builtin'}:${x.file}`}><strong>{x.title}</strong><small>{x.kind} · {x.date||'2026/07/15'}</small></button>)}</aside><article className="card report-reader"><header><div><span>{selected.kind} · 完整原报告</span><h2>{selected.title}</h2><p>{selected.summary}</p></div><div className="report-actions">{embedded&&<label className="compact-upload">{uploading?'上传中…':'补充复盘资料'}<input type="file" accept=".html,.htm,.pdf,.xlsx" disabled={uploading} onChange={e=>uploadReport(e.target.files?.[0]||null)}/></label>}<a href={selected.assetUrl} target="_blank" rel="noreferrer">{spreadsheet?'下载原表格':'在新窗口打开'}</a></div></header>{spreadsheet?<div className="sheet-download"><b>执行清单为 XLSX 原表格</b><p>点击右上角下载完整文件；同一内容的可读版请在左侧打开“SKU广告重构执行清单”。</p><a href={selected.assetUrl} download>下载 {selected.file}</a></div>:<iframe key={selected.assetUrl} title={selected.title} src={selected.assetUrl} sandbox={selected.uploaded?'':'allow-same-origin allow-scripts allow-popups'} />}</article></div>
   </>;
 }
 
@@ -413,7 +418,7 @@ function Catalog({ embedded = false }: { embedded?: boolean }) {
   const insights=selected?.insights;
   const insightTotal=(insights?.problems?.length||0)+(insights?.warnings?.length||0)+(insights?.opportunities?.length||0);
   function submit(){setLoading(true);setError('');setPage(1);setSubmitted(query.trim().toUpperCase());setRefresh(value=>value+1);}
-  return <>{!embedded&&<Hero eyebrow="CATALOG READ V2 · ORDER JOIN" title="商品数据" text="Catalog 商品事实与近 30 天订单表现合并为 SKU 360° 视图" side={<div className="hero-side"><b>{loading?'同步中':error?'需检查':'已连接'}</b><span>Catalog Read V2 · {pages?.totalCount||0} 个商品</span></div>} />}{embedded&&<div className="subpage-heading"><div><span>Catalog Read V2</span><h2>商品数据</h2></div><b>{loading?'同步中':error?'需检查':`${pages?.totalCount||0} 个商品`}</b></div>}
+  return <>{!embedded&&<Hero eyebrow="CATALOG READ V2 · ORDER JOIN" title="商品数据" text="Catalog 商品事实与近 30 天订单表现合并为 SKU 360° 视图" side={<div className="hero-side"><b>{loading?'同步中':error?'需检查':'已连接'}</b><span>Catalog Read V2 · {pages?.totalCount||0} 个商品</span></div>} />}
     <section className="card catalog-card"><div className="filters"><label>Supplier Part #<input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')submit();}} placeholder="精确输入，如 DMOM1022"/></label><label>商品状态<select value={status} onChange={e=>{setLoading(true);setError('');setStatus(e.target.value);setPage(1);}}><option value="">全部状态</option><option value="LIVE">LIVE</option><option value="NOT_LIVE">NOT LIVE</option><option value="LAUNCHING">LAUNCHING</option></select></label><button className="primary" onClick={submit}>查询商品</button></div>
       {error&&<div className="inline-error">{error}</div>}
       <div className="catalog-layout"><div className="catalog-results"><div className="catalog-row catalog-head"><span>SKU / Listing</span><span>状态</span><span>品牌 · 类目</span><span>市场</span><span>诊断</span><span>近 30 天</span></div>{(data?.items||[]).map(item=>{const issues=(item.insights?.problems?.length||0)+(item.insights?.warnings?.length||0);return <button className={`catalog-row ${selected?.supplierPartNumber===item.supplierPartNumber?'selected':''}`} key={item.supplierPartNumber} onClick={()=>setSelected(item)}><span><strong>{item.supplierPartNumber}</strong><small>{item.listings?.length||0} 个 Listing</small></span><em className={item.catalogItemStatus==='LIVE'?'good':'bad'}>{item.catalogItemStatus?.replace('_',' ')||'-'}</em><span><b>{item.marketContext?.brand||'-'}</b><small>{item.class?.className||'未分类'}</small></span><span><b>{item.marketContext?.country||'-'} · {item.marketContext?.locale||'-'}</b><small>{item.marketContext?.channel||'-'} / {item.marketContext?.segment||'-'}</small></span><span><b>{issues} 问题</b><small>{item.insights?.opportunities?.length||0} 机会</small></span><span><b>{item.recent30d?.units||0} 件</b><small>{money(item.recent30d?.revenue||0)}</small></span></button>})}{!loading&&!data?.items?.length&&<p className="empty-state">没有符合条件的商品</p>} {loading&&<p className="empty-state">正在读取 Catalog…</p>}
@@ -422,18 +427,15 @@ function Catalog({ embedded = false }: { embedded?: boolean }) {
     </section></>;
 }
 
-function PlanningWorkspace() {
-  const [tab,setTab]=useState<'plan'|'review'>('plan');
-  return <><Hero eyebrow="" title="计划与复盘" text="" />
-    <SecondaryNav label="计划与复盘二级导航" value={tab} onChange={setTab} items={[{id:'plan',label:'运营计划'},{id:'review',label:'复盘资料'}]} />
-    {tab==='plan'?<Plan embedded onOpenReview={()=>setTab('review')}/>:<Review embedded/>}
+function PlanningWorkspace({ tab, onTabChange }: { tab: PlanningTab; onTabChange: (tab: PlanningTab) => void }) {
+  const [planSection,setPlanSection]=useState<PlanSection>('july');
+  return <><Hero eyebrow="" title={tab==='plan'?'运营计划':'复盘资料'} text="" />
+    {tab==='plan'?<Plan embedded tab={planSection} onTabChange={setPlanSection} onOpenReview={()=>onTabChange('review')}/>:<Review embedded onOpenPlan={section=>{setPlanSection(section);onTabChange('plan');}}/>}
   </>;
 }
 
-function ProductWorkspace() {
-  const [tab,setTab]=useState<'inventory'|'catalog'>('inventory');
-  return <><Hero eyebrow="" title="商品与库存" text="" />
-    <SecondaryNav label="商品与库存二级导航" value={tab} onChange={setTab} items={[{id:'inventory',label:'库存更新'},{id:'catalog',label:'商品数据'}]} />
+function ProductWorkspace({ tab }: { tab: ProductTab }) {
+  return <><Hero eyebrow="" title={tab==='inventory'?'库存更新':'商品数据'} text="" />
     {tab==='inventory'?<Inventory embedded/>:<Catalog embedded/>}
   </>;
 }
@@ -456,7 +458,12 @@ function Help() {
 
 export default function OpsCenter() {
   const [view,setView]=useState<View>('dashboard');
+  const [adsTab,setAdsTab]=useState<AdsTab>('manager');
+  const [planningTab,setPlanningTab]=useState<PlanningTab>('plan');
+  const [productTab,setProductTab]=useState<ProductTab>('inventory');
   useEffect(()=>{window.scrollTo(0,0);const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view]);
-  const page=useMemo(()=>({dashboard:<Dashboard/>,ads:<Ads/>,planning:<PlanningWorkspace/>,products:<ProductWorkspace/>,sources:<Sources/>,help:<Help/>})[view],[view]);
-  return <div className="app app-shell"><ShellHeader active={view} onNavigate={setView}/><div className="content-shell"><main>{page}</main><footer><span>Wayfair AI 运营中台</span><span>个人测试阶段</span></footer></div></div>;
+  const activeSub: SubView | null=view==='ads'?adsTab:view==='planning'?planningTab:view==='products'?productTab:null;
+  function navigateSub(next:SubView){if(view==='ads'&&(next==='manager'||next==='ai'))setAdsTab(next);if(view==='planning'&&(next==='plan'||next==='review'))setPlanningTab(next);if(view==='products'&&(next==='inventory'||next==='catalog'))setProductTab(next);}
+  const page=useMemo(()=>({dashboard:<Dashboard/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={setPlanningTab}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view],[view,adsTab,planningTab,productTab]);
+  return <div className="app app-shell"><ShellHeader active={view} activeSub={activeSub} onNavigate={setView} onSubNavigate={navigateSub}/><div className="content-shell"><main>{page}</main><footer><span>Wayfair AI 运营中台</span><span>个人测试阶段</span></footer></div></div>;
 }

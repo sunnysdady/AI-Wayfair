@@ -156,26 +156,44 @@ test("ships the compact operations shell and bulk advertising workflow", async (
 });
 
 test("organizes the operating product around four primary workspaces", async () => {
-  const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
+  const [page, styles] = await Promise.all([
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
   assert.match(page, /label: "Dashboard"/);
   assert.match(page, /label: "广告"/);
   assert.match(page, /label: "计划与复盘"/);
   assert.match(page, /label: "商品与库存"/);
   assert.doesNotMatch(page, /label: "日报"/);
-  assert.doesNotMatch(page, /label: "运营计划"/);
-  assert.doesNotMatch(page, /label: "库存更新"/);
-  assert.doesNotMatch(page, /label: "广告优化"/);
-  assert.doesNotMatch(page, /label: "月度复盘"/);
-  assert.doesNotMatch(page, /label: "商品数据"/);
-  assert.match(page, /label="广告二级导航"/);
-  assert.match(page, /label:'广告管理器'/);
-  assert.match(page, /label:'AI 优化'/);
-  assert.match(page, /label="计划与复盘二级导航"/);
-  assert.match(page, /label:'运营计划'/);
-  assert.match(page, /label:'复盘资料'/);
-  assert.match(page, /label="商品与库存二级导航"/);
-  assert.match(page, /label:'库存更新'/);
-  assert.match(page, /label:'商品数据'/);
+  assert.doesNotMatch(page, /PRIMARY_NAV[\s\S]*label: "日报"/);
+  assert.match(page, /className="nav-submenu"/);
+  assert.match(page, /广告管理器/);
+  assert.match(page, /AI 优化/);
+  assert.match(page, /运营计划/);
+  assert.match(page, /复盘资料/);
+  assert.match(page, /库存更新/);
+  assert.match(page, /商品数据/);
+  assert.doesNotMatch(page, /function SecondaryNav/);
+  assert.doesNotMatch(page, /<SecondaryNav/);
+  assert.doesNotMatch(page, /subpage-heading/);
+  assert.doesNotMatch(styles, /\.secondary-nav/);
+  assert.doesNotMatch(styles, /\.subpage-heading/);
+  assert.match(styles, /\.nav-submenu/);
+});
+
+test("does not render dead button affordances in operating workspaces", async () => {
+  const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
+  const buttons = page.match(/<button\b[\s\S]*?<\/button>/g) || [];
+  assert.ok(buttons.length > 10, "expected the workspace to expose real controls");
+  for (const button of buttons) {
+    assert.match(button, /onClick=/, `button is missing an action: ${button}`);
+  }
+  assert.match(page, /aria-label="打开6月复盘资料"/);
+  assert.match(page, /aria-label="查看7月执行计划"/);
+  assert.match(page, /aria-label="查看8月准备计划"/);
+  assert.match(page, /aria-label="查看6月月度复盘"/);
+  assert.match(page, /aria-label="返回7月执行计划"/);
+  assert.doesNotMatch(page, /<button className="text-link">/);
 });
 
 test("keeps an API-backed advertising manager ahead of AI recommendations", async () => {
