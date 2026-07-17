@@ -49,11 +49,33 @@ test("separates the visible advertising period from the mature weekly decision w
   assert.match(page, /最近 14 天/);
   assert.match(page, /批量加入执行单/);
   assert.match(page, /保本ROAS/);
+  assert.match(page, /BM CPC/);
+  assert.match(page, /money2\(row\.cpcBaseline\.cpc\)/);
+  assert.match(page, /7月余/);
+  assert.match(page, /8月留/);
   assert.match(ads, /attributionWindowDays: ATTRIBUTION_DAYS/);
   assert.match(ads, /rolling56d/);
   assert.match(ads, /ad_decision_runs/);
   assert.match(ads, /ad_report_rows/);
   assert.match(ads, /inventory/);
+  assert.match(ads, /recommendCpcAction/);
+  assert.match(ads, /augustReserveUnits/);
+});
+
+test("shares the Makeace June CPC anchor across July, BFIJ and August", async () => {
+  const [strategy, plan, route] = await Promise.all([
+    readFile(new URL("../lib/makeace-cpc-plan.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../lib/operating-plan.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/plan/progress/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(strategy, /sourcePage: 22/);
+  assert.match(strategy, /"Filing Cabinets": 0\.53/);
+  assert.match(strategy, /"Bike And Sport Racks": 0\.57/);
+  assert.match(strategy, /CPC_NOT_BID/);
+  assert.match(strategy, /单次Bid下调不超过10%/);
+  assert.match(plan, /活动赢家只加Cap/);
+  assert.doesNotMatch(plan, /赢家1\.3×～1\.5×|通过Gate的主力 \+20%～35%/);
+  assert.match(route, /cpcPlan: MAKEACE_CPC_PLAN/);
 });
 
 test("persists real inventory snapshots and uploaded monthly reports", async () => {

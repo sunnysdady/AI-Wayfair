@@ -5,6 +5,7 @@ import {
   JULY_EVENTS,
   JULY_PLAN,
   JULY_PLAN_LISTINGS,
+  MAKEACE_CPC_PLAN,
   WEEKLY_MILESTONES,
 } from "../../../../lib/operating-plan";
 import { cachedAdSpend } from "../../../../lib/wayfair-ads";
@@ -108,6 +109,7 @@ export async function GET() {
       listings,
       events: JULY_EVENTS,
       activity: { ...BFIJ_PLAN, activePhase },
+      cpcPlan: MAKEACE_CPC_PLAN,
       nextPlan: {
         plan: AUGUST_PLAN,
         listings: AUGUST_PLAN_LISTINGS.filter((item) => Number(item.augustUnits || 0) > 0).map((item) => ({ ...item, actualUnits: 0 })),

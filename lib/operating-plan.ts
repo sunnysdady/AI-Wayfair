@@ -1,3 +1,6 @@
+import { MAKEACE_CPC_PLAN } from "./makeace-cpc-plan.mjs";
+export { MAKEACE_CPC_PLAN } from "./makeace-cpc-plan.mjs";
+
 export type AdRole = "scale" | "protect" | "hold" | "reduce" | "observe" | "exclude";
 
 export type PlanListing = {
@@ -69,16 +72,18 @@ export const BFIJ_PLAN = {
   catalogLockRange: "2026-07-21/2026-07-28",
   strategyBudget: 330,
   monthlyBudget: JULY_PLAN.adBudget,
-  budgetNote: "$330为7月$790总预算内的活动窗口建议上限，不是新增预算；未确认促销、利润、库存或Flash Deal邀请时不得释放。",
+  cpcAnchorPlanId: MAKEACE_CPC_PLAN.id,
+  bidGuardrail: "活动赢家只加Cap、不提高Bid；有订单组按BM CPC锚分阶段校准。",
+  budgetNote: "$330包含在7月$790月预算内；先保护8月责任库存，再释放活动预算。",
   source: "Wayfair 北美地区 Black Friday in July官宣定档！.pdf",
   sourceAsOf: "2026-07-16",
   phases: [
     { id: "confirm", label: "资格确认", range: "07/16–07/17", budgetCap: 0, bidRule: "不加价", capRule: "确认Wallet、促销价、Flash邀请与$75/SKU费用", objective: "先确认可参加对象，未获邀请不计Flash Deal收益。" },
-    { id: "prepare", label: "预热与锁版", range: "07/18–07/20", budgetCap: 55, bidRule: "仅高ROAS促销SKU +10%～20%", capRule: "日Cap最多1.5×，单次只改一个变量", objective: "07/21商品锁定前完成Listing、折扣与库存核查。" },
-    { id: "ramp", label: "Member Day衔接", range: "07/21–07/22", budgetCap: 45, bidRule: "通过Gate的主力 +20%～35%", capRule: "不超过日常2×", objective: "观察流量与预算消耗，避免提前烧完活动预算。" },
-    { id: "event", label: "BFIJ主活动", range: "07/23–07/25", budgetCap: 120, bidRule: "赢家1.3×～1.5×；低于保本线立即回撤", capRule: "赢家2×～3×；库存覆盖不足不得加Cap", objective: "优先DMOM1021/1020/1003/1029，按利润后贡献而非订单量排序。" },
-    { id: "flash", label: "Flash Deal窗口", range: "07/26–07/27", budgetCap: 85, bidRule: "仅受邀且盈利SKU最高1.5×～2×", capRule: "官方建议上限3×～5×，本店仍受月预算与库存Gate约束", objective: "把$75/SKU固定费计入活动利润；未受邀SKU沿用BFIJ常规策略。" },
-    { id: "close", label: "收尾与回撤", range: "07/28–07/31", budgetCap: 25, bidRule: "07/29恢复活动前基线", capRule: "停止救量，保留赢家历史", objective: "活动归因14天后复盘；不以当日ROAS误判。" },
+    { id: "prepare", label: "预热与锁版", range: "07/18–07/20", budgetCap: 55, bidRule: "Bid按BM CPC锚分阶段校准；有订单组单次最多-10%", capRule: "成熟赢家最多+20%，单次只改一个变量", objective: "07/21前完成链接、利润和7月剩余量+8月预留库存核查。" },
+    { id: "ramp", label: "Member Day衔接", range: "07/21–07/22", budgetCap: 45, bidRule: "不提高Bid；成熟赢家保持当前Bid", capRule: "落后计划且通过Gate才+20%", objective: "用Cap承接增量，避免抬高CPC或提前烧完预算。" },
+    { id: "event", label: "BFIJ主活动", range: "07/23–07/25", budgetCap: 120, bidRule: "赢家保持Bid；低效组分阶段-10%～15%", capRule: "赢家逐级+20%；库存不足立即冻结", objective: "优先填补7月目标缺口，同时保留8月SKU责任库存。" },
+    { id: "flash", label: "Flash Deal窗口", range: "07/26–07/27", budgetCap: 85, bidRule: "受邀且盈利SKU保持Bid，不追价", capRule: "按成熟订单与利润逐级加Cap，仍受月预算约束", objective: "把$75/SKU固定费计入利润；未受邀SKU不进入Flash预算池。" },
+    { id: "close", label: "收尾与回撤", range: "07/28–07/31", budgetCap: 25, bidRule: "保持校准后的BM CPC锚，不反弹追价", capRule: "回到活动前Cap，停止救量", objective: "活动归因成熟后再决定8月首周参数。" },
   ],
 };
 

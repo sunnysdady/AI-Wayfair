@@ -1,4 +1,5 @@
-import { JULY_PLAN, JULY_PLAN_LISTINGS, planForListing } from "./operating-plan";
+import { AUGUST_PLAN, AUGUST_PLAN_LISTINGS, BFIJ_PLAN, JULY_PLAN, JULY_PLAN_LISTINGS, planForListing } from "./operating-plan";
+import { MAKEACE_CPC_PLAN, recommendCpcAction } from "./makeace-cpc-plan.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -16,6 +17,12 @@ type AdvertisingEnv = {
 type Metric = { impressions: number; clicks: number; spend: number; orders: number; units: number; wsc: number; ctr: number; cvr: number; wscRoas: number };
 type ReportType = "CAMPAIGN_REPORT" | "LISTING_REPORT";
 type InventoryEvidence = { quantityOnHand: number; units30d: number; coverDays: number; snapshotAt: string };
+type GoalEvidence = {
+  julyPaceGap: number;
+  eventPhase: string;
+  reliable: boolean;
+  byListing: Map<string, { actualUnits: number; julyRemainingUnits: number; augustReserveUnits: number; marginRate: number | null; marginKnown: boolean }>;
+};
 
 async function ensureAdTables(db: D1Database | undefined) {
   if (!db) return;
@@ -44,6 +51,71 @@ async function loadInventoryEvidence(db: D1Database | undefined) {
     }
   } catch { /* Inventory remains an explicit gate until the first real snapshot exists. */ }
   return result;
+}
+
+function eventPhaseForDate(value: string) {
+  for (const phase of BFIJ_PLAN.phases) {
+    const [start, end] = phase.range.split("–").map((item) => `2026-${item.replace("/", "-")}`);
+    if (value >= start && value <= end) return phase.id;
+  }
+  return value < "2026-07-16" ? "before" : "closed";
+}
+
+async function loadGoalEvidence(db: D1Database | undefined, asOf: string): Promise<GoalEvidence> {
+  const base = new Map(JULY_PLAN_LISTINGS.map((july) => {
+    const august = AUGUST_PLAN_LISTINGS.find((item) => item.listing === july.listing);
+    return [july.listing, {
+      actualUnits: 0,
+      julyRemainingUnits: Number(july.julyTargetOrders || 0),
+      augustReserveUnits: Number(august?.augustUnits || 0),
+      marginRate: null,
+      marginKnown: false,
+    }];
+  }));
+  const fallback = { julyPaceGap: 0, eventPhase: eventPhaseForDate(asOf), reliable: false, byListing: base };
+  if (!db || !asOf.startsWith("2026-07")) return fallback;
+  try {
+    const endExclusive = addDays(asOf, 1);
+    const [orders, items] = await Promise.all([
+      db.prepare("SELECT COUNT(*) AS orders FROM orders WHERE datetime(po_date)>=datetime(?) AND datetime(po_date)<datetime(?)")
+        .bind("2026-07-01T00:00:00+08:00", `${endExclusive}T00:00:00+08:00`)
+        .first<{ orders: number }>(),
+      db.prepare(`SELECT i.part_number AS part_number, SUM(i.quantity) AS units,
+        SUM(i.unit_price_cents*i.quantity) AS revenue_cents,
+        SUM(CASE WHEN c.unit_cost_cents IS NOT NULL THEN c.unit_cost_cents*i.quantity ELSE 0 END) AS cost_cents,
+        SUM(CASE WHEN c.unit_cost_cents IS NULL THEN i.unit_price_cents*i.quantity ELSE 0 END) AS uncovered_revenue_cents
+        FROM order_items i JOIN orders o ON o.po_number=i.po_number LEFT JOIN sku_costs c ON c.part_number=i.part_number
+        WHERE datetime(o.po_date)>=datetime(?) AND datetime(o.po_date)<datetime(?) GROUP BY i.part_number`)
+        .bind("2026-07-01T00:00:00+08:00", `${endExclusive}T00:00:00+08:00`)
+        .all<{ part_number: string; units: number; revenue_cents: number; cost_cents: number; uncovered_revenue_cents: number }>(),
+    ]);
+    const byPart = new Map((items.results || []).map((row) => [row.part_number, row]));
+    for (const july of JULY_PLAN_LISTINGS) {
+      const august = AUGUST_PLAN_LISTINGS.find((item) => item.listing === july.listing);
+      const rows = july.parts.map((part) => byPart.get(part)).filter(Boolean) as { units: number; revenue_cents: number; cost_cents: number; uncovered_revenue_cents: number }[];
+      const actualUnits = rows.reduce((sum, row) => sum + Number(row.units || 0), 0);
+      const revenueCents = rows.reduce((sum, row) => sum + Number(row.revenue_cents || 0), 0);
+      const costCents = rows.reduce((sum, row) => sum + Number(row.cost_cents || 0), 0);
+      const uncovered = rows.reduce((sum, row) => sum + Number(row.uncovered_revenue_cents || 0), 0);
+      base.set(july.listing, {
+        actualUnits,
+        julyRemainingUnits: Math.max(0, Number(july.julyTargetOrders || 0) - actualUnits),
+        augustReserveUnits: Number(august?.augustUnits || 0),
+        marginRate: revenueCents > 0 && uncovered === 0 ? Number(((revenueCents - costCents) / revenueCents).toFixed(4)) : null,
+        marginKnown: revenueCents > 0 && uncovered === 0,
+      });
+    }
+    const elapsedDays = Number(asOf.slice(8, 10));
+    const expectedOrders = JULY_PLAN.orderTarget * elapsedDays / 31;
+    return {
+      julyPaceGap: Number((Number(orders?.orders || 0) - expectedOrders).toFixed(1)),
+      eventPhase: eventPhaseForDate(asOf),
+      reliable: true,
+      byListing: base,
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 function addDays(value: string, days: number) {
@@ -216,7 +288,7 @@ function total(rows: CsvRow[], start: string, end: string) {
   return finalize(metric);
 }
 
-function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: string, end: string, decisionStart: string, decisionEnd: string, inventory: Map<string,InventoryEvidence>) {
+function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: string, end: string, decisionStart: string, decisionEnd: string, inventory: Map<string,InventoryEvidence>, goals: GoalEvidence) {
   const span = daysBetween(start, end);
   const previousEnd = addDays(start, -1);
   const previousStart = addDays(previousEnd, -(span - 1));
@@ -235,43 +307,56 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     const rolling28d = rollingByListing.get(listing);
     const rolling56d = rolling56ByListing.get(listing);
     const plan = planForListing(listing, JULY_PLAN.month);
-    const marginRate = plan?.marginRate || DEFAULT_MARGIN;
+    const nextPlan = planForListing(listing, AUGUST_PLAN.month);
+    const goal = goals.byListing.get(listing) || { actualUnits: 0, julyRemainingUnits: Number(plan?.julyTargetOrders || 0), augustReserveUnits: Number(nextPlan?.augustUnits || 0), marginRate: null, marginKnown: false };
+    const marginRate = goal.marginRate || plan?.marginRate || DEFAULT_MARGIN;
     const breakEvenRoas = Number((1 / marginRate).toFixed(2));
     const ratingPass = plan?.rating !== undefined && plan.rating >= 4;
     const qualityKnown = plan?.rating !== undefined;
     const partInventory = String(current.latest.first_10_part_numbers || "").split(",").map((item)=>item.trim()).filter(Boolean).map((part)=>inventory.get(part)).filter(Boolean) as InventoryEvidence[];
     const inventoryKnown = partInventory.length > 0;
     const inventoryCoverDays = inventoryKnown ? Math.min(...partInventory.map((item)=>item.coverDays)) : null;
-    let label = "保持当前参数";
-    let actionType = "HOLD";
-    let proposed: Record<string, unknown> = {};
     const currentBid = number(current.latest, "product_default_bid");
-    const lowerBid = currentBid >= .05 ? Math.max(.05, Math.floor(currentBid * .9 * 100) / 100) : currentBid;
-    const lowerBidLabel = `Listing Bid 从 $${currentBid.toFixed(2)} 下调至 $${lowerBid.toFixed(2)}`;
-    if (plan?.adRole === "exclude" && current.spend > 0) { label = "暂停计划外 Listing"; actionType = "SET_LISTING_ACTIVE"; proposed = { active: false }; }
-    else if (current.clicks >= 20 && current.orders === 0 && lowerBid < currentBid) { label = `${lowerBidLabel}并创建链接整改`; actionType = "SET_LISTING_BID"; proposed = { bid: lowerBid }; }
-    else if (current.spend >= 20 && current.wscRoas < breakEvenRoas && (rolling28d?.wscRoas||0) < breakEvenRoas && lowerBid < currentBid) { label = lowerBidLabel; actionType = "SET_LISTING_BID"; proposed = { bid: lowerBid }; }
-    else if (plan?.adRole === "reduce" && current.spend > 0 && lowerBid < currentBid) { label = `按月计划执行：${lowerBidLabel}`; actionType = "SET_LISTING_BID"; proposed = { bid: lowerBid }; }
-    else if (plan?.eligible && ["scale", "protect"].includes(plan.adRole) && plan.budget > 0 && ratingPass && current.orders >= 2 && current.cvr >= .02 && current.wscRoas >= Math.max(breakEvenRoas, 4) && (rolling28d?.orders||0)>=3 && (rolling28d?.wscRoas||0)>=breakEvenRoas) { label = "Campaign Cap 增加 20%"; actionType = "INCREASE_DAILY_CAP"; proposed = { change: "+20%", manual: true }; }
-    const isScale = actionType === "INCREASE_DAILY_CAP";
+    const strategy = recommendCpcAction({
+      listing,
+      currentBid,
+      current,
+      rolling28d: rolling28d || emptyMetric(),
+      breakEvenRoas,
+      adRole: plan?.adRole || "observe",
+      eventPhase: goals.eventPhase,
+      julyPaceGap: goals.julyPaceGap,
+      qualityPass: qualityKnown && ratingPass,
+      marginKnown: goal.marginKnown || Boolean(plan?.marginRate),
+      inventoryKnown,
+      inventoryCoverDays: inventoryCoverDays || 0,
+      inventoryQuantity: partInventory.reduce((sum,item)=>sum+item.quantityOnHand,0),
+      julyRemainingUnits: goal.julyRemainingUnits,
+      augustReserveUnits: goal.augustReserveUnits,
+    });
+    const actionType = strategy.actionType;
     const blockers = [
-      !plan ? "未进入7月推广计划" : plan.adRole === "exclude" && actionType !== "SET_LISTING_ACTIVE" ? plan.gate : "",
-      isScale && !qualityKnown ? "缺评分/评论快照" : isScale && !ratingPass ? `评分${plan?.rating}未过放量线` : "",
-      isScale && !inventoryKnown ? "缺库存覆盖天数" : "",
-      isScale && inventoryCoverDays !== null && inventoryCoverDays < 14 ? `库存覆盖${inventoryCoverDays}天，低于14天放量线` : "",
-      isScale && !plan?.marginRate ? "缺SKU精确毛利" : "",
+      ...strategy.blockers,
+      !plan ? "未进入7月推广计划" : "",
+      !goals.reliable && actionType === "INCREASE_DAILY_CAP" ? "缺7月目标进度证据" : "",
     ].filter(Boolean);
-    const warnings = [!plan?.marginRate ? `保本线按店铺毛利${(DEFAULT_MARGIN * 100).toFixed(2)}%估算` : "", !inventoryKnown ? "库存尚未进入建议证据" : ""].filter(Boolean);
+    const warnings = [
+      ...strategy.warnings,
+      !goal.marginKnown && !plan?.marginRate ? `保本线按店铺毛利${(DEFAULT_MARGIN * 100).toFixed(2)}%估算` : "",
+      !inventoryKnown ? "库存尚未进入建议证据" : "",
+    ].filter(Boolean);
     const reasons = [
+      ...strategy.reasons,
       `成熟周花费$${current.spend.toFixed(0)}、${current.clicks}点击、${current.orders}单`,
       `WSC ROAS ${current.wscRoas.toFixed(2)}× / 保本 ${breakEvenRoas.toFixed(2)}×`,
       `成熟28天 ${rolling28d?.orders||0}单、ROAS ${(rolling28d?.wscRoas||0).toFixed(2)}×`,
       `成熟8周 ${rolling56d?.orders||0}单、ROAS ${(rolling56d?.wscRoas||0).toFixed(2)}×`,
-      plan ? `7月角色：${plan.role}；预算$${plan.budget}` : "7月计划未建档",
+      plan ? `7月角色：${plan.role}；剩余责任约${goal.julyRemainingUnits}件` : "7月计划未建档",
+      nextPlan ? `8月角色：${nextPlan.role}；预留${goal.augustReserveUnits}件` : "8月计划未建档",
     ];
     const recommendation = actionType === "HOLD" ? "NO_CHANGE" : "READY";
     const execution = actionType === "HOLD" ? "NO_CHANGE" : blockers.length ? "NEEDS_INPUT" : "READY_FOR_PLAN";
-    const confidence = plan && plan.marginRate && qualityKnown ? "HIGH" : plan ? "MEDIUM" : "LOW";
+    const confidence = plan && (goal.marginKnown || plan.marginRate) && qualityKnown && strategy.benchmark.cpc !== null ? "HIGH" : plan ? "MEDIUM" : "LOW";
     return {
       listing, campaignId: current.latest.campaign_id, campaignName: current.latest.campaign_name, site: current.latest.store_url,
       parts: String(current.latest.first_10_part_numbers || "").split(",").map((item) => item.trim()).filter(Boolean),
@@ -279,12 +364,14 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       current: { ...current, latest: undefined }, previous: previous ? { ...previous, latest: undefined } : emptyMetric(),
       rolling28d: rolling28d ? { ...rolling28d, latest: undefined } : emptyMetric(),
       rolling56d: rolling56d ? { ...rolling56d, latest: undefined } : emptyMetric(),
-      plan: plan || null, economics: { marginRate, marginMode: plan?.marginRate ? "PLAN_SKU" : "STORE_ESTIMATE", breakEvenRoas },
+      plan: plan || null, nextPlan: nextPlan || null, economics: { marginRate, marginMode: goal.marginKnown ? "ORDER_ACTUAL" : plan?.marginRate ? "PLAN_SKU" : "STORE_ESTIMATE", breakEvenRoas },
       linkQuality: { rating: plan?.rating ?? null, reviews: plan?.reviews ?? null, pass: qualityKnown && ratingPass, source: plan ? "7月真实基线计划快照" : "未建档" },
       inventory: { known: inventoryKnown, coverDays: inventoryCoverDays, quantityOnHand: partInventory.reduce((sum,item)=>sum+item.quantityOnHand,0), snapshotAt: partInventory[0]?.snapshotAt||null },
+      cpcBaseline: { ...strategy.benchmark, actualCpc: strategy.actualCpc, source: `${MAKEACE_CPC_PLAN.sourceFile} · P${MAKEACE_CPC_PLAN.sourcePage}`, appliesTo: MAKEACE_CPC_PLAN.appliesTo },
+      goalGuardrail: { julyPaceGap: goals.julyPaceGap, eventPhase: goals.eventPhase, julyRemainingUnits: goal.julyRemainingUnits, augustReserveUnits: goal.augustReserveUnits },
       action: {
-        type: actionType, label, recommendation, execution, confidence, reasons, blockers, warnings,
-        before: { bid: number(current.latest, "product_default_bid"), active: !/inactive|false/i.test(current.latest.product_status || "") }, proposed,
+        type: actionType, label: strategy.label, recommendation, execution, confidence, reasons, blockers, warnings,
+        before: { bid: currentBid, active: !/inactive|false/i.test(current.latest.product_status || "") }, proposed: strategy.proposed,
       },
     };
   }).sort((a, b) => (a.action.recommendation === "READY" ? 0 : 1) - (b.action.recommendation === "READY" ? 0 : 1) || b.current.spend - a.current.spend);
@@ -299,7 +386,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     range: { start, end, previousStart, previousEnd, asOf, matureThrough, mature: end <= matureThrough },
     decisionRange: { start: decisionStart, end: decisionEnd, previousStart: decisionPreviousStart, previousEnd: decisionPreviousEnd, cadence: "WEEKLY", rule: "每周使用截至T-14的最近完整7天成熟数据生成动作；最近7/14天只用于观察。" },
     current: total(campaignRows, start, end), previous: total(campaignRows, previousStart, previousEnd), history, campaigns, listings,
-    plan: { month: JULY_PLAN.month, plannedListings: JULY_PLAN_LISTINGS.filter((item) => item.eligible).length, plannedBudget: JULY_PLAN.adBudget },
+    plan: { month: JULY_PLAN.month, plannedListings: JULY_PLAN_LISTINGS.filter((item) => item.eligible).length, plannedBudget: JULY_PLAN.adBudget, cpcAnchor: MAKEACE_CPC_PLAN, goalGuardrail: { julyPaceGap: goals.julyPaceGap, eventPhase: goals.eventPhase, reliable: goals.reliable } },
     safety: { liveWritesEnabled: false, approvalEnabled: true, reason: "AI建议自动生成并可加入周执行单；生产写入保留人工确认与回滚。" },
   };
 }
@@ -318,7 +405,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const today = todayShanghai();
   const fetchEnd = [end, decisionEnd, today].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v6:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v7:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
     const cached = await env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>();
     if (cached && Date.now() - Date.parse(cached.updated_at) < ANALYSIS_CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, layer: "D1_ANALYSIS", updatedAt: cached.updated_at } };
@@ -329,9 +416,9 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
     getReportRows(env.DB, "CAMPAIGN_REPORT", fetchStart, fetchEnd, token, force),
     getReportRows(env.DB, "LISTING_REPORT", fetchStart, fetchEnd, token, force),
   ]);
-  const inventory = await loadInventoryEvidence(env.DB);
+  const [inventory, goals] = await Promise.all([loadInventoryEvidence(env.DB), loadGoalEvidence(env.DB, today)]);
   const analysis = {
-    ...buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory),
+    ...buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals),
     reports: { campaign: campaign.reportId, listing: listing.reportId },
     cache: { hit: campaign.source === "D1_DATABASE" && listing.source === "D1_DATABASE", layer: campaign.source === "D1_DATABASE" && listing.source === "D1_DATABASE" ? "D1_REPORT_ROWS" : "ADVERTISING_API" },
   };
