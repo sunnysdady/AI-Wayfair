@@ -45,20 +45,19 @@ export async function PATCH(request: Request) {
     if (!sameOrigin(request)) return Response.json({ error: "请求来源无效" }, { status: 403 });
     const env = await bindings();
     await ensureActionQueue(env.DB);
-    const body = await request.json() as { id?: string; status?: string; override?: boolean; note?: string };
+    const body = await request.json() as { id?: string; status?: string };
     if (!body.id || body.status !== "APPROVED") return Response.json({ error: "只能将待确认或执行失败的动作审批为 APPROVED" }, { status: 400 });
     const existing = await env.DB.prepare("SELECT * FROM ad_action_queue WHERE id=?").bind(body.id).first<{id:string;campaign_id:string;listing:string;action_type:string;before_payload:string;proposed_payload:string;status:string}>();
     if (!existing) return Response.json({ error: "执行项不存在" }, { status: 404 });
     if (!["PLANNED", "FAILED"].includes(existing.status)) return Response.json({ error: `当前状态 ${existing.status} 不能重新确认` }, { status: 409 });
     if (!API_ACTIONS.has(existing.action_type)) return Response.json({ error: "该动作不在 Advertising API 写入范围，需在 Partner Home 人工处理" }, { status: 409 });
-    if (body.override && !String(body.note || "").trim()) return Response.json({ error: "覆盖自动 Gate 时必须保留运营确认原因" }, { status: 400 });
     try { buildCampaignUpdates([{ ...existing, status: "APPROVED" }]); }
     catch (error) { return Response.json({ error: error instanceof Error ? error.message : "执行载荷无效" }, { status: 400 }); }
     const now = new Date().toISOString();
     const retrying = existing.status === "FAILED";
     await env.DB.batch([
       env.DB.prepare("UPDATE ad_action_queue SET status='APPROVED',updated_at=? WHERE id=?").bind(now, body.id),
-      env.DB.prepare("INSERT INTO ad_action_events(id,action_id,event_type,payload,created_at) VALUES(?,?,?,?,?)").bind(crypto.randomUUID(), body.id, retrying ? "RETRY_APPROVED" : "APPROVED", JSON.stringify({ previousStatus: existing.status, gateOverride: Boolean(body.override), note: String(body.note || "") }), now),
+      env.DB.prepare("INSERT INTO ad_action_events(id,action_id,event_type,payload,created_at) VALUES(?,?,?,?,?)").bind(crypto.randomUUID(), body.id, retrying ? "RETRY_APPROVED" : "APPROVED", JSON.stringify({ previousStatus: existing.status }), now),
     ]);
     return Response.json({ id: body.id, status: "APPROVED", message: retrying ? "失败项已恢复，请重新执行 API Dry-run 预检。" : "已确认进入 API 预检。" });
   } catch (error) {
