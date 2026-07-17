@@ -186,7 +186,7 @@ test("limits a revenue-producing bid correction to ten percent to protect sales"
   assert.match(result.reasons.join("；"), /单次最多下调10%/);
 });
 
-test("never proposes pausing a listing; exclusions remain visible as a hold decision", () => {
+test("keeps plan exclusion advisory and still evaluates the listing on performance", () => {
   const result = recommendCpcAction({
     listing: "DRCI1007", currentBid: 0.20,
     current: { spend: 0, clicks: 0, orders: 0, cvr: 0, wscRoas: 0 },
@@ -197,4 +197,5 @@ test("never proposes pausing a listing; exclusions remain visible as a hold deci
   });
   assert.equal(result.actionType, "HOLD");
   assert.doesNotMatch(result.label, /暂停/);
+  assert.doesNotMatch(result.label, /计划外|不生成/);
 });
