@@ -1,5 +1,5 @@
 import { AUGUST_PLAN, AUGUST_PLAN_LISTINGS, BFIJ_PLAN, JULY_PLAN, JULY_PLAN_LISTINGS, planForListing } from "./operating-plan";
-import { MAKEACE_CPC_PLAN, recommendCpcAction } from "./makeace-cpc-plan.mjs";
+import { executionGateForAction, MAKEACE_CPC_PLAN, recommendCpcAction } from "./makeace-cpc-plan.mjs";
 import { evaluateAdjustment } from "./ad-weekly-memory.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
@@ -342,11 +342,12 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       priorReview: weeklyMemory.get(listing) || null,
     });
     const actionType = strategy.actionType;
-    const blockers = [
-      ...strategy.blockers,
-      !plan ? "未进入7月推广计划" : "",
-      !goals.reliable && actionType === "INCREASE_DAILY_CAP" ? "缺7月目标进度证据" : "",
-    ].filter(Boolean);
+    const blockers = executionGateForAction({
+      actionType,
+      strategyBlockers: strategy.blockers,
+      hasMonthlyPlan: Boolean(plan),
+      goalEvidenceReliable: goals.reliable,
+    });
     const warnings = [
       ...strategy.warnings,
       !goal.marginKnown && !plan?.marginRate ? `保本线按店铺毛利${(DEFAULT_MARGIN * 100).toFixed(2)}%估算` : "",
@@ -472,7 +473,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const today = todayShanghai();
   const fetchEnd = [end, decisionEnd, today].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v8:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v9:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
     const cached = await env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>();
     if (cached && Date.now() - Date.parse(cached.updated_at) < ANALYSIS_CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, layer: "D1_ANALYSIS", updatedAt: cached.updated_at } };
