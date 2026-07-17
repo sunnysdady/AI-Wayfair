@@ -26,7 +26,7 @@ export async function GET() {
       actions: actionRows.filter((row: Record<string, unknown>) => row.run_key === run.run_key),
       reviews: reviewRows.filter((row: Record<string, unknown>) => row.source_run_key === run.run_key),
     }));
-    return Response.json({ weeks });
+    return Response.json({ weeks }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "周度调整历史读取失败" }, { status: 500 });
   }
