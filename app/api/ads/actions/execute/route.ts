@@ -54,7 +54,7 @@ async function updateCampaign(accessToken: string, campaignId: string, listings:
     if ((response.status === 429 || response.status >= 500) && attempt < 2) { await wait(500 * (2 ** attempt)); continue; }
     const details = body.details?.length ? `：${body.details.join("；")}` : "";
     if (response.status === 401) {
-      throw new Error(`Wayfair 拒绝了广告写入凭证（HTTP 401）${details}。请求已使用生产 OAuth audience；请核对 Sites 的广告 Client ID 与 Client Secret 是否同时属于已开启 Modify Bids 的 advertising ops 应用`);
+      throw new Error(`Wayfair Advertising API 暂未接受新签发的生产 token（HTTP 401）${details}。可能是权限同步或鉴权缓存尚未生效，请稍后重新预检；若持续失败，请在 Developer Portal 的 API Health 中验证同一应用的 Modify Bids`);
     }
     throw new Error(`${body.message || "Wayfair Advertising API 执行失败"}${details}（HTTP ${response.status}）`);
   }

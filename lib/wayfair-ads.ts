@@ -336,6 +336,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     const currentBid = number(current.latest, "product_default_bid");
     const strategy = recommendCpcAction({
       listing,
+      campaignStatus: current.latest.campaign_status,
       currentBid,
       current,
       rolling28d: rolling28d || emptyMetric(),
