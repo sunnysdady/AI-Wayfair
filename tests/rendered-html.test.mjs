@@ -258,7 +258,7 @@ test("splits manual work from one unified AI API execution workbench", async () 
 
 test("keeps Listing performance focused on search, filters, sorting and decision metrics", async () => {
   const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
-  assert.match(page, /tab!=='listings'&&<section className="period-bar ad-period">/);
+  assert.match(page, /\(tab==='manager'\|\|tab==='manual'\)&&<section className="period-bar ad-period">/);
   assert.match(page, /tab==='manager'&&<>\s*<section className="stat-grid six ad-manager-kpis">/);
   assert.match(page, /tab==='listings'&&<section className="card ad-manager-card listing-performance-card"><div className="manager-filters">/);
   assert.match(page, /api-table listing-manager-table listing-performance-table/);
