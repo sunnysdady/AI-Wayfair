@@ -279,3 +279,21 @@ test("gives advertising recommendations a readable action and evidence hierarchy
   assert.match(styles, /\.recommendation-evidence>div\{/);
   assert.doesNotMatch(styles, /action-list\.rich article>div:nth-child\(4\)/);
 });
+
+test("shows AI campaign learning diagnostics and the operator escalation checklist", async () => {
+  const [page, styles, ads] = await Promise.all([
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(ads, /aiCampaignDiagnostics/);
+  assert.match(ads, /diagnoseAiCampaign/);
+  assert.match(page, /AI Campaign 学习诊断/);
+  assert.match(page, /14天归因订单/);
+  assert.match(page, /联系 Account Manager/);
+  assert.match(page, /学习期内禁止修改 tROAS、Daily Cap 与 Listing/);
+  assert.match(page, /ai-learning-escalation/);
+  assert.match(styles, /\.ai-campaign-diagnostics\{/);
+  assert.match(styles, /\.ai-diagnosis-card\{/);
+});
