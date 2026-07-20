@@ -3,6 +3,7 @@ import { executionGateForAction, MAKEACE_CPC_PLAN, recommendCpcAction } from "./
 import { evaluateAdjustment } from "./ad-weekly-memory.mjs";
 import { diagnoseAiCampaign } from "./ai-campaign-diagnosis.mjs";
 import { platformObservationForCampaign } from "./ai-campaign-observations.mjs";
+import { evaluateAiAdCandidate } from "./ai-ad-eligibility.mjs";
 import { detectZombieCampaigns, ZOMBIE_MATURE_DAYS } from "./zombie-campaign-rules.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
@@ -445,6 +446,16 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     const rank = { P0: 0, P1: 1, P2: 2 } as Record<string, number>;
     return (rank[String(a?.priority)] ?? 3) - (rank[String(b?.priority)] ?? 3);
   });
+  const learningByListing = aggregate(listingRows, "listing", learningStart, asOf);
+  const aiCampaignIds = new Set([...latestCampaigns].filter(([, metric]) => /AI Bidding|TROAS/i.test(String(metric.latest.bidding_strategy || ""))).map(([campaignId]) => campaignId));
+  const aiAdEligibility = listings.map((listing) => {
+    const metric = learningByListing.get(listing.listing);
+    if (!metric || aiCampaignIds.has(String(listing.campaignId))) return null;
+    return {
+      campaignId: listing.campaignId, parts: listing.parts, inventory: listing.inventory, linkQuality: listing.linkQuality,
+      ...evaluateAiAdCandidate({ listing: listing.listing, orders14d: metric.orders, spend14d: metric.spend, wsc14d: metric.wsc, inventoryKnown: listing.inventory.known, coverDays: listing.inventory.coverDays, linkPass: listing.linkQuality.pass, marginRate: listing.economics.marginRate, breakEvenRoas: listing.economics.breakEvenRoas }),
+    };
+  }).filter(Boolean).sort((a, b) => Number(Boolean(b?.canLaunch)) - Number(Boolean(a?.canLaunch)) || Number(a?.orderGap || 0) - Number(b?.orderGap || 0));
   const zombieFindings = detectZombieCampaigns({ campaignRows, listingRows, decisionEnd });
   const zombieAudit = {
     matureDays: ZOMBIE_MATURE_DAYS,
@@ -457,7 +468,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     source: "Wayfair Advertising API + D1", generatedAt: new Date().toISOString(), attributionWindowDays: ATTRIBUTION_DAYS, runKey,
     range: { start, end, previousStart, previousEnd, asOf, matureThrough, mature: end <= matureThrough },
     decisionRange: { start: decisionStart, end: decisionEnd, previousStart: decisionPreviousStart, previousEnd: decisionPreviousEnd, cadence: "WEEKLY", rule: "每周使用截至T-14的最近完整7天成熟数据生成动作；最近7/14天只用于观察。" },
-    current: total(campaignRows, start, end), previous: total(campaignRows, previousStart, previousEnd), history, campaigns, listings, aiCampaignDiagnostics, zombieFindings, zombieAudit,
+    current: total(campaignRows, start, end), previous: total(campaignRows, previousStart, previousEnd), history, campaigns, listings, aiCampaignDiagnostics, aiAdEligibility, zombieFindings, zombieAudit,
     plan: { month: JULY_PLAN.month, plannedListings: JULY_PLAN_LISTINGS.filter((item) => item.eligible).length, plannedBudget: JULY_PLAN.adBudget, cpcAnchor: MAKEACE_CPC_PLAN, goalGuardrail: { julyPaceGap: goals.julyPaceGap, eventPhase: goals.eventPhase, reliable: goals.reliable } },
     safety: { liveWritesEnabled: false, approvalEnabled: true, reason: "AI建议自动生成并可加入周执行单；生产写入保留人工确认与回滚。" },
   };
@@ -520,7 +531,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const listingFetchEnd = [end, decisionEnd].sort().at(-1) as string;
   const fetchEnd = [campaignFetchEnd, listingFetchEnd].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v13:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v14:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
     const cached = await env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>();
     if (cached && Date.now() - Date.parse(cached.updated_at) < ANALYSIS_CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, layer: "D1_ANALYSIS", updatedAt: cached.updated_at } };

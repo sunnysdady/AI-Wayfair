@@ -290,6 +290,9 @@ test("shows AI campaign learning diagnostics and the operator escalation checkli
   assert.match(ads, /aiCampaignDiagnostics/);
   assert.match(ads, /diagnoseAiCampaign/);
   assert.match(page, /AI Campaign 学习诊断/);
+  assert.match(page, /AI 广告新开评估/);
+  assert.match(page, /本期不建议新开/);
+  assert.match(page, /aiAdEligibility/);
   assert.match(page, /14天归因订单/);
   assert.match(page, /联系 Account Manager/);
   assert.match(page, /状态冲突/);
