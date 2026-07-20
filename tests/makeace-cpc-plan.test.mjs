@@ -186,16 +186,17 @@ test("limits a revenue-producing bid correction to ten percent to protect sales"
   assert.match(result.reasons.join("；"), /单次最多下调10%/);
 });
 
-test("keeps plan exclusion advisory and still evaluates the listing on performance", () => {
+test("pauses every DRCI1007 placement even when historical performance looks profitable", () => {
   const result = recommendCpcAction({
-    listing: "DRCI1007", currentBid: 0.20,
-    current: { spend: 0, clicks: 0, orders: 0, cvr: 0, wscRoas: 0 },
-    rolling28d: { orders: 0, wscRoas: 0 }, breakEvenRoas: 3.54,
+    listing: "DRCI1007", currentBid: 0.30,
+    current: { spend: 3, clicks: 10, orders: 2, cvr: 0.2, wscRoas: 100.6 },
+    rolling28d: { orders: 4, wscRoas: 25.06 }, breakEvenRoas: 3.54,
     adRole: "exclude", eventPhase: "event", julyPaceGap: -10,
     qualityPass: false, marginKnown: false, inventoryKnown: true,
     inventoryCoverDays: 999, inventoryQuantity: 100, julyRemainingUnits: 0, augustReserveUnits: 0,
   });
-  assert.equal(result.actionType, "HOLD");
-  assert.doesNotMatch(result.label, /暂停/);
-  assert.doesNotMatch(result.label, /计划外|不生成/);
+  assert.equal(result.actionType, "SET_LISTING_ACTIVE");
+  assert.deepEqual(result.proposed, { active: false });
+  assert.match(result.label, /暂停全部投放/);
+  assert.match(result.reasons.join("；"), /Wayfair.*合并|合并.*Wayfair/);
 });
