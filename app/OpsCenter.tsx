@@ -254,7 +254,7 @@ function useEmailDailyBrief(date: string) {
       queueMicrotask(() => { if (!controller.signal.aborted) { setBrief(cached); setLoading(false); setError(""); } });
       return () => controller.abort();
     }
-    setLoading(true); setError("");
+    queueMicrotask(() => { if (!controller.signal.aborted) { setLoading(true); setError(""); } });
     fetch(`/api/email/daily?date=${encodeURIComponent(date)}`, { signal: controller.signal })
       .then(async response => { const body = await response.json() as EmailBrief; if (!response.ok) throw new Error(body.error || "Outlook 日报读取失败"); return body; })
       .then(body => { writeClientCache(cacheKey, body); setBrief(body); })
