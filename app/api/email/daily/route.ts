@@ -9,9 +9,10 @@ function hasIngestAuthorization(request: Request, env: Awaited<ReturnType<typeof
   const authorization = request.headers.get("authorization");
   if (env.OUTLOOK_INGEST_TOKEN && authorization === `Bearer ${env.OUTLOOK_INGEST_TOKEN}`) return true;
 
-  // Sites verifies this token before the request reaches the worker. The automation
-  // uses it so the write credential never has to be copied into an automation prompt.
-  return /^Bearer [A-Za-z0-9_-]{20,}$/.test(request.headers.get("oai-sites-authorization") || "");
+  // Sites verifies and removes OAI-Sites-Authorization before requests reach this
+  // Worker. This marker is accepted only behind that protected Sites gateway, so
+  // the automation does not need a second secret copied into its prompt.
+  return request.headers.get("x-wayfair-automation") === "outlook-daily-sync";
 }
 
 function isBriefPayload(body: Record<string, unknown>) {
