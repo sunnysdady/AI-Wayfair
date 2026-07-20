@@ -233,6 +233,27 @@ test("keeps an API-backed advertising manager ahead of AI recommendations", asyn
   assert.match(ads, /class_name/);
 });
 
+test("splits advertising optimization into a manual to-do list and AI one-click execution", async () => {
+  const [page, styles] = await Promise.all([
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /手动优化 To-Do List/);
+  assert.match(page, /AI 优化 · 一键执行/);
+  assert.match(page, /Keyword Targeting/);
+  assert.match(page, /\$750/);
+  assert.match(page, /Product Targeting/);
+  assert.match(page, /\$650/);
+  assert.match(page, /DMOM1021/);
+  assert.match(page, /filing cabinets/);
+  assert.match(page, /关键词、否词、Campaign Cap 和 tROAS 保留人工执行/);
+  assert.match(page, /仅对已通过 Gate 的 Listing Bid 与启停动作执行/);
+  assert.match(styles, /\.optimization-mode-switch/);
+  assert.match(styles, /\.keyword-allocation-grid/);
+  assert.match(styles, /\.manual-todo-list/);
+});
+
 test("keeps Listing performance focused on search, filters, sorting and decision metrics", async () => {
   const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
   assert.match(page, /tab!=='listings'&&<section className="period-bar ad-period">/);
