@@ -2,6 +2,7 @@ import { AUGUST_PLAN, AUGUST_PLAN_LISTINGS, BFIJ_PLAN, JULY_PLAN, JULY_PLAN_LIST
 import { executionGateForAction, MAKEACE_CPC_PLAN, recommendCpcAction } from "./makeace-cpc-plan.mjs";
 import { evaluateAdjustment } from "./ad-weekly-memory.mjs";
 import { diagnoseAiCampaign } from "./ai-campaign-diagnosis.mjs";
+import { platformObservationForCampaign } from "./ai-campaign-observations.mjs";
 import { detectZombieCampaigns, ZOMBIE_MATURE_DAYS } from "./zombie-campaign-rules.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
@@ -426,6 +427,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       clicks14d: metric.clicks,
       dailyCap: metric.latest.campaign_daily_cap_USD,
       targetRoas: metric.latest.target_roas_percentage,
+      ...platformObservationForCampaign(campaignId),
     });
     if (!diagnosis) return null;
     return {
@@ -518,7 +520,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const listingFetchEnd = [end, decisionEnd].sort().at(-1) as string;
   const fetchEnd = [campaignFetchEnd, listingFetchEnd].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v12:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v13:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
     const cached = await env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>();
     if (cached && Date.now() - Date.parse(cached.updated_at) < ANALYSIS_CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, layer: "D1_ANALYSIS", updatedAt: cached.updated_at } };

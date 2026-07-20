@@ -292,6 +292,8 @@ test("shows AI campaign learning diagnostics and the operator escalation checkli
   assert.match(page, /AI Campaign 学习诊断/);
   assert.match(page, /14天归因订单/);
   assert.match(page, /联系 Account Manager/);
+  assert.match(page, /状态冲突/);
+  assert.match(page, /platformObservedAt/);
   assert.match(page, /学习期内禁止修改 tROAS、Daily Cap 与 Listing/);
   assert.match(page, /ai-learning-escalation/);
   assert.match(styles, /\.ai-campaign-diagnostics\{/);

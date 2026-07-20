@@ -36,6 +36,32 @@ test("flags campaign 660198 as overdue learning and escalates without changing c
   assert.match(diagnosis.guardrail, /不要修改 tROAS、Daily Cap 或 Listing/);
 });
 
+test("does not let an archived campaign report hide Partner Home active learning", () => {
+  const diagnosis = diagnoseAiCampaign({
+    campaignId: "660198",
+    campaignName: "8T-kayak",
+    strategy: "AI Bidding - TROAS",
+    status: "archived",
+    isActive: "FALSE",
+    platformStage: "ACTIVE_LEARNING",
+    platformObservedAt: "2026-07-20",
+    platformSource: "Partner Home",
+    startDate: "2026-06-23",
+    asOf: "2026-07-20",
+    orders14d: 0,
+    dailyCap: "NO DAILY CAP",
+    targetRoas: "300",
+  });
+
+  assert.equal(diagnosis.stage, "LEARNING_OVERDUE");
+  assert.equal(diagnosis.priority, "P0");
+  assert.equal(diagnosis.action, "CONTACT_ACCOUNT_MANAGER");
+  assert.equal(diagnosis.statusConflict, true);
+  assert.equal(diagnosis.reportedStatus, "archived / FALSE");
+  assert.match(diagnosis.summary, /状态冲突/);
+  assert.match(diagnosis.guardrail, /不要恢复 Campaign/);
+});
+
 test("keeps a new AI campaign in protected learning until it reaches 50 attributed orders", () => {
   const diagnosis = diagnoseAiCampaign({
     campaignId: "700001",
