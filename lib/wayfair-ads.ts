@@ -1,6 +1,7 @@
 import { AUGUST_PLAN, AUGUST_PLAN_LISTINGS, BFIJ_PLAN, JULY_PLAN, JULY_PLAN_LISTINGS, planForListing } from "./operating-plan";
 import { executionGateForAction, MAKEACE_CPC_PLAN, recommendCpcAction } from "./makeace-cpc-plan.mjs";
 import { evaluateAdjustment } from "./ad-weekly-memory.mjs";
+import { diagnoseAiCampaign } from "./ai-campaign-diagnosis.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -308,6 +309,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
   const decisionPreviousStart = addDays(decisionPreviousEnd, -6);
   const asOf = todayShanghai();
   const matureThrough = addDays(asOf, -ATTRIBUTION_DAYS);
+  const learningStart = addDays(asOf, -(ATTRIBUTION_DAYS - 1));
   const currentByListing = aggregate(listingRows, "listing", decisionStart, decisionEnd);
   const previousByListing = aggregate(listingRows, "listing", decisionPreviousStart, decisionPreviousEnd);
   const rolling28Start = addDays(decisionEnd, -27);
@@ -408,12 +410,44 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     ...metric,
     latest: undefined,
   })).sort((a, b) => b.spend - a.spend);
+  const latestCampaigns = aggregate(campaignRows, "campaign_id", learningStart, asOf);
+  const aiCampaignDiagnostics = [...latestCampaigns].map(([campaignId, metric]) => {
+    const diagnosis = diagnoseAiCampaign({
+      campaignId,
+      campaignName: metric.latest.campaign_name,
+      strategy: metric.latest.bidding_strategy,
+      status: metric.latest.campaign_status,
+      isActive: metric.latest.campaign_is_active,
+      startDate: metric.latest.campaign_start_date,
+      asOf,
+      orders14d: metric.orders,
+      spend14d: metric.spend,
+      clicks14d: metric.clicks,
+      dailyCap: metric.latest.campaign_daily_cap_USD,
+      targetRoas: metric.latest.target_roas_percentage,
+    });
+    if (!diagnosis) return null;
+    return {
+      campaignId,
+      name: metric.latest.campaign_name,
+      strategy: metric.latest.bidding_strategy,
+      status: metric.latest.campaign_status,
+      startDate: metric.latest.campaign_start_date,
+      dailyCap: metric.latest.campaign_daily_cap_USD,
+      targetRoas: metric.latest.target_roas_percentage,
+      current14d: { ...metric, latest: undefined },
+      ...diagnosis,
+    };
+  }).filter(Boolean).sort((a, b) => {
+    const rank = { P0: 0, P1: 1, P2: 2 } as Record<string, number>;
+    return (rank[String(a?.priority)] ?? 3) - (rank[String(b?.priority)] ?? 3);
+  });
   const runKey = `weekly:${decisionStart}:${decisionEnd}`;
   return {
     source: "Wayfair Advertising API + D1", generatedAt: new Date().toISOString(), attributionWindowDays: ATTRIBUTION_DAYS, runKey,
     range: { start, end, previousStart, previousEnd, asOf, matureThrough, mature: end <= matureThrough },
     decisionRange: { start: decisionStart, end: decisionEnd, previousStart: decisionPreviousStart, previousEnd: decisionPreviousEnd, cadence: "WEEKLY", rule: "每周使用截至T-14的最近完整7天成熟数据生成动作；最近7/14天只用于观察。" },
-    current: total(campaignRows, start, end), previous: total(campaignRows, previousStart, previousEnd), history, campaigns, listings,
+    current: total(campaignRows, start, end), previous: total(campaignRows, previousStart, previousEnd), history, campaigns, listings, aiCampaignDiagnostics,
     plan: { month: JULY_PLAN.month, plannedListings: JULY_PLAN_LISTINGS.filter((item) => item.eligible).length, plannedBudget: JULY_PLAN.adBudget, cpcAnchor: MAKEACE_CPC_PLAN, goalGuardrail: { julyPaceGap: goals.julyPaceGap, eventPhase: goals.eventPhase, reliable: goals.reliable } },
     safety: { liveWritesEnabled: false, approvalEnabled: true, reason: "AI建议自动生成并可加入周执行单；生产写入保留人工确认与回滚。" },
   };
@@ -472,9 +506,11 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const decisionHistoryStart = addDays(decisionEnd, -55);
   const fetchStart = [previousStart, decisionPreviousStart, decisionHistoryStart].sort()[0];
   const today = todayShanghai();
-  const fetchEnd = [end, decisionEnd].sort().at(-1) as string;
+  const campaignFetchEnd = today;
+  const listingFetchEnd = [end, decisionEnd].sort().at(-1) as string;
+  const fetchEnd = [campaignFetchEnd, listingFetchEnd].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v10:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v11:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
     const cached = await env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>();
     if (cached && Date.now() - Date.parse(cached.updated_at) < ANALYSIS_CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, layer: "D1_ANALYSIS", updatedAt: cached.updated_at } };
@@ -482,8 +518,8 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   let tokenPromise: Promise<string> | null = null;
   const token = () => tokenPromise ||= getToken(env);
   const [campaign, listing] = await Promise.all([
-    getReportRows(env.DB, "CAMPAIGN_REPORT", fetchStart, fetchEnd, token, force, start, end),
-    getReportRows(env.DB, "LISTING_REPORT", fetchStart, fetchEnd, token, force, start, end),
+    getReportRows(env.DB, "CAMPAIGN_REPORT", fetchStart, campaignFetchEnd, token, force, start, campaignFetchEnd),
+    getReportRows(env.DB, "LISTING_REPORT", fetchStart, listingFetchEnd, token, force, start, end),
   ]);
   const [inventory, goals] = await Promise.all([loadInventoryEvidence(env.DB), loadGoalEvidence(env.DB, today)]);
   const preliminary = buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals);
