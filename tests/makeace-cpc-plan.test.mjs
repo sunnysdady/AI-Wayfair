@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -199,4 +200,22 @@ test("pauses every DRCI1007 placement even when historical performance looks pro
   assert.deepEqual(result.proposed, { active: false });
   assert.match(result.label, /暂停全部投放/);
   assert.match(result.reasons.join("；"), /Wayfair.*合并|合并.*Wayfair/);
+});
+
+test("does not create a redundant Listing write for an inactive Campaign", async () => {
+  const result = recommendCpcAction({
+    listing: "DRCI1007", campaignStatus: "INACTIVE", currentBid: 0.30,
+    current: { spend: 3, clicks: 10, orders: 2, cvr: 0.2, wscRoas: 100.6 },
+    rolling28d: { orders: 4, wscRoas: 25.06 }, breakEvenRoas: 3.54,
+    adRole: "exclude", eventPhase: "event", julyPaceGap: -10,
+    qualityPass: false, marginKnown: false, inventoryKnown: true,
+    inventoryCoverDays: 999, inventoryQuantity: 100, julyRemainingUnits: 0, augustReserveUnits: 0,
+  });
+
+  assert.equal(result.actionType, "HOLD");
+  assert.deepEqual(result.proposed, {});
+  assert.match(result.label, /Campaign.*暂停.*无需/);
+
+  const analysisSource = await readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8");
+  assert.match(analysisSource, /campaignStatus:\s*current\.latest\.campaign_status/);
 });

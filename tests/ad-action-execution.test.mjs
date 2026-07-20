@@ -113,6 +113,13 @@ test("allows listing pause actions through queue validation and live execution r
   assert.match(executeRoute, /action_type IN \('SET_LISTING_BID','SET_LISTING_ACTIVE'\)/);
 });
 
+test("describes a 401 as a token acceptance or permission-sync failure without falsely claiming permissions are disabled", async () => {
+  const executeRoute = await readFile(new URL("../app/api/ads/actions/execute/route.ts", import.meta.url), "utf8");
+
+  assert.match(executeRoute, /权限同步.*重新预检/);
+  assert.doesNotMatch(executeRoute, /是否同时属于已开启 Modify Bids/);
+});
+
 test("continues executing other campaigns when a paused campaign is rejected", async () => {
   const visited = [];
   const outcomes = await executeCampaignUpdates([
