@@ -7,7 +7,7 @@ import { nextSort, sortRows } from "../lib/table-sort.mjs";
 import legacyOperatingDataSource from "../data/dmom-operating-2026-06.json";
 
 type View = "dashboard" | "daily" | "ads" | "planning" | "products" | "sources" | "help";
-type AdsTab = "manager" | "listings" | "ai" | "manual";
+type AdsTab = "manager" | "listings" | "ai" | "manual" | "review";
 type PlanningTab = "plan" | "review" | "history";
 type ProductTab = "inventory" | "catalog" | "performance";
 type PlanSection = "july" | "bfij" | "august";
@@ -27,7 +27,7 @@ const SYSTEM_NAV: { id: View; label: string }[] = [
 ];
 
 const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
-  ads: [{ id: "manager", label: "广告管理器" }, { id: "listings", label: "父体 SKU 广告表现" }, { id: "ai", label: "AI 优化" }, { id: "manual", label: "手动优化 To-Do" }],
+  ads: [{ id: "manager", label: "广告管理器" }, { id: "listings", label: "父体 SKU 广告表现" }, { id: "ai", label: "AI 优化" }, { id: "manual", label: "手动优化 To-Do" }, { id: "review", label: "优化记录与复盘" }],
   planning: [{ id: "plan", label: "运营计划" }, { id: "review", label: "复盘资料" }, { id: "history", label: "历史月度" }],
   products: [{ id: "inventory", label: "库存更新" }, { id: "catalog", label: "商品数据" }, { id: "performance", label: "SKU 经营" }],
 };
@@ -93,6 +93,8 @@ type QueuedAdAction = {
   result_event_type?: string; result_payload?: string; result_at?: string;
 };
 type AdQueueCache = { actions: QueuedAdAction[]; liveEnabled: boolean };
+type AdReviewAction = { id:string;run_key:string;listing:string;campaign_id:string;action_type:string;status:string;updated_at:string;result_event_type?:string;result_at?:string;before:Record<string,unknown>;proposed:Record<string,unknown>;result:Record<string,unknown>;review:null|{verdict:string;summary?:string;orderDelta?:number;revenueDelta?:number;roasDelta?:number;evaluated_at?:string} };
+type AdReviewResponse = { summary:{totalActions:number;executedActions:number;failedActions:number;reviewedActions:number;pendingReviews:number;effectiveReviews:number;harmfulReviews:number;reviewCoverage:number};weeks:Array<{run_key:string;decision_start:string;decision_end:string;created_at:string;summary:{actions:number;executed:number;failed:number;effective:number;harmful:number};actions:AdReviewAction[]}>;error?:string };
 type SystemReadiness = {
   environment: { name: string; platform: string; verified: boolean };
   identity: { expectedSupplierIds: number[]; catalogSupplierId: number | null; verified: boolean };
@@ -425,6 +427,29 @@ function Inventory({ embedded = false }: { embedded?: boolean }) {
   </>;
 }
 
+function AdReviewDashboard() {
+  const [data,setData]=useState<AdReviewResponse|null>(null);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  const [query,setQuery]=useState('');
+  const [verdict,setVerdict]=useState('ALL');
+  useEffect(()=>{const controller=new AbortController();fetch('/api/ads/history',{signal:controller.signal}).then(async response=>{const body=await response.json() as AdReviewResponse;if(!response.ok)throw new Error(body.error||'广告优化历史读取失败');return body;}).then(setData).catch(reason=>{if(reason.name!=='AbortError')setError(reason.message||'广告优化历史读取失败');}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();},[]);
+  const actions=useMemo(()=>{const needle=query.trim().toLowerCase();return (data?.weeks||[]).flatMap(week=>week.actions.map(action=>({...action,decisionStart:week.decision_start,decisionEnd:week.decision_end}))).filter(action=>(!needle||[action.listing,action.campaign_id,action.action_type].some(value=>String(value).toLowerCase().includes(needle)))&&(verdict==='ALL'||(verdict==='PENDING'?!action.review:action.review?.verdict===verdict)));},[data,query,verdict]);
+  const summary=data?.summary;
+  const actionChange=(action:AdReviewAction)=>action.action_type==='SET_LISTING_BID'?`${money2(Number(action.before.bid||0))} → ${money2(Number(action.proposed.bid||0))}`:`${action.before.active===false?'暂停':'启用'} → ${action.proposed.active===false?'暂停':'启用'}`;
+  const statusLabel=(status:string)=>({PLANNED:'待确认',APPROVED:'待预检',VALIDATED:'预检通过',EXECUTING:'执行中',EXECUTED:'执行成功',FAILED:'执行失败'}[status]||status);
+  const reviewLabel=(review:AdReviewAction['review'])=>!review?'待成熟复盘':({EFFECTIVE:'有效',HARMFUL:'有害',NEUTRAL:'中性',INCONCLUSIVE:'样本不足',PENDING:'待成熟'}[review.verdict]||review.verdict);
+  return <div className="ad-review-dashboard">
+    <section className="card review-dashboard-intro"><div><span>AD OPTIMIZATION MEMORY</span><h2>广告优化记录与复盘看板</h2><p>执行前 → 建议值 → 执行结果 → 成熟复盘，所有自动写入动作使用同一条审计链。</p></div><b>{loading?'读取中':`${data?.weeks.length||0} 个决策周期`}</b></section>
+    {error?<div className="inline-error">{error}</div>:null}
+    <section className="stat-grid six ad-review-kpis">{[
+      [summary?.totalActions??'-','优化动作','进入执行队列'],[summary?.executedActions??'-','执行成功',`失败 ${summary?.failedActions||0}`],[summary?`${Math.round(summary.reviewCoverage*100)}%`:'-','复盘覆盖率',`${summary?.reviewedActions||0} 项已有结论`],[summary?.effectiveReviews??'-','有效调整','可延续策略'],[summary?.harmfulReviews??'-','有害调整','停止同向调整'],[summary?.pendingReviews??'-','待复盘','等待成熟归因'],
+    ].map(([value,label,note])=><article className="stat" key={String(label)}><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}</section>
+    <section className="review-week-grid">{(data?.weeks||[]).map(week=><article className="card" key={week.run_key}><span>{week.decision_start||'-'} → {week.decision_end||'-'}</span><h3>{week.summary.actions} 项优化 · {week.summary.executed} 项成功</h3><div><b>{week.summary.effective} 有效</b><b className={week.summary.harmful?'bad':''}>{week.summary.harmful} 有害</b><b>{week.summary.failed} 失败</b></div></article>)}{!loading&&!data?.weeks.length?<article className="card empty-state">尚无广告优化批次。执行首个周度动作后会自动形成记录。</article>:null}</section>
+    <section className="card ad-review-ledger"><div className="section-head"><div><span>AUDIT LEDGER</span><h2>优化动作明细</h2></div><b>{actions.length} 条记录</b></div><div className="review-ledger-tools"><label>搜索<input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Listing、Campaign 或动作类型"/></label><label>复盘结论<select value={verdict} onChange={event=>setVerdict(event.target.value)}><option value="ALL">全部</option><option value="PENDING">待复盘</option><option value="EFFECTIVE">有效</option><option value="HARMFUL">有害</option><option value="NEUTRAL">中性</option><option value="INCONCLUSIVE">样本不足</option></select></label></div><div className="review-ledger-scroll"><div className="review-ledger"><div className="review-ledger-row head"><span>成熟决策周</span><span>Listing / Campaign</span><span>优化动作</span><span>执行结果</span><span>成熟复盘</span></div>{actions.map(action=><article className="review-ledger-row" key={action.id}><time>{action.decisionStart}<small>至 {action.decisionEnd}</small></time><span><b>{action.listing}</b><small>Campaign {action.campaign_id}</small></span><span><b>{action.action_type==='SET_LISTING_BID'?'调整 Bid':'Listing 启停'}</b><small>{actionChange(action)}</small></span><span><em className={action.status==='EXECUTED'?'good':action.status==='FAILED'?'bad':'warn'}>{statusLabel(action.status)}</em><small>{action.result_at?new Date(action.result_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'尚无终态时间'}</small></span><span><em className={`review-${String(action.review?.verdict||'pending').toLowerCase()}`}>{reviewLabel(action.review)}</em><small>{action.review?.summary||'执行成功并经过至少 7 天成熟窗口后生成结论'}{action.review?` · Δ订单 ${action.review.orderDelta||0} · Δ收入 ${money(Number(action.review.revenueDelta||0))} · ΔROAS ${Number(action.review.roasDelta||0).toFixed(2)}`:''}</small></span></article>)}{!loading&&!actions.length?<p className="empty-state">当前筛选没有优化记录。</p>:null}</div></div></section>
+  </div>;
+}
+
 function Ads({ tab }: { tab: AdsTab }) {
   const initial=adRangeFor('matureWeek');
   const initialAnalysis=readClientCache<AdAnalysis>(`ads:v7:${initial.start}:${initial.end}`,CLIENT_CACHE_RETENTION_MS);
@@ -475,12 +500,13 @@ function Ads({ tab }: { tab: AdsTab }) {
   const sortCampaign=(field:string)=>setCampaignSort(value=>nextSort(value,field) as SortState); const sortListing=(field:string)=>setListingSort(value=>nextSort(value,field) as SortState);
   const aiDecisionCurrent=data?.decision.current;
   const aiDecisionPrevious=data?.decision.previous;
-  const headerRange=tab==='ai'?data?.decisionRange:requested;
-  const pageTitle=tab==='manager'?'广告管理器':tab==='listings'?'父体 SKU 广告表现':tab==='manual'?'手动优化 To-Do':'AI 优化';
-  const pageCount=tab==='manager'?`${data?.campaigns.length||0} 个 Campaign`:tab==='listings'?`${data?.listings.length||0} 个父体 SKU`:tab==='manual'?`${resolvedZombieCount} / ${zombieFindings.length} 诊断已完成 · ${manualDone.length} / ${MANUAL_AD_TASKS.length} To-Do`:`${ready} 项建议 · ${validatedActions.length} 项待执行`;
+  const headerRange=tab==='review'?null:tab==='ai'?data?.decisionRange:requested;
+  const pageTitle=tab==='manager'?'广告管理器':tab==='listings'?'父体 SKU 广告表现':tab==='manual'?'手动优化 To-Do':tab==='review'?'优化记录与复盘':'AI 优化';
+  const pageCount=tab==='manager'?`${data?.campaigns.length||0} 个 Campaign`:tab==='listings'?`${data?.listings.length||0} 个父体 SKU`:tab==='manual'?`${resolvedZombieCount} / ${zombieFindings.length} 诊断已完成 · ${manualDone.length} / ${MANUAL_AD_TASKS.length} To-Do`:tab==='review'?'完整审计链':`${ready} 项建议 · ${validatedActions.length} 项待执行`;
   return <><Hero eyebrow="" title={pageTitle} text="" side={<div className="hero-side compact-status"><b>{loading?'同步中':error?'需检查':pageCount}</b><span>{headerRange?.start||'-'} 至 {headerRange?.end||'-'}</span></div>} />
     {(tab==='manager'||tab==='manual')&&<section className="period-bar ad-period"><div>{adPresetOptions.map(([id,label])=><button key={id} className={preset===id?'active':''} onClick={()=>selectAdPreset(id)}>{label}</button>)}</div>{preset==='custom'&&<><label>开始<input type="date" value={start} onChange={e=>setStart(e.target.value)}/></label><label>结束<input type="date" value={end} max={dateText(new Date())} onChange={e=>setEnd(e.target.value)}/></label><button disabled={loading||start>end} onClick={()=>{setLoading(true);setError('');setRequested({start,end,refresh:false});}}>读取</button></>}<span>{error||`每小时自动同步 · 最近入库 ${data?.generatedAt?new Date(data.generatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'-'} · 决策成熟周 ${data?.decisionRange.start||'-'} → ${data?.decisionRange.end||'-'}`}</span></section>}
-    {error&&<div className="inline-error">{error}；系统未展示任何静态替代建议。</div>}
+    {error&&tab!=='review'&&<div className="inline-error">{error}；系统未展示任何静态替代建议。</div>}
+    {tab==='review'&&<AdReviewDashboard/>}
     {tab==='manager'&&<>
       <section className="stat-grid six ad-manager-kpis">{[
         [loading?'-':money(data?.current.spend),"花费",change(data?.current.spend,data?.previous.spend)],
@@ -617,7 +643,7 @@ export default function OpsCenter() {
   const [productTab,setProductTab]=useState<ProductTab>('inventory');
   useEffect(()=>{window.scrollTo(0,0);const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view]);
   const activeSub: SubView | null=view==='ads'?adsTab:view==='planning'?planningTab:view==='products'?productTab:null;
-  function navigateSub(next:SubView){if(view==='ads'&&(next==='manager'||next==='listings'||next==='ai'||next==='manual'))setAdsTab(next);if(view==='planning'&&(next==='plan'||next==='review'||next==='history'))setPlanningTab(next);if(view==='products'&&(next==='inventory'||next==='catalog'||next==='performance'))setProductTab(next);}
+  function navigateSub(next:SubView){if(view==='ads'&&(next==='manager'||next==='listings'||next==='ai'||next==='manual'||next==='review'))setAdsTab(next);if(view==='planning'&&(next==='plan'||next==='review'||next==='history'))setPlanningTab(next);if(view==='products'&&(next==='inventory'||next==='catalog'||next==='performance'))setProductTab(next);}
   const page=useMemo(()=>({dashboard:<Dashboard/>,daily:<Daily/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={setPlanningTab}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view],[view,adsTab,planningTab,productTab]);
   return <div className="app app-shell"><ShellHeader active={view} activeSub={activeSub} onNavigate={setView} onSubNavigate={navigateSub}/><div className="content-shell"><main>{page}</main><footer><span>Wayfair AI 运营中台</span><span>个人测试阶段</span></footer></div></div>;
 }
