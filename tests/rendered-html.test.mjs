@@ -47,7 +47,7 @@ test("separates the visible advertising period from the mature weekly decision w
   ]);
   assert.match(page, /成熟周（推荐）/);
   assert.match(page, /最近 14 天/);
-  assert.match(page, /批量加入 API 执行单/);
+  assert.match(page, /加入执行 \(/);
   assert.match(page, /保本ROAS/);
   assert.match(page, /BM CPC/);
   assert.match(page, /money2\(row\.cpcBaseline\.cpc\)/);
@@ -124,7 +124,7 @@ test("restores persisted weekly actions after the advertising page reloads", asy
   });
   assert.match(page, /\/api\/ads\/actions\?runKey=/);
   assert.match(page, /queuedActionState/);
-  assert.match(page, /API 执行批次/);
+  assert.match(page, /AI API 执行工作台/);
   assert.match(page, /确认并预检/);
   assert.match(page, /执行已预检项/);
 });
@@ -136,10 +136,10 @@ test("ships the compact operations shell and bulk advertising workflow", async (
   ]);
   assert.match(page, /className="sidebar"/);
   assert.match(page, /label: "帮助"/);
-  assert.match(page, /批量加入 API 执行单/);
+  assert.match(page, /AI API 执行工作台/);
   assert.match(page, /确认并预检/);
   assert.match(page, /执行已预检项/);
-  assert.match(page, /执行结果/);
+  assert.match(page, /API 状态 \/ 结果/);
   assert.doesNotMatch(page, /输入：执行广告修改/);
   assert.match(page, /日级投放效率/);
   assert.match(page, /归因销售额/);
@@ -235,14 +235,14 @@ test("keeps an API-backed advertising manager ahead of AI recommendations", asyn
   assert.match(ads, /class_name/);
 });
 
-test("splits advertising optimization into a manual to-do list and AI one-click execution", async () => {
+test("splits manual work from one unified AI API execution workbench", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /手动优化 To-Do List/);
-  assert.match(page, /AI 优化 · API 一键执行/);
+  assert.match(page, /AI API 执行工作台/);
   assert.match(page, /Keyword Targeting/);
   assert.match(page, /\$750/);
   assert.match(page, /Product Targeting/);
@@ -250,7 +250,7 @@ test("splits advertising optimization into a manual to-do list and AI one-click 
   assert.match(page, /DMOM1021/);
   assert.match(page, /filing cabinets/);
   assert.match(page, /关键词、否词、Campaign Cap 和 tROAS 保留人工执行/);
-  assert.match(page, /这里只展示可通过 Advertising API 预检与写入的 Listing Bid 和启停建议/);
+  assert.match(page, /每行把成熟数据、经营 Gate、建议动作、API 状态与执行结果放在一起/);
   assert.doesNotMatch(styles, /\.optimization-mode-switch/);
   assert.match(styles, /\.keyword-allocation-grid/);
   assert.match(styles, /\.manual-todo-list/);
@@ -294,14 +294,14 @@ test("keeps AI campaign learning rules in analysis without rendering them in the
   assert.doesNotMatch(page, /AI Campaign 学习诊断/);
   assert.doesNotMatch(page, /AI 广告新开评估/);
   assert.doesNotMatch(page, /aiAdEligibility/);
-  assert.match(page, /Campaign、资格与平台规则请到左侧“手动优化 To-Do”处理/);
+  assert.match(page, /仅 Bid 与 Listing 启停进入此处；其余动作留在手动优化/);
   assert.match(page, /学习期内禁止修改 tROAS、Daily Cap 与 Listing/);
   assert.match(page, /ai-learning-escalation/);
   assert.match(styles, /\.ai-campaign-diagnostics\{/);
   assert.match(styles, /\.ai-diagnosis-card\{/);
 });
 
-test("adds zombie campaign findings to the manual list without treating manual work as API executable", async () => {
+test("tracks zombie campaign handling locally without treating manual work as API executable", async () => {
   const [page, ads, queue] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
@@ -311,8 +311,10 @@ test("adds zombie campaign findings to the manual list without treating manual w
   assert.match(ads, /detectZombieCampaigns/);
   assert.match(ads, /zombieAudit/);
   assert.match(page, /Campaign \/ 资格诊断/);
-  assert.match(page, /人工执行清单（不调用 API）/);
-  assert.match(page, /加入手动执行清单/);
+  assert.match(page, /处理方式/);
+  assert.match(page, /是否完成/);
+  assert.match(page, /不加入 API 或人工执行清单/);
+  assert.doesNotMatch(page, /加入手动执行清单/);
   assert.match(page, /硬僵尸/);
   assert.match(page, /准僵尸/);
   assert.match(queue, /PAUSE_CAMPAIGN/);

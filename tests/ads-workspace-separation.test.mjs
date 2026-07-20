@@ -14,11 +14,11 @@ test("keeps manual diagnostics out of the AI API execution workspace", async () 
 
   assert.match(page, /const API_AD_ACTION_TYPES=new Set\(\['SET_LISTING_BID','SET_LISTING_ACTIVE'\]\)/);
   assert.match(page, /const apiQueuedActions=queuedActions\.filter/);
-  assert.match(page, /const manualQueuedActions=queuedActions\.filter/);
-  assert.match(manualWorkspace, /人工执行清单（不调用 API）/);
-  assert.match(manualWorkspace, /manualQueuedActions\.map/);
+  assert.doesNotMatch(page, /const manualQueuedActions=queuedActions\.filter/);
+  assert.match(manualWorkspace, /处理方式/);
+  assert.match(manualWorkspace, /是否完成/);
   assert.match(manualWorkspace, /zombieFindings\.map/);
-  assert.match(aiWorkspace, /API 执行批次/);
+  assert.match(aiWorkspace, /AI API 执行工作台/);
   assert.match(aiWorkspace, /apiQueuedActions/);
   assert.doesNotMatch(aiWorkspace, /AI 广告新开评估|AI Campaign 学习诊断|zombieFindings|manualQueuedActions/);
 });
