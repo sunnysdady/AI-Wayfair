@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -100,6 +101,16 @@ test("bulk confirmation accepts only planned and failed API actions", () => {
   assert.equal(isBulkApprovable({ status: "FAILED", action_type: "SET_LISTING_ACTIVE" }), true);
   assert.equal(isBulkApprovable({ status: "VALIDATED", action_type: "SET_LISTING_BID" }), false);
   assert.equal(isBulkApprovable({ status: "PLANNED", action_type: "INCREASE_DAILY_CAP" }), false);
+});
+
+test("allows listing pause actions through queue validation and live execution routes", async () => {
+  const [queueRoute, executeRoute] = await Promise.all([
+    readFile(new URL("../app/api/ads/actions/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/ads/actions/execute/route.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(queueRoute, /API_ACTIONS = new Set\(\["SET_LISTING_BID", "SET_LISTING_ACTIVE"\]\)/);
+  assert.match(executeRoute, /action_type IN \('SET_LISTING_BID','SET_LISTING_ACTIVE'\)/);
 });
 
 test("continues executing other campaigns when a paused campaign is rejected", async () => {
