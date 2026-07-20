@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { assertLiveOperation, buildOperatingReadiness } from "../lib/operating-safety.mjs";
 import { METRIC_DEFINITIONS } from "../lib/metric-definitions.mjs";
+import { calculateInventoryValueRisk } from "../lib/inventory-value-risk.mjs";
 
 const productionEnv = {
   RUNTIME_PLATFORM: "cloudflare",
@@ -56,4 +57,24 @@ test("enforces the shared live gate in both Wayfair write routes and renders dyn
   assert.doesNotMatch(page, /\['Advertising API','生产'/);
   assert.match(envTypes, /WAYFAIR_DEPLOYMENT_ENV/);
   assert.match(envTypes, /WAYFAIR_EXPECTED_SUPPLIER_IDS/);
+});
+
+test("weights inventory snapshot changes by SKU cost instead of row count", async () => {
+  const risk = calculateInventoryValueRisk(
+    [{ partNumber: "A", quantityOnHand: 10 }, { partNumber: "B", quantityOnHand: 5 }],
+    [{ partNumber: "A", quantityOnHand: 6 }, { partNumber: "B", quantityOnHand: 9 }],
+    { A: 1200 },
+  );
+  assert.equal(risk.inventoryValue, 120);
+  assert.equal(risk.absoluteChangeValue, 48);
+  assert.equal(risk.unvaluedUnits, 5);
+  assert.equal(risk.costCoverage, 10 / 15);
+  assert.deepEqual(risk.topChanges[0], { partNumber: "A", unitDelta: 4, valueDelta: 48 });
+
+  const [inventory, preview] = await Promise.all([
+    readFile(new URL("../lib/inventory.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/inventory/preview/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(inventory, /loadInventoryValueRisk/);
+  assert.match(preview, /valueRisk/);
 });
