@@ -17,19 +17,20 @@ test("keeps one-hour snapshots across page switches without clearing ad actions"
   assert.match(orders, /60 \* 60 \* 1000/);
   assert.match(catalog, /60 \* 60 \* 1000/);
   assert.match(page, /ad-queue:/);
-  assert.match(page, /ads:v2:/);
+  assert.match(page, /ads:v3:/);
   assert.doesNotMatch(page, /`ads:\$\{/);
   assert.match(page, /writeClientCache\(`ad-queue:/);
   assert.doesNotMatch(page, /setQueuedActions\(\[\]\)/);
   assert.match(page, /每小时自动同步/);
 });
 
-test("refreshes only the requested mature advertising window when D1 history is complete", async () => {
+test("refreshes current campaign learning data while keeping Listing decisions on the mature window", async () => {
   const ads = await readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8");
-  assert.match(ads, /const fetchEnd = \[end, decisionEnd\]/);
+  assert.match(ads, /const campaignFetchEnd = today/);
+  assert.match(ads, /const listingFetchEnd = \[end, decisionEnd\]/);
   assert.match(ads, /fetchReport\(reportType, refreshStart, refreshEnd/);
-  assert.match(ads, /getReportRows\(env\.DB, "CAMPAIGN_REPORT", fetchStart, fetchEnd, token, force, start, end\)/);
-  assert.match(ads, /getReportRows\(env\.DB, "LISTING_REPORT", fetchStart, fetchEnd, token, force, start, end\)/);
+  assert.match(ads, /getReportRows\(env\.DB, "CAMPAIGN_REPORT", fetchStart, campaignFetchEnd, token, force, start, campaignFetchEnd\)/);
+  assert.match(ads, /getReportRows\(env\.DB, "LISTING_REPORT", fetchStart, listingFetchEnd, token, force, start, end\)/);
 });
 
 test("exposes Listing performance and keeps Gate UI only for budget increases", async () => {
