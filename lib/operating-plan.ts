@@ -52,7 +52,7 @@ export const JULY_PLAN_LISTINGS: PlanListing[] = [
   { listing: "DMOM1018", parts: ["LFC-2B", "LFC-2W"], juneBaselineOrders: 3, julyTargetOrders: 4, averagePrice: 118, budget: 34, estimatedNetProfit: 108, role: "小额增长", tactic: "广告×1.5", gate: "仅在链接与利润通过时小额放量", eligible: true, adRole: "scale", promotionMode: "PROMOTION_CANDIDATE" },
   { listing: "DMOM1025", parts: ["LFC-3B", "LFC-3W"], juneBaselineOrders: 3, julyTargetOrders: 4, averagePrice: 140, budget: 20, estimatedNetProfit: 148, rating: 4, role: "修复池", tactic: "降Bid + 修Listing", gate: "链接修复前不扩量", eligible: true, adRole: "reduce", promotionMode: "LOW_BID" },
   { listing: "DMOM1000", parts: ["5T-1600-800", "5T-1830-1200", "5T-1830-900", "5T-1980-1200", "6T-2095-122"], juneBaselineOrders: 1, julyTargetOrders: 2, averagePrice: 108, budget: 46, estimatedNetProfit: 19, marginRate: .384, role: "保留池", tactic: "后台ROAS 2028%；维持Bid", gate: "保持参数，不因旧CSV漏数误降Bid", eligible: true, adRole: "hold", promotionMode: "REGULAR_ADS_ONLY" },
-  { listing: "DRCI1007", parts: [], juneBaselineOrders: 0, julyTargetOrders: 0, budget: 0, role: "计划外", tactic: "不投放", gate: "不在7月目标池，禁止任何加价或扩预算", eligible: false, adRole: "exclude" },
+  { listing: "DRCI1007", parts: [], juneBaselineOrders: 0, julyTargetOrders: 0, budget: 0, role: "平台合并·永久剔除", tactic: "暂停所有投放", gate: "MFC-D2-B / MFC-D2-W 已被Wayfair合并，无法承接新订单；所有Campaign停用", eligible: false, adRole: "exclude" },
 ];
 
 export const JULY_EVENTS = [
@@ -115,7 +115,7 @@ export const AUGUST_PLAN_LISTINGS: PlanListing[] = [
   { listing: "DMOM1025", parts: ["LFC-3B", "LFC-3W"], juneUnits: 2, augustUnits: 4, budget: 0, rating: 4, role: "自然观察", gate: "近28天商品/关键词均0单，先修链接", eligible: false, adRole: "observe" },
   { listing: "DMOM1026", parts: ["VFC-2B", "VFC-2W"], juneUnits: 2, augustUnits: 4, budget: 0, rating: 4.67, reviews: 3, role: "自然观察", gate: "评论少、转化弱，不投广告", eligible: false, adRole: "observe" },
   { listing: "DMOM1016", parts: ["5T-wangge"], juneUnits: 0, augustUnits: 2, budget: 0, rating: 4.33, role: "自然恢复", gate: "自然/恢复池，不投广告", eligible: false, adRole: "observe" },
-  { listing: "DRCI1007", parts: [], juneUnits: 0, augustUnits: 0, budget: 0, role: "永久剔除", gate: "目标0、预算0，禁止任何加价或扩预算", eligible: false, adRole: "exclude" },
+  { listing: "DRCI1007", parts: [], juneUnits: 0, augustUnits: 0, budget: 0, role: "平台合并·永久剔除", gate: "MFC-D2-B / MFC-D2-W 已被Wayfair合并，无法承接新订单；目标0、预算0、所有Campaign停用", eligible: false, adRole: "exclude" },
 ];
 
 // Compatibility alias for the August playbook consumers.
