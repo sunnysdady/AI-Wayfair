@@ -1,5 +1,6 @@
 import { buildCampaignUpdates } from "@/lib/ad-action-queue.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+import { buildOperatingReadiness } from "@/lib/operating-safety.mjs";
 
 const ALLOWED_ACTIONS = new Set(["SET_LISTING_BID", "SET_LISTING_ACTIVE", "INCREASE_DAILY_CAP", "PAUSE_CAMPAIGN", "CHECK_LISTING_ELIGIBILITY", "CHECK_LOW_DELIVERY"]);
 const API_ACTIONS = new Set(["SET_LISTING_BID", "SET_LISTING_ACTIVE"]);
@@ -35,7 +36,8 @@ export async function GET(request: Request) {
       ? env.DB.prepare(`${resultJoin} WHERE q.run_key=? ORDER BY q.created_at DESC`).bind(runKey)
       : env.DB.prepare(`${resultJoin} ORDER BY q.created_at DESC LIMIT 100`);
     const rows = await query.all();
-    return Response.json({ actions: rows.results || [], liveEnabled: env.ALLOW_WAYFAIR_AD_LIVE_CHANGES === "true" });
+    const readiness = buildOperatingReadiness(env);
+    return Response.json({ actions: rows.results || [], liveEnabled: readiness.live.ads.allowed, liveBlockers: readiness.live.ads.blockers });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "执行单读取失败" }, { status: 500 });
   }

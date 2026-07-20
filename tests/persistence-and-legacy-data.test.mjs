@@ -33,13 +33,18 @@ test("refreshes current campaign learning data while keeping Listing decisions o
   assert.match(ads, /getReportRows\(env\.DB, "LISTING_REPORT", fetchStart, listingFetchEnd, token, force, start, end\)/);
 });
 
-test("exposes Listing performance and keeps Gate UI only for budget increases", async () => {
+test("labels advertising performance at the parent-SKU grain and keeps Gate UI only for budget increases", async () => {
   const [page, route, ads] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ads/actions/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /id: "listings", label: "Listing 表现"/);
+  assert.match(page, /id: "listings", label: "父体 SKU 广告表现"/);
+  assert.match(page, /tab==='listings'\?'\u7236体 SKU 广告表现'/);
+  assert.match(page, /\$\{data\?\.listings\.length\|\|0\} 个父体 SKU/);
+  assert.match(page, /按父体 Listing 汇总广告指标/);
+  assert.match(page, /子体 Supplier Part 仅展示关联关系，不拆分广告归因/);
+  assert.match(page, /label="父体 SKU \/ Campaign"/);
   assert.match(page, /tab==='listings'/);
   assert.match(page, /预算审批/);
   assert.doesNotMatch(page, /gateOverrides|toggleQueueSelection|运营人工覆盖|勾选后确认覆盖/);

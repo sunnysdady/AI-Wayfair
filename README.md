@@ -74,6 +74,8 @@ WAYFAIR_OPS_CLIENT_SECRET=
 WAYFAIR_CATALOG_CLIENT_ID=
 WAYFAIR_CATALOG_CLIENT_SECRET=
 WAYFAIR_CATALOG_SUPPLIER_ID=
+WAYFAIR_DEPLOYMENT_ENV=development
+WAYFAIR_EXPECTED_SUPPLIER_IDS=
 
 WAYFAIR_AD_CLIENT_ID=
 WAYFAIR_AD_CLIENT_SECRET=
@@ -101,6 +103,8 @@ npm run dev
 | `WAYFAIR_CATALOG_CLIENT_ID` | 使用商品目录接口 | Wayfair Catalog OAuth Client ID |
 | `WAYFAIR_CATALOG_CLIENT_SECRET` | 使用商品目录接口 | Wayfair Catalog OAuth Client Secret |
 | `WAYFAIR_CATALOG_SUPPLIER_ID` | 使用商品目录接口 | 数字格式的 Supplier ID |
+| `WAYFAIR_DEPLOYMENT_ENV` | 正式写入必需 | 只有精确设为 `production` 且运行于 Cloudflare 才可通过生产闸门 |
+| `WAYFAIR_EXPECTED_SUPPLIER_IDS` | 正式写入必需 | 允许写入的 Supplier ID 逗号分隔清单；Catalog Supplier ID 必须属于该清单 |
 | `WAYFAIR_AD_CLIENT_ID` | 使用广告接口 | Wayfair Advertising OAuth Client ID |
 | `WAYFAIR_AD_CLIENT_SECRET` | 使用广告接口 | Wayfair Advertising OAuth Client Secret |
 | `OUTLOOK_INGEST_TOKEN` | 写入 Outlook 日报 | `/api/email/daily` POST 请求的 Bearer Token |
@@ -144,7 +148,7 @@ npm run dev
 - `.openai/hosting.json` 声明 `DB`（D1）和 `FILES`（R2）绑定。
 - 订单、广告缓存、执行队列、库存快照和日报元数据写入 D1。
 - 用户上传的 HTML、PDF、XLSX 报告写入 R2；单文件上限为 20 MB。
-- 库存与广告正式写入默认关闭，必须同时满足环境开关、人工确认文字和接口校验。
+- 库存与广告正式写入默认关闭，必须同时满足 Cloudflare production 环境、Supplier 身份清单、独立写入开关、人工确认文字和接口校验。
 - 广告接口仅自动执行代码明确支持的动作；其余变更应在 Wayfair Partner Home 中人工完成。
 - HTML 报告响应带有受限 CSP，文件名和输入参数在服务端进行校验。
 
