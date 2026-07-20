@@ -7,7 +7,7 @@ import { nextSort, sortRows } from "../lib/table-sort.mjs";
 import legacyOperatingDataSource from "../data/dmom-operating-2026-06.json";
 
 type View = "dashboard" | "daily" | "ads" | "planning" | "products" | "sources" | "help";
-type AdsTab = "manager" | "listings" | "ai";
+type AdsTab = "manager" | "listings" | "ai" | "manual";
 type PlanningTab = "plan" | "review" | "history";
 type ProductTab = "inventory" | "catalog" | "performance";
 type PlanSection = "july" | "bfij" | "august";
@@ -27,7 +27,7 @@ const SYSTEM_NAV: { id: View; label: string }[] = [
 ];
 
 const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
-  ads: [{ id: "manager", label: "广告管理器" }, { id: "listings", label: "Listing 表现" }, { id: "ai", label: "AI 优化" }],
+  ads: [{ id: "manager", label: "广告管理器" }, { id: "listings", label: "Listing 表现" }, { id: "ai", label: "AI 优化" }, { id: "manual", label: "手动优化 To-Do" }],
   planning: [{ id: "plan", label: "运营计划" }, { id: "review", label: "复盘资料" }, { id: "history", label: "历史月度" }],
   products: [{ id: "inventory", label: "库存更新" }, { id: "catalog", label: "商品数据" }, { id: "performance", label: "SKU 经营" }],
 };
@@ -101,14 +101,13 @@ type AdAnalysis = {
 };
 type SortState = { key: string; direction: "asc" | "desc" };
 type AdHistoryWeek = { run_key:string; decision_start:string; decision_end:string; created_at:string; actions:Array<QueuedAdAction>; reviews:Array<{actionId?:string;listing:string;campaignId:string;verdict:string;summary?:string;orderDelta?:number;revenueDelta?:number;roasDelta?:number;evaluatedAt?:string}> };
-type EmailBrief = { briefDate:string; syncedAt:string; source:string; summary:{total:number;unread:number;actionRequired:number;highestPriority:string}; items:Array<{id:string;category?:string;subject:string;sender:string;receivedAt:string;unread:boolean;priority:string;summary:string;owner:string;status:string;webLink:string}>; tasks:Array<{id:string;title:string;owner:string;dueDate:string;priority:string;status:string}>; error?:string };
+type EmailBrief = { briefDate:string; syncedAt:string; source:string; summary:{total:number;unread:number;actionRequired:number;highestPriority:string}; items:Array<{id:string;category?:string;subject:string;sender:string;receivedAt:string;unread:boolean;priority:string;summary:string;owner:string;status:string;webLink:string}>; tasks:Array<{id:string;title:string;owner:string;dueDate:string;priority:string;status:string}>; sections?:Array<{title:string;body:string;tone?:string}>; error?:string };
 type QueuedAdAction = {
   id: string; run_key: string; listing: string; campaign_id: string; action_type: string;
   before_payload: string; proposed_payload: string; status: string; created_at: string; updated_at: string;
   result_event_type?: string; result_payload?: string; result_at?: string;
 };
 type AdQueueCache = { actions: QueuedAdAction[]; liveEnabled: boolean };
-type OptimizationMode = "manual" | "ai";
 let dashboardSnapshot: OrderSummary | null = null;
 type PlanProgress = {
   plan: { month: string; orderTarget: number; baselineOrders: number; floorOrders: number; stretchOrders: number; adBudget: number; estimatedNetProfit: number; source: string; sourceAsOf: string; scopeWarning: string };
@@ -284,6 +283,19 @@ function useEmailDailyBrief(date: string) {
   return { brief, loading, error };
 }
 
+function useEmailBriefDates() {
+  const [dates, setDates] = useState<string[]>(readClientCache<string[]>("email:daily:available") || []);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/email/daily?available=1", { signal: controller.signal })
+      .then(async response => { const body = await response.json() as { dates?: string[]; error?: string }; if (!response.ok) throw new Error(body.error || "日报日期读取失败"); return body.dates || []; })
+      .then(value => { writeClientCache("email:daily:available", value); setDates(value); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  return dates;
+}
+
 function Dashboard() {
   const initialRange = rangeFor("today");
   const [preset, setPreset] = useState("today");
@@ -354,7 +366,9 @@ function Daily() {
   const [date, setDate] = useState(today);
   const [done, setDone] = useState<string[]>([]);
   const { brief, loading, error } = useEmailDailyBrief(date);
-  const dates = [today, shiftDate(today, -1), shiftDate(today, -2)];
+  const availableDates = useEmailBriefDates();
+  const dates = availableDates.length ? availableDates : [today, shiftDate(today, -1), shiftDate(today, -2)];
+  useEffect(() => { if (availableDates.length && !availableDates.includes(date)) setDate(availableDates[0]); }, [availableDates, date]);
   const categories = useMemo(() => {
     const counts = new Map<string, number>();
     for (const item of brief?.items || []) counts.set(item.category || "其他运营", (counts.get(item.category || "其他运营") || 0) + 1);
@@ -374,6 +388,7 @@ function Daily() {
       <article className="card daily-mail-card"><div className="section-head"><div><span>ALL WAYFAIR MAIL</span><h2>{date} 邮件明细</h2></div><b>{brief?.items.length || 0} 封已分类</b></div><div className="outlook-mail-list daily-mail-list">{(brief?.items || []).map(item => <a href={item.webLink} target="_blank" rel="noreferrer" key={item.id}><span className={`mail-priority ${item.priority.toLowerCase()}`}>{item.priority}</span><span><b>{item.subject}</b><small>{item.category || "其他运营"} · {item.summary}</small></span><span><em>{item.unread ? "未读" : "已读"}</em><small>{item.owner} · {item.status}</small></span></a>)}{!loading && !brief?.items.length && <p className="empty-state">该日没有已保存的 Wayfair 邮件快照。</p>}</div></article>
       <aside className="daily-side-stack"><article className="card category-card"><div className="section-head"><div><span>MAIL MIX</span><h2>分类分布</h2></div></div><div>{categories.map(([category, count]) => <p key={category}><b>{category}</b><span>{count} 封</span></p>)}{!categories.length && <p>暂无分类数据。</p>}</div></article><article className="card todo-card"><h2>当天待办</h2>{(brief?.tasks || []).map(task => <label key={task.id}><input type="checkbox" checked={done.includes(task.id)} onChange={() => setDone(value => value.includes(task.id) ? value.filter(id => id !== task.id) : [...value, task.id])}/><span><b>{task.title}</b><small>{task.owner} · {task.priority} · 截止 {task.dueDate} · {task.status}</small></span></label>)}{!brief?.tasks.length ? <p>该日没有从邮件提取的待办。</p> : null}</article></aside>
     </section>
+    {!!brief?.sections?.length && <section className="daily-insights">{brief.sections.map((section, index) => <article className={`card daily-insight ${section.tone || ""}`} key={`${section.title}-${index}`}><span>运营摘要</span><h2>{section.title}</h2><p>{section.body}</p></article>)}</section>}
   </>;
 }
 
@@ -436,11 +451,11 @@ function Ads({ tab }: { tab: AdsTab }) {
   const [campaignSort,setCampaignSort]=useState<SortState>({key:'spend',direction:'desc'}); const [listingSort,setListingSort]=useState<SortState>({key:'spend',direction:'desc'});
   const [historyWeeks,setHistoryWeeks]=useState<AdHistoryWeek[]>(readClientCache<AdHistoryWeek[]>('ad-history',CLIENT_CACHE_RETENTION_MS)||[]);
   const [selectedRecommendations,setSelectedRecommendations]=useState<string[]>([]); const [selectedQueue,setSelectedQueue]=useState<string[]>([]); const [queueStatusFilter,setQueueStatusFilter]=useState('ALL');
-  const [optimizationMode,setOptimizationMode]=useState<OptimizationMode>('manual'); const [manualDone,setManualDone]=useState<string[]>([]);
+  const [manualDone,setManualDone]=useState<string[]>([]);
   useEffect(()=>{const cacheKey=`ads:v6:${requested.start}:${requested.end}`;const cached=!requested.refresh&&readClientCache<AdAnalysis>(cacheKey);const controller=new AbortController();if(cached){queueMicrotask(()=>{if(!controller.signal.aborted){setData(cached);setLoading(false);setError('');}});return()=>controller.abort();}fetch(`/api/ads/analysis?start=${requested.start}&end=${requested.end}${requested.refresh?'&refresh=1':''}`,{signal:controller.signal}).then(async r=>{const body=await r.json() as AdAnalysis;if(!r.ok)throw new Error(body.error||'广告分析失败');return body;}).then(body=>{setData(body);writeClientCache(cacheKey,body);}).catch(e=>{if(e.name!=='AbortError')setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();},[requested]);
   useEffect(()=>{if(!data?.runKey)return;const cacheKey=`ad-queue:${data.runKey}`;const cached=readClientCache<AdQueueCache>(cacheKey);const controller=new AbortController();setQueueError('');if(cached){queueMicrotask(()=>{if(!controller.signal.aborted){setQueuedActions(cached.actions);setQueueState(queuedActionState(cached.actions));setLiveEnabled(cached.liveEnabled);setQueueLoading(false);}});return()=>controller.abort();}setQueueLoading(true);fetch(`/api/ads/actions?runKey=${encodeURIComponent(data.runKey)}`,{signal:controller.signal}).then(async response=>{const body=await response.json() as {actions?:QueuedAdAction[];liveEnabled?:boolean;error?:string};if(!response.ok)throw new Error(body.error||'执行批次读取失败');return body;}).then(body=>{const actions=body.actions||[];const next={actions,liveEnabled:Boolean(body.liveEnabled)};setQueuedActions(actions);setQueueState(queuedActionState(actions));setLiveEnabled(next.liveEnabled);writeClientCache(cacheKey,next);}).catch(reason=>{if(reason.name!=='AbortError')setQueueError(reason.message||'执行批次读取失败');}).finally(()=>{if(!controller.signal.aborted)setQueueLoading(false);});return()=>controller.abort();},[data?.runKey]);
   useEffect(()=>{if(tab!=='ai')return;const cached=readClientCache<AdHistoryWeek[]>('ad-history');const controller=new AbortController();if(cached){queueMicrotask(()=>setHistoryWeeks(cached));return()=>controller.abort();}fetch('/api/ads/history',{signal:controller.signal}).then(async response=>{const body=await response.json() as {weeks?:AdHistoryWeek[]};if(response.ok){const weeks=body.weeks||[];setHistoryWeeks(weeks);writeClientCache('ad-history',weeks);}}).catch(()=>{});return()=>controller.abort();},[tab,data?.runKey,queuedActions.length]);
-  useEffect(()=>{if(tab!=='ai')return;try{const stored=JSON.parse(window.localStorage.getItem('manual-ad-todos:v1')||'[]');if(Array.isArray(stored))setManualDone(stored.filter(item=>typeof item==='string'));}catch{}},[tab]);
+  useEffect(()=>{if(tab!=='manual')return;try{const stored=JSON.parse(window.localStorage.getItem('manual-ad-todos:v1')||'[]');if(Array.isArray(stored))setManualDone(stored.filter(item=>typeof item==='string'));}catch{}},[tab]);
   function selectAdPreset(next:string){setPreset(next);if(next==='custom')return;const range=adRangeFor(next);setStart(range.start);setEnd(range.end);setLoading(true);setError('');setRequested({...range,refresh:false});}
   async function reloadQueue(){if(!data?.runKey)return;const response=await fetch(`/api/ads/actions?runKey=${encodeURIComponent(data.runKey)}`);const body=await response.json() as {actions?:QueuedAdAction[];liveEnabled?:boolean;error?:string};if(!response.ok)throw new Error(body.error||'执行批次读取失败');const actions=body.actions||[];const next={actions,liveEnabled:Boolean(body.liveEnabled)};setQueuedActions(actions);setQueueState(queuedActionState(actions));setLiveEnabled(next.liveEnabled);writeClientCache(`ad-queue:${data.runKey}`,next);invalidateClientCache('ad-history');}
   async function queueAction(row:AdListing){const key=`${row.campaignId}:${row.listing}`;setQueueState(value=>({...value,[key]:'saving'}));setBatchMessage('');try{const response=await fetch('/api/ads/actions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({runKey:data?.runKey,listing:row.listing,campaignId:row.campaignId,actionType:row.action.type,before:row.action.before,proposed:row.action.proposed})});const body=await response.json() as {message?:string;error?:string};if(!response.ok)throw new Error(body.error||'执行单保存失败');await reloadQueue();setBatchMessage('已加入页面上方的“本周执行批次”，刷新页面仍会保留。');}catch(reason){setQueueState(value=>({...value,[key]:reason instanceof Error?reason.message:'保存失败'}));}}
@@ -473,12 +488,11 @@ function Ads({ tab }: { tab: AdsTab }) {
   const managerCampaigns=sortRows((data?.campaigns||[]).filter(row=>!normalizedManagerQuery||[row.campaignId,row.name,row.targetingType,row.site].some(value=>String(value||'').toLowerCase().includes(normalizedManagerQuery))),campaignSort,{name:(row:AdCampaign)=>row.name,status:(row:AdCampaign)=>row.status,dailyCap:(row:AdCampaign)=>Number(row.dailyCap||0),impressions:(row:AdCampaign)=>row.impressions,clicks:(row:AdCampaign)=>row.clicks,ctr:(row:AdCampaign)=>row.ctr,spend:(row:AdCampaign)=>row.spend,cpc:(row:AdCampaign)=>metricCpc(row),orders:(row:AdCampaign)=>row.orders,units:(row:AdCampaign)=>row.units,cpa:(row:AdCampaign)=>row.cpa,wsc:(row:AdCampaign)=>row.wsc,retail:(row:AdCampaign)=>row.retail,wscRoas:(row:AdCampaign)=>row.wscRoas,retailRoas:(row:AdCampaign)=>row.retailRoas}) as AdCampaign[];
   const managerListings=sortRows((data?.listings||[]).filter(row=>(managerStatus==='ALL'||String(row.status||'').toUpperCase().includes(managerStatus))&&(!normalizedManagerQuery||[row.listing,row.campaignId,row.campaignName,row.productName,row.className,row.site,...row.parts].some(value=>String(value||'').toLowerCase().includes(normalizedManagerQuery)))),listingSort,{listing:(row:AdListing)=>row.listing,status:(row:AdListing)=>row.status,bid:(row:AdListing)=>row.bid,impressions:(row:AdListing)=>row.current.impressions,clicks:(row:AdListing)=>row.current.clicks,ctr:(row:AdListing)=>row.current.ctr,spend:(row:AdListing)=>row.current.spend,cpc:(row:AdListing)=>metricCpc(row.current),orders:(row:AdListing)=>row.current.orders,units:(row:AdListing)=>row.current.units,cpa:(row:AdListing)=>row.current.cpa,wsc:(row:AdListing)=>row.current.wsc,retail:(row:AdListing)=>row.current.retail,cvr:(row:AdListing)=>row.current.cvr,wscRoas:(row:AdListing)=>row.current.wscRoas,retailRoas:(row:AdListing)=>row.current.retailRoas}) as AdListing[];
   const sortCampaign=(field:string)=>setCampaignSort(value=>nextSort(value,field) as SortState); const sortListing=(field:string)=>setListingSort(value=>nextSort(value,field) as SortState);
-  const pageTitle=tab==='manager'?'广告管理器':tab==='listings'?'Listing 表现':'广告优化';
-  const pageCount=tab==='manager'?`${data?.campaigns.length||0} 个 Campaign`:tab==='listings'?`${data?.listings.length||0} 个 Listing`:optimizationMode==='manual'?`${manualDone.length} / ${MANUAL_AD_TASKS.length} 已完成`:`${urgentAiDiagnostics} 项 AI Campaign 风险 · ${ready} 项 Listing 建议`;
+  const pageTitle=tab==='manager'?'广告管理器':tab==='listings'?'Listing 表现':tab==='manual'?'手动优化 To-Do':'AI 优化';
+  const pageCount=tab==='manager'?`${data?.campaigns.length||0} 个 Campaign`:tab==='listings'?`${data?.listings.length||0} 个 Listing`:tab==='manual'?`${manualDone.length} / ${MANUAL_AD_TASKS.length} 已完成`:`${urgentAiDiagnostics} 项 AI Campaign 风险 · ${ready} 项 Listing 建议`;
   return <><Hero eyebrow="" title={pageTitle} text="" side={<div className="hero-side compact-status"><b>{loading?'同步中':error?'需检查':pageCount}</b><span>{requested.start} 至 {requested.end}</span></div>} />
     {tab!=='listings'&&<section className="period-bar ad-period"><div>{adPresetOptions.map(([id,label])=><button key={id} className={preset===id?'active':''} onClick={()=>selectAdPreset(id)}>{label}</button>)}</div>{preset==='custom'&&<><label>开始<input type="date" value={start} onChange={e=>setStart(e.target.value)}/></label><label>结束<input type="date" value={end} max={dateText(new Date())} onChange={e=>setEnd(e.target.value)}/></label><button disabled={loading||start>end} onClick={()=>{setLoading(true);setError('');setRequested({start,end,refresh:false});}}>读取</button></>}<span>{error||`每小时自动同步 · 最近入库 ${data?.generatedAt?new Date(data.generatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'-'} · 决策成熟周 ${data?.decisionRange.start||'-'} → ${data?.decisionRange.end||'-'}`}</span></section>}
     {error&&<div className="inline-error">{error}；系统未展示任何静态替代建议。</div>}
-    {tab==='ai'&&<section className="optimization-mode-switch" aria-label="优化方式"><button className={optimizationMode==='manual'?'active':''} onClick={()=>setOptimizationMode('manual')}><span>01</span><b>手动优化 To-Do List</b><small>关键词布局、预算分配、否词与 Campaign 参数</small></button><button className={optimizationMode==='ai'?'active':''} onClick={()=>setOptimizationMode('ai')}><span>02</span><b>AI 优化 · 一键执行</b><small>成熟数据生成建议，预检后批量执行可写入动作</small></button></section>}
     {tab==='manager'&&<>
       <section className="stat-grid six ad-manager-kpis">{[
         [loading?'-':money(data?.current.spend),"花费",change(data?.current.spend,data?.previous.spend)],
@@ -495,13 +509,13 @@ function Ads({ tab }: { tab: AdsTab }) {
       </section>}
     </>}
     {tab==='listings'&&<section className="card ad-manager-card listing-performance-card"><div className="manager-filters"><label>搜索<input value={managerQuery} onChange={event=>setManagerQuery(event.target.value)} placeholder="Listing、Campaign、商品或 Part"/></label><label>状态<select value={managerStatus} onChange={event=>setManagerStatus(event.target.value)}><option value="ALL">全部状态</option><option value="ACTIVE">投放中</option><option value="PAUSE">已暂停</option><option value="INACTIVE">未启用</option></select></label></div><div className="api-table-scroll"><div className="api-table listing-manager-table listing-performance-table"><div className="api-row head"><SortHeader label="Listing / Campaign" field="listing" sort={listingSort} onSort={sortListing}/><span>商品名称 / 类目</span><SortHeader label="状态 / 客群" field="status" sort={listingSort} onSort={sortListing}/><SortHeader label="Bid" field="bid" sort={listingSort} onSort={sortListing}/><SortHeader label="曝光" field="impressions" sort={listingSort} onSort={sortListing}/><SortHeader label="点击" field="clicks" sort={listingSort} onSort={sortListing}/><SortHeader label="CTR" field="ctr" sort={listingSort} onSort={sortListing}/><SortHeader label="花费" field="spend" sort={listingSort} onSort={sortListing}/><SortHeader label="CPC" field="cpc" sort={listingSort} onSort={sortListing}/><SortHeader label="订单" field="orders" sort={listingSort} onSort={sortListing}/><SortHeader label="CPA" field="cpa" sort={listingSort} onSort={sortListing}/><SortHeader label="WSC 销售额" field="wsc" sort={listingSort} onSort={sortListing}/><SortHeader label="CVR" field="cvr" sort={listingSort} onSort={sortListing}/><SortHeader label="WSC ROAS" field="wscRoas" sort={listingSort} onSort={sortListing}/></div>{managerListings.map(row=><article className="api-row" key={`${row.campaignId}:${row.listing}`}><span><b>{row.listing}</b><small>{row.campaignName||`Campaign ${row.campaignId}`} · {row.parts.join(' / ')||'Part未映射'}</small></span><span><b>{row.productName||'—'}</b><small>{row.className||'未分类'}</small></span><span><em className={/active/i.test(row.status)?'good':/pause|inactive/i.test(row.status)?'bad':'neutral'}>{row.status||'—'}</em><small>{String(row.isB2b).toLowerCase()==='true'?'B2B':'B2C'} · Campaign {row.campaignStatus||'—'}</small></span><b>{money2(row.bid)}</b><b>{row.current.impressions}</b><b>{row.current.clicks}</b><b>{(row.current.ctr*100).toFixed(2)}%</b><b>{money2(row.current.spend)}</b><b>{money2(metricCpc(row.current))}</b><b>{row.current.orders}</b><b>{money2(row.current.cpa)}</b><b>{money2(row.current.wsc)}</b><b>{(row.current.cvr*100).toFixed(2)}%</b><strong>{row.current.wscRoas.toFixed(2)}×</strong></article>)}{!loading&&!managerListings.length?<p className="empty-state">当前筛选没有 Listing 数据。</p>:null}</div></div></section>}
-    {tab==='ai'&&optimizationMode==='manual'&&<div className="manual-optimization-workspace">
+    {tab==='manual'&&<div className="manual-optimization-workspace">
       <section className="card manual-boundary"><div><span>MANUAL CONTROL</span><h2>关键词布局与预算分配</h2><p>恢复 2026-07-15 广告分析的布局。基础容量 $1,800 是月度上限，不是必须花完；关键词必须同时看 CTR 与 WSC ROAS。</p></div><b>关键词、否词、Campaign Cap 和 tROAS 保留人工执行</b></section>
       <section className="keyword-allocation-grid">{AD_BUDGET_ALLOCATION.map(item=>{const actual=item.id==='keyword'?keywordSpend:item.id==='product'?productSpend:null;return <article className={`card allocation-${item.id}`} key={item.id}><span>{item.share}</span><strong>${item.budget}</strong><h3>{item.label}</h3><p>{item.note}</p><small>{actual==null?'按计划释放':`所选周期已花 ${money2(actual)}`}</small></article>})}</section>
       <section className="card allocation-ledger"><div className="section-head"><div><span>LISTING × AD TYPE</span><h2>头部 Listing 分配</h2></div><b>Keyword $750 · Product $650 · B2B $150</b></div><div className="allocation-table"><div className="allocation-row head"><span>Listing</span><span>Keyword</span><span>Product</span><span>B2B</span><span>合计</span><span>分配理由</span></div>{KEYWORD_LISTING_ALLOCATION.map(item=><article className="allocation-row" key={item.listing}><strong>{item.listing}</strong><b>{money(item.keyword)}</b><b>{money(item.product)}</b><b>{money(item.b2b)}</b><strong>{money(item.total)}</strong><p>{item.reason}</p></article>)}</div><p className="allocation-note">其余容量：Canada $50，结构扩容 / 机动 $200；低效 Product 达到迁移 Gate 后，最多 $150 转给已过 Gate 的 Keyword。</p></section>
       <section className="card manual-todo-card"><div className="section-head"><div><span>OPERATOR CHECKLIST</span><h2>手动优化 To-Do List</h2></div><b>{manualDone.length} / {MANUAL_AD_TASKS.length} 已完成</b></div><div className="manual-todo-list">{MANUAL_AD_TASKS.map(task=>{const done=manualDone.includes(task.id);return <label className={done?'done':''} key={task.id}><input type="checkbox" checked={done} onChange={()=>toggleManualTask(task.id)}/><span><em>{task.priority}</em><small>{task.group}</small></span><div><strong>{task.title}</strong><p>{task.detail}</p><dl className="manual-task-details"><div><dt>SKU</dt><dd>{task.sku}</dd></div><div><dt>广告类型</dt><dd>{task.adType}</dd></div><div><dt>关键词</dt><dd>{task.keywords}</dd></div><div><dt>匹配</dt><dd>{task.match}</dd></div><div><dt>起始 Bid</dt><dd>{task.bid}</dd></div><div><dt>预算</dt><dd>{task.budget}</dd></div><div className="rule"><dt>执行 / 验收规则</dt><dd>{task.rule}</dd></div></dl></div></label>})}</div></section>
     </div>}
-    {tab==='ai'&&optimizationMode==='ai'&&<>
+    {tab==='ai'&&<>
     <section className="card ai-execution-boundary"><div><span>CONTROLLED WRITE</span><h2>AI 优化 · 一键执行</h2><p>先诊断 AI Campaign 学习状态与僵尸 Campaign；仅对已通过 Gate 的 Listing Bid 与启停动作执行。Campaign 级诊断只进入人工清单；系统先 Dry-run 预检，正式写入仍需确认。</p></div><b>{zombieAudit.hard?`${zombieAudit.hard} 个硬僵尸优先处理`:urgentAiDiagnostics?`${urgentAiDiagnostics} 项学习异常优先处理`:`${ready} 项建议待处理`}</b></section>
     <section className="card ai-campaign-diagnostics"><div className="section-head"><div><span>PRE-LAUNCH GATE</span><h2>AI 广告新开评估</h2></div><b>{aiLaunchReady?`${aiLaunchReady} 个SKU满足准入`:'本期不建议新开'}</b></div>
       <p className="allocation-note">准入条件：滚动14天≥50个归因订单、库存覆盖≥30天、Listing质量通过。Daily Cap与tROAS必须在启用前设定，学习期内冻结。</p>
@@ -626,7 +640,7 @@ export default function OpsCenter() {
   const [productTab,setProductTab]=useState<ProductTab>('inventory');
   useEffect(()=>{window.scrollTo(0,0);const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view]);
   const activeSub: SubView | null=view==='ads'?adsTab:view==='planning'?planningTab:view==='products'?productTab:null;
-  function navigateSub(next:SubView){if(view==='ads'&&(next==='manager'||next==='listings'||next==='ai'))setAdsTab(next);if(view==='planning'&&(next==='plan'||next==='review'||next==='history'))setPlanningTab(next);if(view==='products'&&(next==='inventory'||next==='catalog'||next==='performance'))setProductTab(next);}
+  function navigateSub(next:SubView){if(view==='ads'&&(next==='manager'||next==='listings'||next==='ai'||next==='manual'))setAdsTab(next);if(view==='planning'&&(next==='plan'||next==='review'||next==='history'))setPlanningTab(next);if(view==='products'&&(next==='inventory'||next==='catalog'||next==='performance'))setProductTab(next);}
   const page=useMemo(()=>({dashboard:<Dashboard/>,daily:<Daily/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={setPlanningTab}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view],[view,adsTab,planningTab,productTab]);
   return <div className="app app-shell"><ShellHeader active={view} activeSub={activeSub} onNavigate={setView} onSubNavigate={navigateSub}/><div className="content-shell"><main>{page}</main><footer><span>Wayfair AI 运营中台</span><span>个人测试阶段</span></footer></div></div>;
 }

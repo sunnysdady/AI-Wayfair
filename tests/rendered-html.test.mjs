@@ -166,6 +166,8 @@ test("organizes the operating product around five primary workspaces", async () 
   assert.match(page, /label: "计划与复盘"/);
   assert.match(page, /label: "商品与库存"/);
   assert.match(page, /PRIMARY_NAV[\s\S]*label: "日报"/);
+  assert.match(page, /useEmailBriefDates/);
+  assert.match(page, /daily-insights/);
   assert.match(page, /className="nav-submenu"/);
   assert.match(page, /广告管理器/);
   assert.match(page, /AI 优化/);
@@ -249,7 +251,7 @@ test("splits advertising optimization into a manual to-do list and AI one-click 
   assert.match(page, /filing cabinets/);
   assert.match(page, /关键词、否词、Campaign Cap 和 tROAS 保留人工执行/);
   assert.match(page, /仅对已通过 Gate 的 Listing Bid 与启停动作执行/);
-  assert.match(styles, /\.optimization-mode-switch/);
+  assert.doesNotMatch(styles, /\.optimization-mode-switch/);
   assert.match(styles, /\.keyword-allocation-grid/);
   assert.match(styles, /\.manual-todo-list/);
 });
