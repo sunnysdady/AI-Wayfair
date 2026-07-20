@@ -81,10 +81,10 @@ export async function POST(request: Request) {
     const body = await request.json() as { runKey?: string; dryRun?: boolean; confirmation?: string };
     if (!body.runKey || !/^weekly:\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/.test(body.runKey)) return Response.json({ error: "周执行批次格式无效" }, { status: 400 });
     const requiredStatus = body.dryRun === false ? "VALIDATED" : "APPROVED";
-    const result = await env.DB.prepare("SELECT * FROM ad_action_queue WHERE run_key=? AND status=? AND action_type='SET_LISTING_BID' ORDER BY campaign_id,listing").bind(body.runKey, requiredStatus).all<QueueRow>();
+    const result = await env.DB.prepare("SELECT * FROM ad_action_queue WHERE run_key=? AND status=? AND action_type IN ('SET_LISTING_BID','SET_LISTING_ACTIVE') ORDER BY campaign_id,listing").bind(body.runKey, requiredStatus).all<QueueRow>();
     const actions = result.results || [];
     const campaigns = buildCampaignUpdates(actions);
-    if (!campaigns.length) return Response.json({ error: requiredStatus === "APPROVED" ? "没有已确认、可预检的 Bid 动作" : "没有已通过预检的 Bid 动作" }, { status: 409 });
+    if (!campaigns.length) return Response.json({ error: requiredStatus === "APPROVED" ? "没有已确认、可预检的广告动作" : "没有已通过预检的广告动作" }, { status: 409 });
     if (body.dryRun !== false) {
       for (const campaign of campaigns) await record(env.DB, campaign.actionIds, "VALIDATED", { campaignId: campaign.campaignId, listings: campaign.listings }, "VALIDATED");
       return Response.json({ mode: "dry-run", campaignCount: campaigns.length, actionCount: actions.length, campaigns, message: "API 载荷预检通过，尚未写入 Wayfair。" });
