@@ -297,3 +297,21 @@ test("shows AI campaign learning diagnostics and the operator escalation checkli
   assert.match(styles, /\.ai-campaign-diagnostics\{/);
   assert.match(styles, /\.ai-diagnosis-card\{/);
 });
+
+test("adds zombie campaign findings to the AI execution list without treating manual work as API executable", async () => {
+  const [page, ads, queue] = await Promise.all([
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/ads/actions/route.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(ads, /detectZombieCampaigns/);
+  assert.match(ads, /zombieAudit/);
+  assert.match(page, /僵尸 Campaign 规则/);
+  assert.match(page, /硬僵尸/);
+  assert.match(page, /准僵尸/);
+  assert.match(queue, /PAUSE_CAMPAIGN/);
+  assert.match(queue, /CHECK_LISTING_ELIGIBILITY/);
+  assert.match(queue, /CHECK_LOW_DELIVERY/);
+  assert.match(queue, /API_ACTIONS = new Set\(\["SET_LISTING_BID", "SET_LISTING_ACTIVE"\]\)/);
+});
