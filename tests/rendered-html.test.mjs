@@ -47,7 +47,7 @@ test("separates the visible advertising period from the mature weekly decision w
   ]);
   assert.match(page, /成熟周（推荐）/);
   assert.match(page, /最近 14 天/);
-  assert.match(page, /批量加入执行单/);
+  assert.match(page, /批量加入 API 执行单/);
   assert.match(page, /保本ROAS/);
   assert.match(page, /BM CPC/);
   assert.match(page, /money2\(row\.cpcBaseline\.cpc\)/);
@@ -124,7 +124,7 @@ test("restores persisted weekly actions after the advertising page reloads", asy
   });
   assert.match(page, /\/api\/ads\/actions\?runKey=/);
   assert.match(page, /queuedActionState/);
-  assert.match(page, /本周执行批次/);
+  assert.match(page, /API 执行批次/);
   assert.match(page, /确认并预检/);
   assert.match(page, /执行已预检项/);
 });
@@ -136,7 +136,7 @@ test("ships the compact operations shell and bulk advertising workflow", async (
   ]);
   assert.match(page, /className="sidebar"/);
   assert.match(page, /label: "帮助"/);
-  assert.match(page, /批量加入执行单/);
+  assert.match(page, /批量加入 API 执行单/);
   assert.match(page, /确认并预检/);
   assert.match(page, /执行已预检项/);
   assert.match(page, /执行结果/);
@@ -242,7 +242,7 @@ test("splits advertising optimization into a manual to-do list and AI one-click 
   ]);
 
   assert.match(page, /手动优化 To-Do List/);
-  assert.match(page, /AI 优化 · 一键执行/);
+  assert.match(page, /AI 优化 · API 一键执行/);
   assert.match(page, /Keyword Targeting/);
   assert.match(page, /\$750/);
   assert.match(page, /Product Targeting/);
@@ -250,7 +250,7 @@ test("splits advertising optimization into a manual to-do list and AI one-click 
   assert.match(page, /DMOM1021/);
   assert.match(page, /filing cabinets/);
   assert.match(page, /关键词、否词、Campaign Cap 和 tROAS 保留人工执行/);
-  assert.match(page, /仅对已通过 Gate 的 Listing Bid 与启停动作执行/);
+  assert.match(page, /这里只展示可通过 Advertising API 预检与写入的 Listing Bid 和启停建议/);
   assert.doesNotMatch(styles, /\.optimization-mode-switch/);
   assert.match(styles, /\.keyword-allocation-grid/);
   assert.match(styles, /\.manual-todo-list/);
@@ -282,7 +282,7 @@ test("gives advertising recommendations a readable action and evidence hierarchy
   assert.doesNotMatch(styles, /action-list\.rich article>div:nth-child\(4\)/);
 });
 
-test("shows AI campaign learning diagnostics and the operator escalation checklist", async () => {
+test("keeps AI campaign learning rules in analysis without rendering them in the API workspace", async () => {
   const [page, styles, ads] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -291,21 +291,17 @@ test("shows AI campaign learning diagnostics and the operator escalation checkli
 
   assert.match(ads, /aiCampaignDiagnostics/);
   assert.match(ads, /diagnoseAiCampaign/);
-  assert.match(page, /AI Campaign 学习诊断/);
-  assert.match(page, /AI 广告新开评估/);
-  assert.match(page, /本期不建议新开/);
-  assert.match(page, /aiAdEligibility/);
-  assert.match(page, /14天归因订单/);
-  assert.match(page, /联系 Account Manager/);
-  assert.match(page, /状态冲突/);
-  assert.match(page, /platformObservedAt/);
+  assert.doesNotMatch(page, /AI Campaign 学习诊断/);
+  assert.doesNotMatch(page, /AI 广告新开评估/);
+  assert.doesNotMatch(page, /aiAdEligibility/);
+  assert.match(page, /Campaign、资格与平台规则请到左侧“手动优化 To-Do”处理/);
   assert.match(page, /学习期内禁止修改 tROAS、Daily Cap 与 Listing/);
   assert.match(page, /ai-learning-escalation/);
   assert.match(styles, /\.ai-campaign-diagnostics\{/);
   assert.match(styles, /\.ai-diagnosis-card\{/);
 });
 
-test("adds zombie campaign findings to the AI execution list without treating manual work as API executable", async () => {
+test("adds zombie campaign findings to the manual list without treating manual work as API executable", async () => {
   const [page, ads, queue] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
@@ -314,7 +310,9 @@ test("adds zombie campaign findings to the AI execution list without treating ma
 
   assert.match(ads, /detectZombieCampaigns/);
   assert.match(ads, /zombieAudit/);
-  assert.match(page, /僵尸 Campaign 规则/);
+  assert.match(page, /Campaign \/ 资格诊断/);
+  assert.match(page, /人工执行清单（不调用 API）/);
+  assert.match(page, /加入手动执行清单/);
   assert.match(page, /硬僵尸/);
   assert.match(page, /准僵尸/);
   assert.match(queue, /PAUSE_CAMPAIGN/);
