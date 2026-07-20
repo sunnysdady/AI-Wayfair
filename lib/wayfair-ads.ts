@@ -2,6 +2,7 @@ import { AUGUST_PLAN, AUGUST_PLAN_LISTINGS, BFIJ_PLAN, JULY_PLAN, JULY_PLAN_LIST
 import { executionGateForAction, MAKEACE_CPC_PLAN, recommendCpcAction } from "./makeace-cpc-plan.mjs";
 import { evaluateAdjustment } from "./ad-weekly-memory.mjs";
 import { diagnoseAiCampaign } from "./ai-campaign-diagnosis.mjs";
+import { detectZombieCampaigns, ZOMBIE_MATURE_DAYS } from "./zombie-campaign-rules.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -442,12 +443,19 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     const rank = { P0: 0, P1: 1, P2: 2 } as Record<string, number>;
     return (rank[String(a?.priority)] ?? 3) - (rank[String(b?.priority)] ?? 3);
   });
+  const zombieFindings = detectZombieCampaigns({ campaignRows, listingRows, decisionEnd });
+  const zombieAudit = {
+    matureDays: ZOMBIE_MATURE_DAYS,
+    total: zombieFindings.length,
+    hard: zombieFindings.filter((item) => item.severity === "P0").length,
+    near: zombieFindings.filter((item) => item.severity === "P1").length,
+  };
   const runKey = `weekly:${decisionStart}:${decisionEnd}`;
   return {
     source: "Wayfair Advertising API + D1", generatedAt: new Date().toISOString(), attributionWindowDays: ATTRIBUTION_DAYS, runKey,
     range: { start, end, previousStart, previousEnd, asOf, matureThrough, mature: end <= matureThrough },
     decisionRange: { start: decisionStart, end: decisionEnd, previousStart: decisionPreviousStart, previousEnd: decisionPreviousEnd, cadence: "WEEKLY", rule: "每周使用截至T-14的最近完整7天成熟数据生成动作；最近7/14天只用于观察。" },
-    current: total(campaignRows, start, end), previous: total(campaignRows, previousStart, previousEnd), history, campaigns, listings, aiCampaignDiagnostics,
+    current: total(campaignRows, start, end), previous: total(campaignRows, previousStart, previousEnd), history, campaigns, listings, aiCampaignDiagnostics, zombieFindings, zombieAudit,
     plan: { month: JULY_PLAN.month, plannedListings: JULY_PLAN_LISTINGS.filter((item) => item.eligible).length, plannedBudget: JULY_PLAN.adBudget, cpcAnchor: MAKEACE_CPC_PLAN, goalGuardrail: { julyPaceGap: goals.julyPaceGap, eventPhase: goals.eventPhase, reliable: goals.reliable } },
     safety: { liveWritesEnabled: false, approvalEnabled: true, reason: "AI建议自动生成并可加入周执行单；生产写入保留人工确认与回滚。" },
   };
@@ -510,7 +518,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const listingFetchEnd = [end, decisionEnd].sort().at(-1) as string;
   const fetchEnd = [campaignFetchEnd, listingFetchEnd].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v11:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v12:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
     const cached = await env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>();
     if (cached && Date.now() - Date.parse(cached.updated_at) < ANALYSIS_CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, layer: "D1_ANALYSIS", updatedAt: cached.updated_at } };
@@ -533,7 +541,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   if (env.DB) {
     const now = new Date().toISOString();
     await env.DB.prepare("INSERT INTO sync_state(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(cacheKey, JSON.stringify(analysis), now).run();
-    await env.DB.prepare("INSERT INTO ad_decision_runs(run_key,decision_start,decision_end,payload,created_at) VALUES(?,?,?,?,?) ON CONFLICT(run_key) DO UPDATE SET payload=excluded.payload,created_at=excluded.created_at").bind(analysis.runKey, decisionStart, decisionEnd, JSON.stringify({ listings: analysis.listings, plan: analysis.plan, decisionRange: analysis.decisionRange }), now).run();
+    await env.DB.prepare("INSERT INTO ad_decision_runs(run_key,decision_start,decision_end,payload,created_at) VALUES(?,?,?,?,?) ON CONFLICT(run_key) DO UPDATE SET payload=excluded.payload,created_at=excluded.created_at").bind(analysis.runKey, decisionStart, decisionEnd, JSON.stringify({ listings: analysis.listings, zombieFindings: analysis.zombieFindings, zombieAudit: analysis.zombieAudit, plan: analysis.plan, decisionRange: analysis.decisionRange }), now).run();
   }
   return analysis;
 }
