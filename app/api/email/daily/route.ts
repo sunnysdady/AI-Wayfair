@@ -34,12 +34,16 @@ async function ensureTable(db: D1Database) {
   await db.prepare("CREATE TABLE IF NOT EXISTS outlook_daily_briefs (brief_date TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL, synced_at TEXT NOT NULL)").run();
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const env = await bindings();
     await ensureTable(env.DB);
-    const latest = await env.DB.prepare("SELECT payload,synced_at FROM outlook_daily_briefs ORDER BY brief_date DESC LIMIT 1").first<{payload:string;synced_at:string}>();
-    if (!latest) return Response.json({ briefDate: "", syncedAt: "", source: "Outlook 邮件同步等待首次运行", summary: { total: 0, unread: 0, actionRequired: 0, highestPriority: "-" }, items: [], tasks: [] }, { headers: { "Cache-Control": "private, max-age=300" } });
+    const briefDate = new URL(request.url).searchParams.get("date");
+    if (briefDate && !/^\d{4}-\d{2}-\d{2}$/.test(briefDate)) return Response.json({ error: "日报日期无效" }, { status: 400 });
+    const latest = briefDate
+      ? await env.DB.prepare("SELECT payload,synced_at FROM outlook_daily_briefs WHERE brief_date=?").bind(briefDate).first<{payload:string;synced_at:string}>()
+      : await env.DB.prepare("SELECT payload,synced_at FROM outlook_daily_briefs ORDER BY brief_date DESC LIMIT 1").first<{payload:string;synced_at:string}>();
+    if (!latest) return Response.json({ briefDate: briefDate || "", syncedAt: "", source: "Outlook 邮件同步等待首次运行", summary: { total: 0, unread: 0, actionRequired: 0, highestPriority: "-" }, items: [], tasks: [] }, { headers: { "Cache-Control": "private, max-age=300" } });
     return Response.json({ ...JSON.parse(latest.payload), syncedAt: latest.synced_at }, { headers: { "Cache-Control": "private, max-age=300" } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Outlook 日报读取失败" }, { status: 500 });

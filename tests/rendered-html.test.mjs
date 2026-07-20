@@ -155,17 +155,17 @@ test("ships the compact operations shell and bulk advertising workflow", async (
   assert.match(styles, /\.action-list\.rich \.action-head\.selectable/);
 });
 
-test("organizes the operating product around four primary workspaces", async () => {
+test("organizes the operating product around five primary workspaces", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   assert.match(page, /label: "Dashboard"/);
+  assert.match(page, /label: "日报"/);
   assert.match(page, /label: "广告"/);
   assert.match(page, /label: "计划与复盘"/);
   assert.match(page, /label: "商品与库存"/);
-  assert.doesNotMatch(page, /label: "日报"/);
-  assert.doesNotMatch(page, /PRIMARY_NAV[\s\S]*label: "日报"/);
+  assert.match(page, /PRIMARY_NAV[\s\S]*label: "日报"/);
   assert.match(page, /className="nav-submenu"/);
   assert.match(page, /广告管理器/);
   assert.match(page, /AI 优化/);

@@ -6,7 +6,7 @@ import { canRemoveAction, executionResultForAction, filterAdActions, isBulkAppro
 import { nextSort, sortRows } from "../lib/table-sort.mjs";
 import legacyOperatingDataSource from "../data/dmom-operating-2026-06.json";
 
-type View = "dashboard" | "ads" | "planning" | "products" | "sources" | "help";
+type View = "dashboard" | "daily" | "ads" | "planning" | "products" | "sources" | "help";
 type AdsTab = "manager" | "listings" | "ai";
 type PlanningTab = "plan" | "review" | "history";
 type ProductTab = "inventory" | "catalog" | "performance";
@@ -15,6 +15,7 @@ type SubView = AdsTab | PlanningTab | ProductTab;
 
 const PRIMARY_NAV: { id: View; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
+  { id: "daily", label: "日报" },
   { id: "ads", label: "广告" },
   { id: "planning", label: "计划与复盘" },
   { id: "products", label: "商品与库存" },
@@ -88,7 +89,6 @@ type QueuedAdAction = {
 type AdQueueCache = { actions: QueuedAdAction[]; liveEnabled: boolean };
 type OptimizationMode = "manual" | "ai";
 let dashboardSnapshot: OrderSummary | null = null;
-let emailBriefSnapshot: EmailBrief | null = null;
 type PlanProgress = {
   plan: { month: string; orderTarget: number; baselineOrders: number; floorOrders: number; stretchOrders: number; adBudget: number; estimatedNetProfit: number; source: string; sourceAsOf: string; scopeWarning: string };
   currentOperatingMonth: { month: string; targetStatus: string; note: string }; status: string; asOf: string;
@@ -233,14 +233,37 @@ function Hero({ eyebrow, title, text, side }: { eyebrow: string; title: string; 
   return <header className="hero page-heading"><h1>{title}</h1>{side}</header>;
 }
 
+function useEmailDailyBrief(date: string) {
+  const cacheKey = `email:daily:${date}`;
+  const [brief, setBrief] = useState<EmailBrief | null>(readClientCache<EmailBrief>(cacheKey));
+  const [loading, setLoading] = useState(!brief);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const cached = readClientCache<EmailBrief>(cacheKey);
+    const controller = new AbortController();
+    if (cached) {
+      queueMicrotask(() => { if (!controller.signal.aborted) { setBrief(cached); setLoading(false); setError(""); } });
+      return () => controller.abort();
+    }
+    setLoading(true); setError("");
+    fetch(`/api/email/daily?date=${encodeURIComponent(date)}`, { signal: controller.signal })
+      .then(async response => { const body = await response.json() as EmailBrief; if (!response.ok) throw new Error(body.error || "Outlook 日报读取失败"); return body; })
+      .then(body => { writeClientCache(cacheKey, body); setBrief(body); })
+      .catch(reason => { if (reason.name !== "AbortError") setError(reason.message || "Outlook 日报读取失败"); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [cacheKey, date]);
+
+  return { brief, loading, error };
+}
+
 function Dashboard() {
-  const [checked, setChecked] = useState(false);
   const initialRange = rangeFor("today");
   const [preset, setPreset] = useState("today");
   const [start, setStart] = useState(initialRange.start);
   const [end, setEnd] = useState(initialRange.end);
   const [data, setData] = useState<OrderSummary | null>(dashboardSnapshot);
-  const [emailBrief,setEmailBrief]=useState<EmailBrief|null>(emailBriefSnapshot);
   const [loading, setLoading] = useState(!dashboardSnapshot);
   const [error, setError] = useState("");
 
@@ -264,8 +287,6 @@ function Dashboard() {
     return () => controller.abort();
   }, [start, end]);
 
-  useEffect(()=>{const cached=readClientCache<EmailBrief>('email:daily');const controller=new AbortController();if(cached){queueMicrotask(()=>{emailBriefSnapshot=cached;setEmailBrief(cached);});return()=>controller.abort();}fetch('/api/email/daily',{signal:controller.signal}).then(async response=>{const body=await response.json() as EmailBrief;if(!response.ok)throw new Error(body.error||'Outlook 日报读取失败');return body;}).then(body=>{emailBriefSnapshot=body;setEmailBrief(body);writeClientCache('email:daily',body);}).catch(()=>{});return()=>controller.abort();},[]);
-
   function selectPreset(next: string) {
     setPreset(next);
     if (next !== "custom") { const range = rangeFor(next); if (range.start !== start || range.end !== end) { setLoading(true); setError(""); setStart(range.start); setEnd(range.end); } }
@@ -276,7 +297,7 @@ function Dashboard() {
   const chartMax = Math.max(1, ...(data?.daily || []).map((item) => Number(item.revenue)));
   const rangeLabel = start === end ? start : `${start} - ${end}`;
   return <>
-    <Hero eyebrow="ORDERS API · OPERATING BRIEF" title="Dashboard" text={`${rangeLabel} · 订单业绩、邮件摘要和运营待办`} side={<div className="hero-side"><b>{loading ? "同步中" : error ? "需检查" : "已更新"}</b><span>{data?.sync.stale ? "正在使用最近缓存" : "Ops API（库存 + 订单）"}</span></div>} />
+    <Hero eyebrow="ORDERS API · OPERATING BRIEF" title="Dashboard" text={`${rangeLabel} · 订单业绩与经营概览`} side={<div className="hero-side"><b>{loading ? "同步中" : error ? "需检查" : "已更新"}</b><span>{data?.sync.stale ? "正在使用最近缓存" : "Ops API（库存 + 订单）"}</span></div>} />
     <section className="date-console" aria-label="经营周期">
       <div className="preset-list">{presetOptions.map(([id, label]) => <button key={id} className={preset === id ? "active" : ""} onClick={() => selectPreset(id)}>{label}</button>)}</div>
       {preset === "custom" && <div className="custom-range"><label>开始<input type="date" value={start} max={end} onChange={(event) => {setLoading(true);setError("");setStart(event.target.value);}} /></label><label>结束<input type="date" value={end} min={start} onChange={(event) => {setLoading(true);setError("");setEnd(event.target.value);}} /></label></div>}
@@ -299,18 +320,34 @@ function Dashboard() {
         <aside className="top-skus"><span>热销 SKU</span>{(data?.topSkus || []).slice(0, 5).map((item, index) => <div key={item.partNumber}><b>{String(index + 1).padStart(2, "0")}</b><span><strong>{item.partNumber}</strong><small>{item.units} 件</small></span><em>{money(item.revenue)}</em></div>)}{!data?.topSkus?.length && <p>暂无 SKU 销售记录</p>}</aside>
       </div>
     </section>
-    <div className="daily-grid outlook-dashboard">
-      <article className="card feature-card outlook-brief">
-        <div className="outlook-brief-head"><div><span className="pill amber">Outlook · Wayfair</span><h2>{emailBrief?.briefDate||'今日'} 邮件摘要</h2></div><div><strong>{emailBrief?.summary.total??'-'}</strong><small>封相关邮件 · {emailBrief?.summary.unread??'-'} 未读</small></div></div>
-        <p className="meta">{emailBrief?.source||'正在读取 Outlook'} · {emailBrief?.syncedAt?`同步 ${new Date(emailBrief.syncedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})}`:'等待同步'}</p>
-        <div className="outlook-mail-list">{(emailBrief?.items||[]).map(item=><a href={item.webLink} target="_blank" rel="noreferrer" key={item.id}><span className={`mail-priority ${item.priority.toLowerCase()}`}>{item.priority}</span><span><b>{item.subject}</b><small>{item.category?`${item.category} · `:''}{item.summary}</small></span><span><em>{item.unread?'未读':'已读'}</em><small>{item.owner} · {item.status}</small></span></a>)}{!emailBrief?.items?.length?<p>今日尚无 Wayfair 邮件。</p>:null}</div>
-        <p className="handoff-note"><b>系统边界：</b>订单通知用于经营汇总和交接；本中台不执行发货。</p>
-      </article>
-      <aside className="side-stack">
-        <article className="card risk-card"><h2>邮件风险</h2><div className="risk-number"><strong>{emailBrief?.summary.actionRequired??'-'}</strong><span>封需跟进</span></div><p>最高优先级 {emailBrief?.summary.highestPriority||'-'}。订单履约事项交接专职同事，运营只检查是否完成交接。</p><div className="soft-note">每天从 Outlook 读取 Wayfair 发件人和主题，摘要保存在运营数据库。</div></article>
-        <article className="card todo-card"><h2>我的待办</h2>{(emailBrief?.tasks||[]).map((task,index)=><label key={task.id}><input type="checkbox" checked={index===0?checked:false} onChange={index===0?e=>setChecked(e.target.checked):undefined}/><span><b>{task.title}</b><small>{task.owner} · {task.priority} · 截止 {task.dueDate}</small></span></label>)}{!emailBrief?.tasks?.length?<p>今日没有从邮件提取的新待办。</p>:null}</article>
-      </aside>
-    </div>
+  </>;
+}
+
+function Daily() {
+  const today = dateText(new Date());
+  const [date, setDate] = useState(today);
+  const [done, setDone] = useState<string[]>([]);
+  const { brief, loading, error } = useEmailDailyBrief(date);
+  const dates = [today, shiftDate(today, -1), shiftDate(today, -2)];
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of brief?.items || []) counts.set(item.category || "其他运营", (counts.get(item.category || "其他运营") || 0) + 1);
+    return [...counts.entries()];
+  }, [brief]);
+  return <>
+    <Hero eyebrow="OUTLOOK · WAYFAIR OPERATING BRIEF" title="运营日报" text="覆盖订单履约、活动广告、绩效合规、账单回款与售后扣款；按日保存快照" side={<div className="hero-side"><b>{loading ? "同步中" : error ? "需检查" : `${brief?.summary.total || 0} 封`}</b><span>{brief?.syncedAt ? `同步 ${new Date(brief.syncedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}` : "等待同步"}</span></div>} />
+    <section className="daily-date-tabs" aria-label="日报日期">{dates.map(value => <button key={value} className={date === value ? "active" : ""} onClick={() => setDate(value)}>{value === today ? "今天" : value.slice(5)}<small>{value}</small></button>)}</section>
+    {error && <div className="inline-error">{error}</div>}
+    <section className="stat-grid four daily-kpis">
+      <article className="stat"><strong>{brief?.summary.total ?? "-"}</strong><span>相关邮件</span><small>{brief?.source || "读取中"}</small></article>
+      <article className="stat"><strong>{brief?.summary.unread ?? "-"}</strong><span>未读</span><small>需要优先打开确认</small></article>
+      <article className="stat"><strong>{brief?.summary.actionRequired ?? "-"}</strong><span>需跟进</span><small>最高优先级 {brief?.summary.highestPriority || "-"}</small></article>
+      <article className="stat"><strong>{categories.length}</strong><span>邮件类型</span><small>{categories.map(([category]) => category).join(" · ") || "暂无数据"}</small></article>
+    </section>
+    <section className="daily-report-grid">
+      <article className="card daily-mail-card"><div className="section-head"><div><span>ALL WAYFAIR MAIL</span><h2>{date} 邮件明细</h2></div><b>{brief?.items.length || 0} 封已分类</b></div><div className="outlook-mail-list daily-mail-list">{(brief?.items || []).map(item => <a href={item.webLink} target="_blank" rel="noreferrer" key={item.id}><span className={`mail-priority ${item.priority.toLowerCase()}`}>{item.priority}</span><span><b>{item.subject}</b><small>{item.category || "其他运营"} · {item.summary}</small></span><span><em>{item.unread ? "未读" : "已读"}</em><small>{item.owner} · {item.status}</small></span></a>)}{!loading && !brief?.items.length && <p className="empty-state">该日没有已保存的 Wayfair 邮件快照。</p>}</div></article>
+      <aside className="daily-side-stack"><article className="card category-card"><div className="section-head"><div><span>MAIL MIX</span><h2>分类分布</h2></div></div><div>{categories.map(([category, count]) => <p key={category}><b>{category}</b><span>{count} 封</span></p>)}{!categories.length && <p>暂无分类数据。</p>}</div></article><article className="card todo-card"><h2>当天待办</h2>{(brief?.tasks || []).map(task => <label key={task.id}><input type="checkbox" checked={done.includes(task.id)} onChange={() => setDone(value => value.includes(task.id) ? value.filter(id => id !== task.id) : [...value, task.id])}/><span><b>{task.title}</b><small>{task.owner} · {task.priority} · 截止 {task.dueDate} · {task.status}</small></span></label>)}{!brief?.tasks.length ? <p>该日没有从邮件提取的待办。</p> : null}</article></aside>
+    </section>
   </>;
 }
 
@@ -547,6 +584,6 @@ export default function OpsCenter() {
   useEffect(()=>{window.scrollTo(0,0);const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view]);
   const activeSub: SubView | null=view==='ads'?adsTab:view==='planning'?planningTab:view==='products'?productTab:null;
   function navigateSub(next:SubView){if(view==='ads'&&(next==='manager'||next==='listings'||next==='ai'))setAdsTab(next);if(view==='planning'&&(next==='plan'||next==='review'||next==='history'))setPlanningTab(next);if(view==='products'&&(next==='inventory'||next==='catalog'||next==='performance'))setProductTab(next);}
-  const page=useMemo(()=>({dashboard:<Dashboard/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={setPlanningTab}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view],[view,adsTab,planningTab,productTab]);
+  const page=useMemo(()=>({dashboard:<Dashboard/>,daily:<Daily/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={setPlanningTab}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view],[view,adsTab,planningTab,productTab]);
   return <div className="app app-shell"><ShellHeader active={view} activeSub={activeSub} onNavigate={setView} onSubNavigate={navigateSub}/><div className="content-shell"><main>{page}</main><footer><span>Wayfair AI 运营中台</span><span>个人测试阶段</span></footer></div></div>;
 }
