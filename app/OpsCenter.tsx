@@ -86,7 +86,8 @@ type AdAnalysis = {
   runKey: string; generatedAt: string; attributionWindowDays: number; cache?: { hit?: boolean; layer?: string; updatedAt?: string }; safety: { reason: string }; error?: string;
 };
 type SortState = { key: string; direction: "asc" | "desc" };
-type EmailBrief = { briefDate:string; syncedAt:string; source:string; summary:{total:number;unread:number;actionRequired:number;highestPriority:string}; items:Array<{id:string;category?:string;subject:string;sender:string;receivedAt:string;unread:boolean;priority:string;summary:string;owner:string;status:string;webLink:string}>; tasks:Array<{id:string;title:string;owner:string;dueDate:string;priority:string;status:string}>; sections?:Array<{title:string;body:string;tone?:string}>; error?:string };
+type EmailItem = { id:string; category?:string; subject:string; sender:string; receivedAt:string; unread:boolean; priority:string; summary:string; bodyPreview?:string; owner:string; status:string; webLink:string };
+type EmailBrief = { briefDate:string; syncedAt:string; source:string; summary:{total:number;unread:number;actionRequired:number;highestPriority:string}; items:EmailItem[]; tasks:Array<{id:string;title:string;owner:string;dueDate:string;priority:string;status:string}>; sections?:Array<{title:string;body:string;tone?:string}>; error?:string };
 type QueuedAdAction = {
   id: string; run_key: string; listing: string; campaign_id: string; action_type: string;
   before_payload: string; proposed_payload: string; status: string; created_at: string; updated_at: string;
@@ -356,6 +357,7 @@ function Daily() {
   const today = dateText(new Date());
   const [date, setDate] = useState(today);
   const [done, setDone] = useState<string[]>([]);
+  const [previewEmail, setPreviewEmail] = useState<EmailItem | null>(null);
   const { brief, loading, error } = useEmailDailyBrief(date);
   const availableDates = useEmailBriefDates();
   const dates = availableDates.length ? availableDates : [today, shiftDate(today, -1), shiftDate(today, -2)];
@@ -365,9 +367,15 @@ function Daily() {
     for (const item of brief?.items || []) counts.set(item.category || "其他运营", (counts.get(item.category || "其他运营") || 0) + 1);
     return [...counts.entries()];
   }, [brief]);
+  useEffect(() => {
+    if (!previewEmail) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [previewEmail]);
   return <>
     <Hero eyebrow="OUTLOOK · WAYFAIR OPERATING BRIEF" title="运营日报" text="覆盖订单履约、活动广告、绩效合规、账单回款与售后扣款；按日保存快照" side={<div className="hero-side"><b>{loading ? "同步中" : error ? "需检查" : `${brief?.summary.total || 0} 封`}</b><span>{brief?.syncedAt ? `同步 ${new Date(brief.syncedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}` : "等待同步"}</span></div>} />
-    <section className="daily-date-tabs" aria-label="日报日期">{dates.map(value => <button key={value} className={date === value ? "active" : ""} onClick={() => setDate(value)}>{value === today ? "今天" : value.slice(5)}<small>{value}</small></button>)}</section>
+    <section className="daily-date-tabs" aria-label="日报日期">{dates.map(value => <button key={value} className={date === value ? "active" : ""} onClick={() => { setDate(value); setPreviewEmail(null); }}>{value === today ? "今天" : value.slice(5)}<small>{value}</small></button>)}</section>
     {error && <div className="inline-error">{error}</div>}
     <section className="stat-grid four daily-kpis">
       <article className="stat"><strong>{brief?.summary.total ?? "-"}</strong><span>相关邮件</span><small>{brief?.source || "读取中"}</small></article>
@@ -376,10 +384,18 @@ function Daily() {
       <article className="stat"><strong>{categories.length}</strong><span>邮件类型</span><small>{categories.map(([category]) => category).join(" · ") || "暂无数据"}</small></article>
     </section>
     <section className="daily-report-grid">
-      <article className="card daily-mail-card"><div className="section-head"><div><span>ALL WAYFAIR MAIL</span><h2>{date} 邮件明细</h2></div><b>{brief?.items.length || 0} 封已分类</b></div><div className="outlook-mail-list daily-mail-list">{(brief?.items || []).map(item => <a href={item.webLink} target="_blank" rel="noreferrer" key={item.id}><span className={`mail-priority ${item.priority.toLowerCase()}`}>{item.priority}</span><span><b>{item.subject}</b><small>{item.category || "其他运营"} · {item.summary}</small></span><span><em>{item.unread ? "未读" : "已读"}</em><small>{item.owner} · {item.status}</small></span></a>)}{!loading && !brief?.items.length && <p className="empty-state">该日没有已保存的 Wayfair 邮件快照。</p>}</div></article>
+      <article className="card daily-mail-card"><div className="section-head"><div><span>ALL WAYFAIR MAIL</span><h2>{date} 邮件明细</h2></div><b>{brief?.items.length || 0} 封已分类</b></div><div className="outlook-mail-list daily-mail-list">{(brief?.items || []).map(item => <button type="button" className="daily-mail-row" onClick={() => setPreviewEmail(item)} key={item.id}><span className={`mail-priority ${item.priority.toLowerCase()}`}>{item.priority}</span><span><b>{item.subject}</b><small>{item.category || "其他运营"} · {item.summary}</small></span><span><em>{item.unread ? "未读" : "已读"}</em><small>{item.owner} · {item.status}</small></span></button>)}{!loading && !brief?.items.length && <p className="empty-state">该日没有已保存的 Wayfair 邮件快照。</p>}</div></article>
       <aside className="daily-side-stack"><article className="card category-card"><div className="section-head"><div><span>MAIL MIX</span><h2>分类分布</h2></div></div><div>{categories.map(([category, count]) => <p key={category}><b>{category}</b><span>{count} 封</span></p>)}{!categories.length && <p>暂无分类数据。</p>}</div></article><article className="card todo-card"><h2>当天待办</h2>{(brief?.tasks || []).map(task => <label key={task.id}><input type="checkbox" checked={done.includes(task.id)} onChange={() => setDone(value => value.includes(task.id) ? value.filter(id => id !== task.id) : [...value, task.id])}/><span><b>{task.title}</b><small>{task.owner} · {task.priority} · 截止 {task.dueDate} · {task.status}</small></span></label>)}{!brief?.tasks.length ? <p>该日没有从邮件提取的待办。</p> : null}</article></aside>
     </section>
     {!!brief?.sections?.length && <section className="daily-insights">{brief.sections.map((section, index) => <article className={`card daily-insight ${section.tone || ""}`} key={`${section.title}-${index}`}><span>运营摘要</span><h2>{section.title}</h2><p>{section.body}</p></article>)}</section>}
+    {previewEmail && <div className="email-preview-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPreviewEmail(null); }} onKeyDown={(event) => { if (event.key === "Escape") setPreviewEmail(null); }}>
+      <section className="email-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="email-preview-title">
+        <header><div><span>{previewEmail.category || "其他运营"} · {previewEmail.priority}</span><h2 id="email-preview-title">{previewEmail.subject}</h2></div><button type="button" autoFocus aria-label="关闭邮件预览" onClick={() => setPreviewEmail(null)}>×</button></header>
+        <div className="email-preview-meta"><div><span>发件人</span><b>{previewEmail.sender}</b></div><div><span>收件时间</span><b>{new Date(previewEmail.receivedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</b></div><div><span>处理状态</span><b>{previewEmail.unread ? "未读" : "已读"} · {previewEmail.status}</b></div><div><span>负责人</span><b>{previewEmail.owner}</b></div></div>
+        <div className="email-preview-content"><span>邮件内容预览</span><p>{previewEmail.bodyPreview || previewEmail.summary}</p></div>
+        <footer>邮件详情已在运营中台内展示，不会跳转到 Outlook。</footer>
+      </section>
+    </div>}
   </>;
 }
 

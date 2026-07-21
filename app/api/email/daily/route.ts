@@ -24,6 +24,7 @@ function isBriefPayload(body: Record<string, unknown>) {
     if (!item || typeof item !== "object") return false;
     const value = item as Record<string, unknown>;
     return ["id", "category", "subject", "sender", "receivedAt", "priority", "summary", "owner", "status", "webLink"].every((key) => typeof value[key] === "string" && value[key].length <= 500)
+      && (value.bodyPreview == null || (typeof value.bodyPreview === "string" && value.bodyPreview.length <= 4000))
       && typeof value.unread === "boolean";
   });
   const hasValidTasks = body.tasks.every((task) => {
