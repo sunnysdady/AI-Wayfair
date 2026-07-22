@@ -373,6 +373,9 @@ function Daily() {
   const [date, setDate] = useState(today);
   const [done, setDone] = useState<string[]>([]);
   const [previewEmail, setPreviewEmail] = useState<EmailItem | null>(null);
+  const [importJson, setImportJson] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState("");
   const { brief, loading, error } = useEmailDailyBrief(date);
   const availableDates = useEmailBriefDates();
   const dates = availableDates.length ? availableDates : [today, shiftDate(today, -1), shiftDate(today, -2)];
@@ -390,9 +393,31 @@ function Daily() {
   }, [previewEmail]);
   const previewFinancial = previewEmail ? financialDetailsForEmail(previewEmail) : null;
   const previewInvoiceIds = previewFinancial?.invoiceIds ?? [];
+  async function importDailyBrief() {
+    setImporting(true);
+    setImportStatus("");
+    try {
+      const payload = JSON.parse(importJson) as EmailBrief;
+      const response = await fetch("/api/email/daily", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json() as { ok?: boolean; briefDate?: string; error?: string };
+      if (!response.ok || !result.ok || !result.briefDate) throw new Error(result.error || "日报补录失败");
+      invalidateClientCache(`email:daily:${result.briefDate}`);
+      invalidateClientCache("email:daily:available");
+      setImportStatus(`${result.briefDate} 已补录，正在刷新…`);
+      window.setTimeout(() => window.location.reload(), 350);
+    } catch (reason) {
+      setImportStatus(reason instanceof Error ? reason.message : "日报补录失败");
+      setImporting(false);
+    }
+  }
   return <>
     <Hero eyebrow="OUTLOOK · WAYFAIR OPERATING BRIEF" title="运营日报" text="覆盖订单履约、活动广告、绩效合规、账单回款与售后扣款；按日保存快照" side={<div className="hero-side"><b>{loading ? "同步中" : error ? "需检查" : `${brief?.summary.total || 0} 封`}</b><span>{brief?.syncedAt ? `同步 ${new Date(brief.syncedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}` : "等待同步"}</span></div>} />
     <section className="daily-date-tabs" aria-label="日报日期">{dates.map(value => <button key={value} className={date === value ? "active" : ""} onClick={() => { setDate(value); setPreviewEmail(null); }}>{value === today ? "今天" : value.slice(5)}<small>{value}</small></button>)}</section>
+    <details className="daily-import card"><summary>补录日报</summary><div><label>日报 JSON<textarea aria-label="日报 JSON" value={importJson} onChange={(event) => setImportJson(event.target.value)} placeholder="粘贴完整日报 JSON" /></label><button type="button" className="primary" disabled={importing || !importJson.trim()} onClick={importDailyBrief}>{importing ? "写入中…" : "写入日报"}</button>{importStatus && <p role="status">{importStatus}</p>}<small>仅已登录的私有站点会话可写入；自动同步正常时无需使用。</small></div></details>
     {error && <div className="inline-error">{error}</div>}
     <section className="stat-grid four daily-kpis">
       <article className="stat"><strong>{brief?.summary.total ?? "-"}</strong><span>相关邮件</span><small>{brief?.source || "读取中"}</small></article>
