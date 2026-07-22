@@ -45,7 +45,11 @@ test("separates the visible advertising period from the mature weekly decision w
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /成熟周（推荐）/);
+  assert.doesNotMatch(page, /成熟周（推荐）|matureWeek/);
+  assert.match(page, /const initial=adRangeFor\('7d'\)/);
+  assert.match(page, /const \[preset,setPreset\]=useState\('7d'\)/);
+  assert.doesNotMatch(page, /决策成熟周/);
+  assert.doesNotMatch(page, /恢复 2026-07-15 广告分析的布局/);
   assert.match(page, /最近 14 天/);
   assert.match(page, /加入执行 \(/);
   assert.match(page, /保本ROAS/);
