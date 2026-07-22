@@ -75,6 +75,21 @@ test("supports a root-level catalog totalPages response", async () => {
   assert.equal(requests.filter((url) => url.includes("/api/catalog/items?")).length, 3);
 });
 
+test("defaults catalog pagination to one page when the total is absent", async () => {
+  const requests = [];
+
+  await runLayeredSync({
+    scheduledTime: Date.parse("2026-07-21T22:00:00Z"),
+    request: async (url) => {
+      requests.push(String(url));
+      return jsonResponse({ items: [] });
+    },
+    record: async () => {},
+  });
+
+  assert.equal(requests.filter((url) => url.includes("/api/catalog/items?")).length, 1);
+});
+
 test("records and rethrows HTTP, JSON, and stale-order failures", async (t) => {
   const cases = [
     ["HTTP failure", jsonResponse({ error: "upstream unavailable" }, 502), /HTTP 502/],
@@ -97,6 +112,19 @@ test("records and rethrows HTTP, JSON, and stale-order failures", async (t) => {
       assert.match(records.at(-1).error, pattern);
     });
   }
+});
+
+test("rejects invalid JSON without allowing status persistence to hide the sync error", async () => {
+  await assert.rejects(
+    runLayeredSync({
+      scheduledTime: Date.parse("2026-07-21T20:00:00Z"),
+      request: async () => new Response("not-json", { status: 200 }),
+      record: async () => {
+        throw new Error("D1 unavailable");
+      },
+    }),
+    /响应不是有效 JSON/,
+  );
 });
 
 test("worker exports a scheduled handler and build config declares the two-hour trigger", async () => {
