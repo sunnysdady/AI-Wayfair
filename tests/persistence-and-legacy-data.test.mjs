@@ -24,6 +24,18 @@ test("keeps one-hour snapshots across page switches without clearing ad actions"
   assert.match(page, /每小时自动同步/);
 });
 
+test("renders retained global snapshots immediately and refreshes stale data in the background", async () => {
+  const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /orders:\$\{initialRange\.start\}:\$\{initialRange\.end\}/);
+  assert.match(page, /readClientCache<OrderSummary>\(initialDashboardCacheKey,CLIENT_CACHE_RETENTION_MS\)/);
+  assert.match(page, /const fresh=readClientCache<OrderSummary>\(cacheKey\)/);
+  assert.match(page, /const retained=readClientCache<OrderSummary>\(cacheKey,CLIENT_CACHE_RETENTION_MS\)/);
+  assert.match(page, /retained\?"后台更新中":"同步中"/);
+  assert.match(page, /ad-history:dashboard/);
+  assert.match(page, /system:readiness/);
+});
+
 test("refreshes current campaign learning data while keeping Listing decisions on the mature window", async () => {
   const ads = await readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8");
   assert.match(ads, /const campaignFetchEnd = today/);
