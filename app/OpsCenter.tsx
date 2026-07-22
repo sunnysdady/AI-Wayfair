@@ -292,21 +292,27 @@ function useEmailBriefDates() {
 
 function Dashboard() {
   const initialRange = rangeFor("today");
+  const initialDashboardCacheKey=`orders:${initialRange.start}:${initialRange.end}`;
+  const retainedDashboard=dashboardSnapshot??readClientCache<OrderSummary>(initialDashboardCacheKey,CLIENT_CACHE_RETENTION_MS);
   const [preset, setPreset] = useState("today");
   const [start, setStart] = useState(initialRange.start);
   const [end, setEnd] = useState(initialRange.end);
-  const [data, setData] = useState<OrderSummary | null>(dashboardSnapshot);
-  const [loading, setLoading] = useState(!dashboardSnapshot);
+  const [data, setData] = useState<OrderSummary | null>(retainedDashboard);
+  const [loading, setLoading] = useState(!retainedDashboard);
+  const [refreshing,setRefreshing]=useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const cacheKey = `orders:${start}:${end}`;
-    const cached = readClientCache<OrderSummary>(cacheKey);
+    const fresh=readClientCache<OrderSummary>(cacheKey);
+    const retained=readClientCache<OrderSummary>(cacheKey,CLIENT_CACHE_RETENTION_MS);
     const controller = new AbortController();
-    if (cached) {
-      queueMicrotask(()=>{if(!controller.signal.aborted){dashboardSnapshot=cached;setData(cached);setLoading(false);setError("");}});
+    if (fresh) {
+      queueMicrotask(()=>{if(!controller.signal.aborted){dashboardSnapshot=fresh;setData(fresh);setLoading(false);setRefreshing(false);setError("");}});
       return () => controller.abort();
     }
+    if(retained) queueMicrotask(()=>{if(!controller.signal.aborted){dashboardSnapshot=retained;setData(retained);setLoading(false);setRefreshing(true);setError("");}});
+    else queueMicrotask(()=>{if(!controller.signal.aborted){setData(null);setLoading(true);setRefreshing(false);}});
     fetch(`/api/orders/summary?start=${start}&end=${end}`, { signal: controller.signal })
       .then(async (response) => {
         const body = await response.json() as OrderSummary;
@@ -315,7 +321,7 @@ function Dashboard() {
       })
       .then((body) => { dashboardSnapshot=body;setData(body);writeClientCache(cacheKey, body); })
       .catch((reason) => { if (reason.name !== "AbortError") setError(reason.message || "订单数据读取失败"); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      .finally(() => { if (!controller.signal.aborted) {setLoading(false);setRefreshing(false);} });
     return () => controller.abort();
   }, [start, end]);
 
@@ -328,8 +334,9 @@ function Dashboard() {
   const previous = data?.previous;
   const chartMax = Math.max(1, ...(data?.daily || []).map((item) => Number(item.revenue)));
   const rangeLabel = start === end ? start : `${start} - ${end}`;
+  const loadingLabel=(retained:boolean)=>retained?"后台更新中":"同步中";
   return <>
-    <Hero eyebrow="ORDERS API · OPERATING BRIEF" title="Dashboard" text={`${rangeLabel} · 订单业绩与经营概览`} side={<div className="hero-side"><b>{loading ? "同步中" : error ? "需检查" : "已更新"}</b><span>{data?.sync.stale ? "正在使用最近缓存" : "Ops API（库存 + 订单）"}</span></div>} />
+    <Hero eyebrow="ORDERS API · OPERATING BRIEF" title="Dashboard" text={`${rangeLabel} · 订单业绩与经营概览`} side={<div className="hero-side"><b>{refreshing ? loadingLabel(true) : loading ? loadingLabel(false) : error ? "需检查" : "已更新"}</b><span>{data?.sync.stale ? "正在使用最近缓存" : "Ops API（库存 + 订单）"}</span></div>} />
     <section className="date-console" aria-label="经营周期">
       <div className="preset-list">{presetOptions.map(([id, label]) => <button key={id} className={preset === id ? "active" : ""} onClick={() => selectPreset(id)}>{label}</button>)}</div>
       {preset === "custom" && <div className="custom-range"><label>开始<input type="date" value={start} max={end} onChange={(event) => {setLoading(true);setError("");setStart(event.target.value);}} /></label><label>结束<input type="date" value={end} min={start} onChange={(event) => {setLoading(true);setError("");setEnd(event.target.value);}} /></label></div>}
@@ -449,12 +456,13 @@ function Inventory({ embedded = false }: { embedded?: boolean }) {
 }
 
 function AdReviewDashboard() {
-  const [data,setData]=useState<AdReviewResponse|null>(null);
-  const [loading,setLoading]=useState(true);
+  const retained=readClientCache<AdReviewResponse>('ad-history:dashboard',CLIENT_CACHE_RETENTION_MS);
+  const [data,setData]=useState<AdReviewResponse|null>(retained);
+  const [loading,setLoading]=useState(!retained);
   const [error,setError]=useState('');
   const [query,setQuery]=useState('');
   const [verdict,setVerdict]=useState('ALL');
-  useEffect(()=>{const controller=new AbortController();fetch('/api/ads/history',{signal:controller.signal}).then(async response=>{const body=await response.json() as AdReviewResponse;if(!response.ok)throw new Error(body.error||'广告优化历史读取失败');return body;}).then(setData).catch(reason=>{if(reason.name!=='AbortError')setError(reason.message||'广告优化历史读取失败');}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();},[]);
+  useEffect(()=>{const fresh=readClientCache<AdReviewResponse>('ad-history:dashboard');const controller=new AbortController();if(fresh){queueMicrotask(()=>setData(fresh));return()=>controller.abort();}fetch('/api/ads/history',{signal:controller.signal}).then(async response=>{const body=await response.json() as AdReviewResponse;if(!response.ok)throw new Error(body.error||'广告优化历史读取失败');return body;}).then(body=>{setData(body);writeClientCache('ad-history:dashboard',body);}).catch(reason=>{if(reason.name!=='AbortError')setError(reason.message||'广告优化历史读取失败');}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();},[]);
   const actions=useMemo(()=>{const needle=query.trim().toLowerCase();return (data?.weeks||[]).flatMap(week=>week.actions.map(action=>({...action,decisionStart:week.decision_start,decisionEnd:week.decision_end}))).filter(action=>(!needle||[action.listing,action.campaign_id,action.action_type].some(value=>String(value).toLowerCase().includes(needle)))&&(verdict==='ALL'||(verdict==='PENDING'?!action.review:action.review?.verdict===verdict)));},[data,query,verdict]);
   const summary=data?.summary;
   const actionChange=(action:AdReviewAction)=>action.action_type==='SET_LISTING_BID'?`${money2(Number(action.before.bid||0))} → ${money2(Number(action.proposed.bid||0))}`:`${action.before.active===false?'暂停':'启用'} → ${action.proposed.active===false?'暂停':'启用'}`;
@@ -637,9 +645,10 @@ function ProductWorkspace({ tab }: { tab: ProductTab }) {
 }
 
 function Sources() {
-  const [data,setData]=useState<SystemReadiness|null>(null);
+  const retained=readClientCache<SystemReadiness>('system:readiness',CLIENT_CACHE_RETENTION_MS);
+  const [data,setData]=useState<SystemReadiness|null>(retained);
   const [error,setError]=useState('');
-  useEffect(()=>{const controller=new AbortController();fetch('/api/system/readiness',{signal:controller.signal}).then(async response=>{const body=await response.json() as SystemReadiness&{error?:string};if(!response.ok)throw new Error(body.error||'数据就绪状态读取失败');return body;}).then(setData).catch(reason=>{if(reason.name!=='AbortError')setError(reason.message||'数据就绪状态读取失败');});return()=>controller.abort();},[]);
+  useEffect(()=>{const fresh=readClientCache<SystemReadiness>('system:readiness');const controller=new AbortController();if(fresh){queueMicrotask(()=>setData(fresh));return()=>controller.abort();}fetch('/api/system/readiness',{signal:controller.signal}).then(async response=>{const body=await response.json() as SystemReadiness&{error?:string};if(!response.ok)throw new Error(body.error||'数据就绪状态读取失败');return body;}).then(body=>{setData(body);writeClientCache('system:readiness',body);}).catch(reason=>{if(reason.name!=='AbortError')setError(reason.message||'数据就绪状态读取失败');});return()=>controller.abort();},[]);
   return <><Hero eyebrow="DATA SOURCES · PERMISSION CONTROL" title="数据源" text="连接状态来自当前运行环境；未验证时不会显示为生产可用" />
     <section className="card readiness-banner"><div><span>运行环境</span><b>{data?`${data.environment.platform} / ${data.environment.name}`:'检查中'}</b><small>{data?.environment.verified?'生产环境已验证':'未通过生产环境验证'}</small></div><div><span>Supplier 身份</span><b>{data?.identity.verified?'已核对':'未核对'}</b><small>{data?.identity.expectedSupplierIds.length?data.identity.expectedSupplierIds.join(' / '):'未配置允许清单'}</small></div><div><span>正式写入</span><b>{data?.live.ads.allowed&&data?.live.inventory.allowed?'已解锁':'默认锁定'}</b><small>广告与库存分别受独立开关保护</small></div></section>
     {error?<p className="inventory-message bad">{error}</p>:null}<div className="source-grid">{(data?.sources||[]).map(source=><article className="card source-card" key={source.id}><span className={source.status==='ready'?'connected':'waiting'}>{source.status==='ready'?'已就绪':'已阻止'}</span><h2>{source.name}</h2><p>{source.detail}</p><small>{source.scope}</small></article>)}</div>
