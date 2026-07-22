@@ -300,6 +300,7 @@ function Dashboard() {
   const [data, setData] = useState<OrderSummary | null>(retainedDashboard);
   const [loading, setLoading] = useState(!retainedDashboard);
   const [refreshing,setRefreshing]=useState(false);
+  const [forceRefresh,setForceRefresh]=useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -307,13 +308,13 @@ function Dashboard() {
     const fresh=readClientCache<OrderSummary>(cacheKey);
     const retained=readClientCache<OrderSummary>(cacheKey,CLIENT_CACHE_RETENTION_MS);
     const controller = new AbortController();
-    if (fresh) {
+    if (fresh&&!forceRefresh) {
       queueMicrotask(()=>{if(!controller.signal.aborted){dashboardSnapshot=fresh;setData(fresh);setLoading(false);setRefreshing(false);setError("");}});
       return () => controller.abort();
     }
     if(retained) queueMicrotask(()=>{if(!controller.signal.aborted){dashboardSnapshot=retained;setData(retained);setLoading(false);setRefreshing(true);setError("");}});
     else queueMicrotask(()=>{if(!controller.signal.aborted){setData(null);setLoading(true);setRefreshing(false);}});
-    fetch(`/api/orders/summary?start=${start}&end=${end}`, { signal: controller.signal })
+    fetch(`/api/orders/summary?start=${start}&end=${end}${forceRefresh?"&refresh=1":""}`, { signal: controller.signal })
       .then(async (response) => {
         const body = await response.json() as OrderSummary;
         if (!response.ok) throw new Error(body.error || "订单数据读取失败");
@@ -321,13 +322,19 @@ function Dashboard() {
       })
       .then((body) => { dashboardSnapshot=body;setData(body);writeClientCache(cacheKey, body); })
       .catch((reason) => { if (reason.name !== "AbortError") setError(reason.message || "订单数据读取失败"); })
-      .finally(() => { if (!controller.signal.aborted) {setLoading(false);setRefreshing(false);} });
+      .finally(() => { if (!controller.signal.aborted) {setLoading(false);setRefreshing(false);setForceRefresh(false);} });
     return () => controller.abort();
-  }, [start, end]);
+  }, [start, end, forceRefresh]);
 
   function selectPreset(next: string) {
     setPreset(next);
     if (next !== "custom") { const range = rangeFor(next); if (range.start !== start || range.end !== end) { setLoading(true); setError(""); setStart(range.start); setEnd(range.end); } }
+  }
+
+  function refreshDashboard(){
+    setError("");
+    setRefreshing(true);
+    setForceRefresh(true);
   }
 
   const current = data?.current;
@@ -340,7 +347,7 @@ function Dashboard() {
     <section className="date-console" aria-label="经营周期">
       <div className="preset-list">{presetOptions.map(([id, label]) => <button key={id} className={preset === id ? "active" : ""} onClick={() => selectPreset(id)}>{label}</button>)}</div>
       {preset === "custom" && <div className="custom-range"><label>开始<input type="date" value={start} max={end} onChange={(event) => {setLoading(true);setError("");setStart(event.target.value);}} /></label><label>结束<input type="date" value={end} min={start} onChange={(event) => {setLoading(true);setError("");setEnd(event.target.value);}} /></label></div>}
-      <span className={error ? "sync-state error" : "sync-state"}>{error || (data?.sync.stale ? `同步失败，显示缓存：${data.sync.error}` : data?.sync.syncedAt ? `最近同步 ${new Date(data.sync.syncedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}` : "正在连接订单数据")}</span>
+      <div className="dashboard-sync-tools"><span className={error ? "sync-state error" : "sync-state"}>{error || (data?.sync.stale ? `同步失败，显示缓存：${data.sync.error}` : data?.sync.syncedAt ? `最近同步 ${new Date(data.sync.syncedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}` : "正在连接订单数据")}</span><button type="button" className={`dashboard-refresh ${refreshing?"refreshing":""}`} aria-label="立即刷新订单数据" title="立即刷新" disabled={refreshing} onClick={refreshDashboard}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg></button></div>
     </section>
     <section className="stat-grid six order-kpis">
       {[
