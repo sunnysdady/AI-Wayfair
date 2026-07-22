@@ -36,6 +36,22 @@ test("renders retained global snapshots immediately and refreshes stale data in 
   assert.match(page, /system:readiness/);
 });
 
+test("offers a compact accessible manual refresh without clearing the retained dashboard", async () => {
+  const [page, styles] = await Promise.all([
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /function refreshDashboard\(\)/);
+  assert.match(page, /refresh=1/);
+  assert.match(page, /className="dashboard-refresh"/);
+  assert.match(page, /aria-label="立即刷新订单数据"/);
+  assert.match(page, /title="立即刷新"/);
+  assert.match(page, /disabled=\{refreshing\}/);
+  assert.match(styles, /\.dashboard-refresh\{/);
+  assert.match(styles, /\.dashboard-refresh\.refreshing svg/);
+});
+
 test("refreshes current campaign learning data while keeping Listing decisions on the mature window", async () => {
   const ads = await readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8");
   assert.match(ads, /const campaignFetchEnd = today/);
