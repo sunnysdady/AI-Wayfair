@@ -8,7 +8,7 @@ test("limits completion interaction and hover feedback to the checkbox column", 
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /className="manual-todo-row/);
+  assert.match(page, /className=\{`manual-todo-row/);
   assert.match(page, /className="manual-todo-check"/);
   assert.match(page, /className="manual-todo-content"/);
   assert.doesNotMatch(page, /<label className=\{done\?'done':''\} key=\{task\.id\}>/);
