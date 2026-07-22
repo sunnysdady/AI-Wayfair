@@ -1,5 +1,6 @@
 import { loadSnapshotItems } from "@/lib/inventory";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+import { assertLiveOperation } from "@/lib/operating-safety.mjs";
 
 const MUTATION = `mutation saveInventory($inventory: [inventoryInput]!, $feedKind: inventoryFeedKind) { inventory { save(inventory: $inventory, feedKind: $feedKind) { id handle status submittedAt completedAt itemCount errorCount errors { key message } } } }`;
 
@@ -23,7 +24,8 @@ export async function POST(request: Request) {
     if(!items.length) return Response.json({error:"库存快照不存在或为空"},{status:404});
     const batches=[]; for(let index=0;index<items.length;index+=100)batches.push(items.slice(index,index+100));
     if(body.dryRun!==false) return Response.json({mode:"dry-run",snapshotId:body.snapshotId,itemCount:items.length,batchCount:batches.length,zeroStockRows:items.filter((item)=>item.quantityOnHand===0).length});
-    if(env.ALLOW_WAYFAIR_LIVE_PUSH!=="true") return Response.json({error:"正式库存推送尚未在生产环境显式启用"},{status:403});
+    try { assertLiveOperation(env, "inventory", items.map((item)=>item.supplierId)); }
+    catch(error){return Response.json({error:error instanceof Error?error.message:"库存生产写入被安全闸门阻止"},{status:403});}
     if(body.confirmation!=="正式推送") return Response.json({error:"确认文字必须是“正式推送”"},{status:400});
     const zeroRatio=items.filter((item)=>item.quantityOnHand===0).length/items.length;
     if(zeroRatio>=.5&&!body.zeroStockConfirmed) return Response.json({error:"零库存占比过高，需要单独确认"},{status:400});

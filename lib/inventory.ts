@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import mapping from "./inventory-mapping.json";
+import { calculateInventoryValueRisk } from "./inventory-value-risk.mjs";
 
 const MAX_XLSX_SIZE = 20 * 1024 * 1024;
 
@@ -107,4 +108,24 @@ export async function loadSnapshotItems(db: D1Database, snapshotId: string) {
   await ensureInventoryTables(db);
   const result = await db.prepare("SELECT part_number,supplier_id,quantity_on_hand,quantity_on_order FROM inventory_snapshot_rows WHERE snapshot_id=? ORDER BY part_number,supplier_id").bind(snapshotId).all<{part_number:string;supplier_id:number;quantity_on_hand:number;quantity_on_order:number}>();
   return (result.results||[]).map((row)=>({discontinued:false,supplierPartNumber:row.part_number,quantityOnHand:Number(row.quantity_on_hand),quantityOnOrder:Number(row.quantity_on_order),supplierId:Number(row.supplier_id),quantityBackordered:0}));
+}
+
+export async function loadInventoryValueRisk(db: D1Database, snapshotId: string) {
+  await ensureInventoryTables(db);
+  await db.prepare("CREATE TABLE IF NOT EXISTS sku_costs (part_number TEXT PRIMARY KEY NOT NULL, unit_cost_cents INTEGER NOT NULL, source TEXT DEFAULT 'manual' NOT NULL, updated_at TEXT NOT NULL)").run();
+  const snapshot = await db.prepare("SELECT created_at FROM inventory_snapshots WHERE id=?").bind(snapshotId).first<{created_at:string}>();
+  if (!snapshot) return calculateInventoryValueRisk();
+  const previous = await db.prepare("SELECT id FROM inventory_snapshots WHERE created_at<? ORDER BY created_at DESC LIMIT 1").bind(snapshot.created_at).first<{id:string}>();
+  const [currentRows, previousRows, costs] = await Promise.all([
+    db.prepare("SELECT part_number,quantity_on_hand FROM inventory_snapshot_rows WHERE snapshot_id=?").bind(snapshotId).all<{part_number:string;quantity_on_hand:number}>(),
+    previous?.id
+      ? db.prepare("SELECT part_number,quantity_on_hand FROM inventory_snapshot_rows WHERE snapshot_id=?").bind(previous.id).all<{part_number:string;quantity_on_hand:number}>()
+      : Promise.resolve({ results: [] as {part_number:string;quantity_on_hand:number}[] }),
+    db.prepare("SELECT part_number,unit_cost_cents FROM sku_costs").all<{part_number:string;unit_cost_cents:number}>(),
+  ]);
+  return calculateInventoryValueRisk(
+    currentRows.results || [],
+    previousRows.results || [],
+    new Map((costs.results || []).map((row) => [row.part_number, Number(row.unit_cost_cents)])),
+  );
 }

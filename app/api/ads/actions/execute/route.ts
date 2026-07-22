@@ -1,5 +1,6 @@
 import { WAYFAIR_ADVERTISING_AUDIENCE, buildCampaignUpdates, executeCampaignUpdates } from "@/lib/ad-action-queue.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+import { assertLiveOperation } from "@/lib/operating-safety.mjs";
 
 type QueueRow = {
   id: string; run_key: string; listing: string; campaign_id: string; action_type: string;
@@ -89,7 +90,8 @@ export async function POST(request: Request) {
       for (const campaign of campaigns) await record(env.DB, campaign.actionIds, "VALIDATED", { campaignId: campaign.campaignId, listings: campaign.listings }, "VALIDATED");
       return Response.json({ mode: "dry-run", campaignCount: campaigns.length, actionCount: actions.length, campaigns, message: "API 载荷预检通过，尚未写入 Wayfair。" });
     }
-    if (env.ALLOW_WAYFAIR_AD_LIVE_CHANGES !== "true") return Response.json({ error: "正式广告修改尚未在生产环境显式启用" }, { status: 403 });
+    try { assertLiveOperation(env, "ads"); }
+    catch (error) { return Response.json({ error: error instanceof Error ? error.message : "广告生产写入被安全闸门阻止" }, { status: 403 }); }
     if (body.confirmation !== "执行广告修改") return Response.json({ error: "确认文字必须是“执行广告修改”" }, { status: 400 });
     const staleBefore = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     await env.DB.prepare("DELETE FROM ad_execution_locks WHERE acquired_at<?").bind(staleBefore).run();

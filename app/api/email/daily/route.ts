@@ -23,7 +23,14 @@ function isBriefPayload(body: Record<string, unknown>) {
   const hasValidItems = body.items.every((item) => {
     if (!item || typeof item !== "object") return false;
     const value = item as Record<string, unknown>;
+    const financial = value.financial as Record<string, unknown> | null | undefined;
+    const hasValidFinancial = financial == null || (typeof financial === "object"
+      && ["remittanceId", "currency", "paymentDate", "paymentMethod"].every((key) => financial[key] == null || (typeof financial[key] === "string" && financial[key].length <= 120))
+      && (financial.amount == null || (typeof financial.amount === "number" && Number.isFinite(financial.amount) && financial.amount >= 0))
+      && (financial.invoiceIds == null || (Array.isArray(financial.invoiceIds) && financial.invoiceIds.length <= 100 && financial.invoiceIds.every((id) => typeof id === "string" && id.length <= 120))));
     return ["id", "category", "subject", "sender", "receivedAt", "priority", "summary", "owner", "status", "webLink"].every((key) => typeof value[key] === "string" && value[key].length <= 500)
+      && (value.bodyPreview == null || (typeof value.bodyPreview === "string" && value.bodyPreview.length <= 4000))
+      && hasValidFinancial
       && typeof value.unread === "boolean";
   });
   const hasValidTasks = body.tasks.every((task) => {
