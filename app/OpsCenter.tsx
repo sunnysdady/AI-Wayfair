@@ -381,8 +381,7 @@ function Daily() {
   const [importStatus, setImportStatus] = useState("");
   const { brief, loading, error } = useEmailDailyBrief(date);
   const availableDates = useEmailBriefDates();
-  const dates = availableDates.length ? availableDates : [today, shiftDate(today, -1), shiftDate(today, -2)];
-  useEffect(() => { if (availableDates.length && !availableDates.includes(date)) queueMicrotask(() => setDate(availableDates[0])); }, [availableDates, date]);
+  const dates = [...new Set([today, ...availableDates])].sort((left, right) => right.localeCompare(left)).slice(0, 31);
   const categories = useMemo(() => {
     const counts = new Map<string, number>();
     for (const item of brief?.items || []) counts.set(item.category || "其他运营", (counts.get(item.category || "其他运营") || 0) + 1);
