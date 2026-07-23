@@ -43,6 +43,23 @@ test("rejects an untrusted upstream before attaching the private token", async (
   assert.doesNotMatch(await response.text(), /test-secret-token|attacker\.example/);
 });
 
+test("converts an expired Sites credential response into a JSON gateway error", async () => {
+  const response = await proxySitesApi(
+    new Request("https://ai-wayfair.vercel.app/api/ads/analysis?start=2026-07-10&end=2026-07-23"),
+    validEnv,
+    async () => new Response("<!doctype html><title>Sign in</title>", {
+      status: 401,
+      headers: { "content-type": "text/html; charset=utf-8" },
+    }),
+  );
+
+  assert.equal(response.status, 502);
+  assert.match(response.headers.get("content-type") || "", /^application\/json/);
+  assert.deepEqual(await response.json(), {
+    error: "Sites 数据服务授权已失效，请更新服务端连接凭证。",
+  });
+});
+
 test("forwards API method and query without leaking visitor credentials", async () => {
   let forwarded;
   const response = await proxySitesApi(
