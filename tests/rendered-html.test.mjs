@@ -247,6 +247,19 @@ test("keeps an API-backed advertising manager ahead of AI recommendations", asyn
   assert.match(ads, /class_name/);
 });
 
+test("offers combined filters in the Campaign manager", async () => {
+  const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
+  assert.match(page, /筛选状态/);
+  assert.match(page, /投放类型/);
+  assert.match(page, /客群/);
+  assert.match(page, /效果/);
+  assert.match(page, /清除筛选/);
+  assert.match(page, /managerCampaignStatus/);
+  assert.match(page, /managerCampaignTargeting/);
+  assert.match(page, /managerCampaignAudience/);
+  assert.match(page, /managerCampaignPerformance/);
+});
+
 test("splits manual work from one unified AI API execution workbench", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
