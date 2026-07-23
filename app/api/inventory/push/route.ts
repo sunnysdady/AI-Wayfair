@@ -25,7 +25,8 @@ export async function GET() {
     const rootResponse=await fetch("https://api.wayfair.com/v1/graphql",{method:"POST",headers,body:JSON.stringify({query:`query InventoryQuerySchema { __schema { queryType { fields { name type { kind name ofType { kind name ofType { kind name } } } } } } }`})});
     const rootBody=await rootResponse.json() as {errors?:{message:string}[];data?:{__schema?:{queryType?:{fields?:{name:string;type:{kind:string;name?:string;ofType?:{kind:string;name?:string;ofType?:{kind:string;name?:string}}}}[]}}}};
     if(!rootResponse.ok||rootBody.errors?.length) throw new Error(rootBody.errors?.map(item=>item.message).join("；")||`Wayfair schema 查询失败（HTTP ${rootResponse.status}）`);
-    const candidates=(rootBody.data?.__schema?.queryType?.fields||[]).filter(field=>/inventory|feed/i.test(field.name));
+    const rootFields=rootBody.data?.__schema?.queryType?.fields||[];
+    const candidates=rootFields.filter(field=>/inventory|feed/i.test(`${field.name} ${field.type.name||""} ${field.type.ofType?.name||""} ${field.type.ofType?.ofType?.name||""}`));
     const typeNames=[...new Set(candidates.map(field=>field.type.name||field.type.ofType?.name||field.type.ofType?.ofType?.name).filter((name):name is string=>Boolean(name)))];
     const details=[];
     for(const name of typeNames){
@@ -33,7 +34,7 @@ export async function GET() {
       const body=await response.json() as {data?:{__type?:unknown};errors?:{message:string}[]};
       details.push({name,type:body.data?.__type||null,errors:body.errors||[]});
     }
-    return Response.json({candidates,details});
+    return Response.json({rootFields,candidates,details});
   } catch(error){return Response.json({error:error instanceof Error?error.message:"Wayfair schema 查询失败"},{status:500});}
 }
 
