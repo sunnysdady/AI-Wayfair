@@ -163,6 +163,84 @@ test("moves a weak listing toward the CPC anchor in stages instead of applying t
   assert.equal(result.benchmark.targetBid, 0.42);
 });
 
+test("pauses a listing when zero-order waste accumulates across mature weeks", () => {
+  const result = recommendCpcAction({
+    listing: "DMOM1018",
+    currentBid: 0.51,
+    current: { spend: 12, clicks: 15, orders: 0, cvr: 0, wscRoas: 0 },
+    rolling28d: { spend: 49.35, clicks: 64, orders: 0, cvr: 0, wscRoas: 0 },
+    breakEvenRoas: 3.54,
+    adRole: "scale",
+    eventPhase: "event",
+    julyPaceGap: -10,
+    qualityPass: false,
+    marginKnown: false,
+    inventoryKnown: false,
+    inventoryCoverDays: 0,
+    inventoryQuantity: 0,
+    julyRemainingUnits: 4,
+    augustReserveUnits: 9,
+  });
+
+  assert.equal(result.actionType, "SET_LISTING_ACTIVE");
+  assert.deepEqual(result.proposed, { active: false });
+  assert.match(result.reasons.join("；"), /28天.*64.*0单/);
+});
+
+test("pauses catastrophic rolling waste even when one attributed order exists", () => {
+  const result = recommendCpcAction({
+    listing: "DMOM1000",
+    currentBid: 0.72,
+    current: { spend: 18, clicks: 17, orders: 0, cvr: 0, wscRoas: 0 },
+    rolling28d: { spend: 94.73, clicks: 85, orders: 1, cvr: 1 / 85, wscRoas: 0.85 },
+    breakEvenRoas: 2.60,
+    adRole: "hold",
+    eventPhase: "event",
+    julyPaceGap: -10,
+    qualityPass: false,
+    marginKnown: true,
+    inventoryKnown: false,
+    inventoryCoverDays: 0,
+    inventoryQuantity: 0,
+    julyRemainingUnits: 2,
+    augustReserveUnits: 6,
+  });
+
+  assert.equal(result.actionType, "SET_LISTING_ACTIVE");
+  assert.deepEqual(result.proposed, { active: false });
+  assert.match(result.reasons.join("；"), /严重低于保本/);
+});
+
+test("hard stop overrides an inconclusive prior review", () => {
+  const result = recommendCpcAction({
+    listing: "DMOM1018",
+    currentBid: 0.51,
+    current: { spend: 8, clicks: 9, orders: 0, cvr: 0, wscRoas: 0 },
+    rolling28d: { spend: 35, clicks: 30, orders: 0, cvr: 0, wscRoas: 0 },
+    breakEvenRoas: 3.54,
+    adRole: "scale",
+    priorReview: { verdict: "INCONCLUSIVE", summary: "上次样本不足" },
+  });
+
+  assert.equal(result.actionType, "SET_LISTING_ACTIVE");
+  assert.deepEqual(result.proposed, { active: false });
+});
+
+test("uses rolling spend to catch distributed losses before the weekly spend threshold", () => {
+  const result = recommendCpcAction({
+    listing: "DMOM1018",
+    currentBid: 0.35,
+    current: { spend: 12, clicks: 12, orders: 1, cvr: 0.083, wscRoas: 1.2 },
+    rolling28d: { spend: 45, clicks: 38, orders: 2, cvr: 0.053, wscRoas: 1.5 },
+    breakEvenRoas: 3.54,
+    adRole: "hold",
+  });
+
+  assert.equal(result.actionType, "SET_LISTING_BID");
+  assert.deepEqual(result.proposed, { bid: 0.32 });
+  assert.match(result.reasons.join("；"), /28天累计花费/);
+});
+
 test("limits a revenue-producing bid correction to ten percent to protect sales", () => {
   const result = recommendCpcAction({
     listing: "DMOM1003",
