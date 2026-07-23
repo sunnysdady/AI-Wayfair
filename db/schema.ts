@@ -146,6 +146,8 @@ export const inventoryPushBatches = sqliteTable("inventory_push_batches", {
   expectedItemCount: integer("expected_item_count").notNull(),
   itemCount: integer("item_count"),
   errorCount: integer("error_count").notNull().default(0),
+  completedCount: integer("completed_count"),
+  processingCount: integer("processing_count"),
   errors: text("errors").notNull().default("[]"),
   submittedAt: text("submitted_at"),
   completedAt: text("completed_at"),

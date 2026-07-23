@@ -81,9 +81,9 @@ test("weights inventory snapshot changes by SKU cost instead of row count", asyn
 });
 
 test("only treats fully reconciled Wayfair inventory feeds as completed", () => {
-  const completed = classifyInventoryFeed({ id: "feed-1", status: "COMPLETED", completedAt: "2026-07-23T15:30:00Z", itemCount: 100, errorCount: 0, errors: [] }, 100);
-  const processing = classifyInventoryFeed({ id: "feed-2", status: "PROCESSING", itemCount: 100, errorCount: 0, errors: [] }, 100);
-  const failed = classifyInventoryFeed({ id: "feed-3", status: "COMPLETED", completedAt: "2026-07-23T15:30:00Z", itemCount: 99, errorCount: 0, errors: [] }, 100);
+  const completed = classifyInventoryFeed({ id: "feed-1", status: "COMPLETE", completedAt: "2026-07-23T15:30:00Z", itemCount: 5, completedCount: 5, processingCount: 0, errorCount: 0, errors: [] });
+  const processing = classifyInventoryFeed({ id: "feed-2", status: "PROCESSING", itemCount: 5, completedCount: 2, processingCount: 3, errorCount: 0, errors: [] });
+  const failed = classifyInventoryFeed({ id: "feed-3", status: "COMPLETE", completedAt: "2026-07-23T15:30:00Z", itemCount: 5, completedCount: 4, processingCount: 0, errorCount: 0, errors: [] });
   assert.equal(completed.state, "completed");
   assert.equal(processing.state, "processing");
   assert.equal(failed.state, "failed");
@@ -99,8 +99,10 @@ test("inventory UI and route do not equate HTTP success with completed processin
   ]);
   assert.match(route, /classifyInventoryFeed/);
   assert.match(route, /saveInventoryPushRun/);
+  assert.match(route, /transactions\(filters:\[\{field:id,equals:\$id\}\]/);
   assert.match(inventory, /inventory_push_batches/);
   assert.match(route, /status:202/);
+  assert.match(page, /waitForPush/);
   assert.match(page, /Wayfair 处理中/);
   assert.match(page, /Wayfair 已完成处理/);
   assert.doesNotMatch(page, /正式库存已提交，共/);
