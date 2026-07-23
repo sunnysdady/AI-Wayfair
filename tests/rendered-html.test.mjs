@@ -251,9 +251,14 @@ test("splits manual work from one unified AI API execution workbench", async () 
   assert.match(page, /filing cabinets/);
   assert.match(page, /关键词、否词、Campaign Cap 和 tROAS 保留人工执行/);
   assert.match(page, /每行把成熟数据、经营 Gate、建议动作、API 状态与执行结果放在一起/);
+  assert.match(page, /MANUAL_AD_TASK_GROUPS\.map/);
+  assert.match(page, /manualTaskKey\(group\.sku,task\.id\)/);
+  assert.match(page, /手动优化 To-Do List · 按父体 SKU/);
   assert.doesNotMatch(styles, /\.optimization-mode-switch/);
   assert.match(styles, /\.keyword-allocation-grid/);
   assert.match(styles, /\.manual-todo-list/);
+  assert.match(styles, /\.manual-sku-group/);
+  assert.match(styles, /\.manual-operation-item/);
 });
 
 test("keeps parent-SKU advertising performance focused on search, filters, sorting and decision metrics", async () => {
