@@ -157,6 +157,17 @@ const MANUAL_AD_TASKS = [
   { id: "dmom1003-product", priority: "P1", group: "Product 调整", adGroup: "Product US · HIGH_POTENTIAL_SKU-Wayfair(US)-0507", campaignId: "635903", title: "下调 4T-Kayak Product Bid 并独立复盘", detail: "只调整 635903；新建的 DMOM1003 Keyword 测试必须使用另一 Campaign ID。", sku: "DMOM1003 · 4T-Kayak", adType: "Sponsored Products · Product", keywords: "Product Targeting", match: "不适用", bid: "$0.75 → $0.55（硬上限 $0.60）", budget: "$90/月 · Daily Cap $2.90", rule: "4T-Kayak Live 且库存节点归属确认后执行；Backorder 立即暂停该 Campaign。" },
 ] as const;
 const MANUAL_AD_TASK_IDS=new Set<string>(MANUAL_AD_TASKS.map(task=>task.id));
+type ManualAdTask=(typeof MANUAL_AD_TASKS)[number];
+const MANUAL_AD_TASK_GROUPS=(()=>{
+  const groups:Array<{sku:string;tasks:ManualAdTask[]}>= [];
+  for(const task of MANUAL_AD_TASKS){
+    const sku=task.sku.split("·")[0].trim();
+    let group=groups.find(item=>item.sku===sku);
+    if(!group){group={sku,tasks:[]};groups.push(group);}
+    group.tasks.push(task);
+  }
+  return groups;
+})();
 
 const presetOptions = [
   ["today", "今天"], ["yesterday", "昨天"], ["7d", "最近 7 天"], ["14d", "最近 14 天"],
@@ -612,14 +623,20 @@ function Ads({ tab }: { tab: AdsTab }) {
         <div className="zombie-resolution-table"><div className="zombie-resolution-row head"><span>Campaign / Listing</span><span>成熟期证据</span><span>处理方式</span><span>是否完成</span></div>{zombieFindings.map(item=>{const key=zombieResolutionKey(item);const resolution=zombieResolutions[key];const methods=ZOMBIE_METHOD_OPTIONS[item.actionType];const method=resolution?.method||methods[0];const done=Boolean(resolution?.done);return <article className={`zombie-resolution-row ${done?'done':''}`} key={key}><div><span><em>{item.severity}</em><strong>{item.campaignName||`Campaign ${item.campaignId}`}</strong></span><small>ID {item.campaignId} · {item.listing} · {item.targetingType||'Targeting 未知'}</small></div><p><b>{item.metric.impressions} 曝光 · {money2(item.metric.spend)} · {item.metric.orders} 单</b><small>{item.linkStatus} · Bid {money2(item.bid)} · {item.label}</small></p><label>处理方式<select aria-label={`${item.listing} 处理方式`} value={method} onChange={event=>updateZombieResolution(key,{method:event.target.value})}>{methods.map(option=><option value={option} key={option}>{option}</option>)}</select></label><label className="zombie-done-toggle"><input type="checkbox" checked={done} onChange={event=>updateZombieResolution(key,{method,done:event.target.checked})}/><span>{done?'已完成':'待处理'}</span></label></article>})}{!loading&&!zombieFindings.length?<p className="empty-state">未发现满足规则的硬僵尸或准僵尸 Campaign。</p>:null}</div>
       </section>
       <section className="card manual-todo-card">
-        <div className="section-head"><div><span>OPERATOR CHECKLIST</span><h2>手动优化 To-Do List</h2></div><b>{manualDone.length} / {MANUAL_AD_TASKS.length} 已完成</b></div>
-        <div className="manual-todo-list">{MANUAL_AD_TASKS.map(task=>{
-          const done=manualDone.includes(task.id);
-          return <article className={`manual-todo-row${done?' done':''}`} key={task.id}>
-            <label className="manual-todo-check" title={done?'标记为未完成':'标记为已完成'}><input aria-label={`${task.adGroup}：${done?'标记为未完成':'标记为已完成'}`} type="checkbox" checked={done} onChange={()=>toggleManualTask(task.id)}/></label>
-            <span className="manual-todo-priority"><em>{task.priority}</em><small>{task.group}</small><b>Campaign ID: {task.campaignId}</b></span>
-            <div className="manual-todo-content"><strong>{task.title}</strong><p>{task.detail}</p><dl className="manual-task-details"><div><dt>广告组</dt><dd>{task.adGroup}</dd></div><div><dt>Campaign ID</dt><dd>{task.campaignId}</dd></div><div><dt>SKU</dt><dd>{task.sku}</dd></div><div><dt>广告类型</dt><dd>{task.adType}</dd></div><div><dt>关键词</dt><dd>{task.keywords}</dd></div><div><dt>匹配</dt><dd>{task.match}</dd></div><div><dt>起始 Bid</dt><dd>{task.bid}</dd></div><div><dt>预算</dt><dd>{task.budget}</dd></div><div className="rule"><dt>执行 / 验收规则</dt><dd>{task.rule}</dd></div></dl></div>
-          </article>;
+        <div className="section-head"><div><span>OPERATOR CHECKLIST</span><h2>手动优化 To-Do List · 按父体 SKU</h2></div><b>{manualDone.length} / {MANUAL_AD_TASKS.length} 已完成</b></div>
+        <div className="manual-todo-list">{MANUAL_AD_TASK_GROUPS.map(group=>{
+          const completed=group.tasks.filter(task=>manualDone.includes(task.id)).length;
+          return <details className={`manual-sku-group${completed===group.tasks.length?' done':''}`} open key={group.sku}>
+            <summary><span><small>PARENT SKU</small><strong>{group.sku}</strong></span><span><b>{completed} / {group.tasks.length} 完成</b><progress max={group.tasks.length} value={completed}/></span></summary>
+            <div className="manual-sku-actions">{group.tasks.map((task,index)=>{
+              const done=manualDone.includes(task.id);
+              return <article className={`manual-todo-row${done?' done':''}`} key={task.id}>
+                <label className="manual-todo-check" title={done?'标记为未完成':'标记为已完成'}><input aria-label={`${group.sku} · ${task.adGroup}：${done?'标记为未完成':'标记为已完成'}`} type="checkbox" checked={done} onChange={()=>toggleManualTask(task.id)}/></label>
+                <span className="manual-todo-priority"><i>{String(index+1).padStart(2,'0')}</i><em>{task.priority}</em><small>{task.group}</small><b>Campaign ID: {task.campaignId}</b></span>
+                <div className="manual-todo-content"><strong>{task.title}</strong><p>{task.detail}</p><dl className="manual-task-details"><div><dt>广告组</dt><dd>{task.adGroup}</dd></div><div><dt>Campaign ID</dt><dd>{task.campaignId}</dd></div><div><dt>具体 SKU</dt><dd>{task.sku}</dd></div><div><dt>广告类型</dt><dd>{task.adType}</dd></div><div><dt>关键词</dt><dd>{task.keywords}</dd></div><div><dt>匹配</dt><dd>{task.match}</dd></div><div><dt>起始 Bid</dt><dd>{task.bid}</dd></div><div><dt>预算</dt><dd>{task.budget}</dd></div><div className="rule"><dt>执行 / 验收规则</dt><dd>{task.rule}</dd></div></dl></div>
+              </article>;
+            })}</div>
+          </details>;
         })}</div>
       </section>
     </div>}

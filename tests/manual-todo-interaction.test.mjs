@@ -20,6 +20,10 @@ test("limits completion interaction and hover feedback to the checkbox column", 
 test("renders every manual action at advertising-group grain with its Campaign ID", async () => {
   const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
 
+  assert.match(page, /MANUAL_AD_TASK_GROUPS/);
+  assert.match(page, /manual-sku-group/);
+  assert.match(page, /group\.tasks\.map/);
+  assert.match(page, /手动优化 To-Do List · 按父体 SKU/);
   assert.match(page, /adGroup:/);
   assert.match(page, /campaignId:/);
   assert.match(page, /<dt>\u5e7f\u544a\u7ec4<\/dt><dd>\{task\.adGroup\}<\/dd>/);
