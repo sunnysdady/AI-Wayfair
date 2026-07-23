@@ -40,6 +40,14 @@ test("keeps July execution and BFIJ strategy between June review and August prep
   assert.match(plan, /flashConfirmationDeadline: "2026-07-17"/);
 });
 
+test("puts DMOM1018 and DMOM1000 into zero-budget stop-loss repair pools", async () => {
+  const plan = await readFile(new URL("../lib/operating-plan.ts", import.meta.url), "utf8");
+
+  assert.match(plan, /listing: "DMOM1018"[^\n]+budget: 0[^\n]+64击0单[^\n]+eligible: false/);
+  assert.match(plan, /listing: "DMOM1000"[^\n]+budget: 0[^\n]+85击1单[^\n]+eligible: false/);
+  assert.doesNotMatch(plan, /DMOM1000[^\n]+后台ROAS 2028%；维持Bid/);
+});
+
 test("separates the visible advertising period from the mature weekly decision window", async () => {
   const [page, ads] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
