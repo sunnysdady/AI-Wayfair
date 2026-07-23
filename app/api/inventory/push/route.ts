@@ -27,17 +27,19 @@ export async function GET() {
     if(!rootResponse.ok||rootBody.errors?.length) throw new Error(rootBody.errors?.map(item=>item.message).join("；")||`Wayfair schema 查询失败（HTTP ${rootResponse.status}）`);
     const rootFields=rootBody.data?.__schema?.queryType?.fields||[];
     const candidates=rootFields.filter(field=>/inventory|feed|transaction/i.test(`${field.name} ${field.type.name||""} ${field.type.ofType?.name||""} ${field.type.ofType?.ofType?.name||""}`));
-    const typeNames=[...new Set(candidates.flatMap(field=>[
+    const typeNames=[...new Set([...candidates.flatMap(field=>[
       field.type.name||field.type.ofType?.name||field.type.ofType?.ofType?.name,
       ...((field.args||[]) as {type?:{name?:string;ofType?:{name?:string;ofType?:{name?:string}}}}[]).map(arg=>arg.type?.name||arg.type?.ofType?.name||arg.type?.ofType?.ofType?.name),
-    ]).filter((name):name is string=>Boolean(name)))];
+    ]),"TransactionStatusFilterFields","TransactionState","ItemStatus"].filter((name):name is string=>Boolean(name)))];
     const details=[];
     for(const name of typeNames){
       const response=await fetch("https://api.wayfair.com/v1/graphql",{method:"POST",headers,body:JSON.stringify({query:`query InventoryTypeSchema($name:String!){ __type(name:$name){ name fields { name args { name type { kind name ofType { kind name ofType { kind name } } } } type { kind name ofType { kind name ofType { kind name } } } } inputFields { name type { kind name ofType { kind name ofType { kind name } } } } enumValues { name } } }`,variables:{name}})});
       const body=await response.json() as {data?:{__type?:unknown};errors?:{message:string}[]};
       details.push({name,type:body.data?.__type||null,errors:body.errors||[]});
     }
-    return Response.json({rootFields,candidates,details});
+    const transactionsResponse=await fetch("https://api.wayfair.com/v1/graphql",{method:"POST",headers,body:JSON.stringify({query:`query RecentTransactions { transactions(limit:100) { id handle status submittedAt completedAt itemCount errorCount completedCount processingCount errors(limit:100) { key message } } }`})});
+    const transactionsBody=await transactionsResponse.json() as {data?:{transactions?:unknown[]};errors?:{message:string}[]};
+    return Response.json({rootFields,candidates,details,recentTransactions:transactionsBody.data?.transactions||[],transactionErrors:transactionsBody.errors||[]});
   } catch(error){return Response.json({error:error instanceof Error?error.message:"Wayfair schema 查询失败"},{status:500});}
 }
 
