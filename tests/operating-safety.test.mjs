@@ -92,12 +92,14 @@ test("only treats fully reconciled Wayfair inventory feeds as completed", () => 
 });
 
 test("inventory UI and route do not equate HTTP success with completed processing", async () => {
-  const [route, page] = await Promise.all([
+  const [route, inventory, page] = await Promise.all([
     readFile(new URL("../app/api/inventory/push/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/inventory.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(route, /classifyInventoryFeed/);
-  assert.match(route, /inventory_push_batches/);
+  assert.match(route, /saveInventoryPushRun/);
+  assert.match(inventory, /inventory_push_batches/);
   assert.match(route, /status:202/);
   assert.match(page, /Wayfair 处理中/);
   assert.match(page, /Wayfair 已完成处理/);

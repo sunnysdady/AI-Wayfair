@@ -110,6 +110,29 @@ export async function loadSnapshotItems(db: D1Database, snapshotId: string) {
   return (result.results||[]).map((row)=>({discontinued:false,supplierPartNumber:row.part_number,quantityOnHand:Number(row.quantity_on_hand),quantityOnOrder:Number(row.quantity_on_order),supplierId:Number(row.supplier_id),quantityBackordered:0}));
 }
 
+type InventoryPushBatchReceipt = {
+  index:number;
+  expectedItemCount:number;
+  feed?:{id?:string;handle?:string;status?:string;submittedAt?:string;completedAt?:string;itemCount?:number;errorCount?:number;errors?:{key?:string;message?:string}[]};
+  state:string;
+  reason:string;
+};
+
+export async function saveInventoryPushRun(db:D1Database,input:{pushId:string;snapshotId:string;status:string;itemCount:number;batchCount:number;completedBatches:number;failedBatches:number;batches:InventoryPushBatchReceipt[]}) {
+  await db.batch([
+    db.prepare("CREATE TABLE IF NOT EXISTS inventory_push_runs (id TEXT PRIMARY KEY NOT NULL, snapshot_id TEXT NOT NULL, status TEXT NOT NULL, item_count INTEGER NOT NULL, batch_count INTEGER NOT NULL, completed_batches INTEGER NOT NULL DEFAULT 0, failed_batches INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS inventory_push_runs_snapshot_idx ON inventory_push_runs(snapshot_id)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS inventory_push_batches (push_id TEXT NOT NULL, batch_index INTEGER NOT NULL, feed_id TEXT, handle TEXT, status TEXT NOT NULL, state TEXT NOT NULL, expected_item_count INTEGER NOT NULL, item_count INTEGER, error_count INTEGER NOT NULL DEFAULT 0, errors TEXT NOT NULL DEFAULT '[]', submitted_at TEXT, completed_at TEXT, reason TEXT, PRIMARY KEY(push_id,batch_index))"),
+    db.prepare("CREATE INDEX IF NOT EXISTS inventory_push_batches_push_idx ON inventory_push_batches(push_id)"),
+  ]);
+  const now=new Date().toISOString();
+  await db.prepare("INSERT OR REPLACE INTO inventory_push_runs(id,snapshot_id,status,item_count,batch_count,completed_batches,failed_batches,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)").bind(input.pushId,input.snapshotId,input.status,input.itemCount,input.batchCount,input.completedBatches,input.failedBatches,now,now).run();
+  for(const batch of input.batches){
+    const feed=batch.feed;
+    await db.prepare("INSERT OR REPLACE INTO inventory_push_batches(push_id,batch_index,feed_id,handle,status,state,expected_item_count,item_count,error_count,errors,submitted_at,completed_at,reason) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(input.pushId,batch.index,feed?.id||null,feed?.handle||null,String(feed?.status||"UNKNOWN"),batch.state,batch.expectedItemCount,feed?.itemCount??null,Number(feed?.errorCount||0),JSON.stringify(feed?.errors||[]),feed?.submittedAt||null,feed?.completedAt||null,batch.reason||null).run();
+  }
+}
+
 export async function loadInventoryValueRisk(db: D1Database, snapshotId: string) {
   await ensureInventoryTables(db);
   await db.prepare("CREATE TABLE IF NOT EXISTS sku_costs (part_number TEXT PRIMARY KEY NOT NULL, unit_cost_cents INTEGER NOT NULL, source TEXT DEFAULT 'manual' NOT NULL, updated_at TEXT NOT NULL)").run();
