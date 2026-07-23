@@ -185,6 +185,12 @@ test("pauses a listing when zero-order waste accumulates across mature weeks", (
   assert.equal(result.actionType, "SET_LISTING_ACTIVE");
   assert.deepEqual(result.proposed, { active: false });
   assert.match(result.reasons.join("；"), /28天.*64.*0单/);
+  assert.match(result.label, /修复/);
+  assert.equal(typeof result.repairPlan?.diagnosis, "string");
+  assert.ok(result.repairPlan.diagnosis.length > 10);
+  assert.ok(result.repairPlan.steps.length >= 3);
+  assert.ok(result.repairPlan.acceptance.length >= 2);
+  assert.match(result.repairPlan.retest, /点击|预算|Bid/);
 });
 
 test("pauses catastrophic rolling waste even when one attributed order exists", () => {
@@ -209,6 +215,54 @@ test("pauses catastrophic rolling waste even when one attributed order exists", 
   assert.equal(result.actionType, "SET_LISTING_ACTIVE");
   assert.deepEqual(result.proposed, { active: false });
   assert.match(result.reasons.join("；"), /严重低于保本/);
+  assert.match(result.repairPlan.steps.join("；"), /变体|Part|主图|颜色/);
+  assert.match(result.repairPlan.acceptance.join("；"), /Live|Catalog|页面/);
+});
+
+test("gives DMOM1025 a product-specific drawer and packaging repair plan", () => {
+  const result = recommendCpcAction({
+    listing: "DMOM1025",
+    currentBid: 0.39,
+    current: { spend: 7, clicks: 12, orders: 0, cvr: 0, wscRoas: 0 },
+    rolling28d: { spend: 45, clicks: 84, orders: 0, cvr: 0, wscRoas: 0 },
+    breakEvenRoas: 3.54,
+    qualityPass: false,
+    inventoryKnown: true,
+    inventoryQuantity: 836,
+    inventoryCoverDays: 999,
+  });
+
+  assert.equal(result.actionType, "SET_LISTING_ACTIVE");
+  assert.match(result.repairPlan.diagnosis, /LFC-3W|低分|承接/);
+  assert.match(result.repairPlan.steps.join("；"), /抽屉|轨道/);
+  assert.match(result.repairPlan.steps.join("；"), /包装|凹/);
+  assert.match(result.repairPlan.acceptance.join("；"), /4\.0|整改/);
+});
+
+test("treats DMOM1019 as a traffic relevance repair instead of inventing a listing defect", () => {
+  const result = recommendCpcAction({
+    listing: "DMOM1019",
+    currentBid: 0.53,
+    current: { spend: 23, clicks: 43, orders: 0, cvr: 0, wscRoas: 0 },
+    rolling28d: { spend: 60, clicks: 70, orders: 0, cvr: 0, wscRoas: 0 },
+    breakEvenRoas: 3.54,
+    qualityPass: true,
+    inventoryKnown: true,
+    inventoryQuantity: 1459,
+    inventoryCoverDays: 999,
+  });
+
+  assert.equal(result.actionType, "SET_LISTING_ACTIVE");
+  assert.match(result.repairPlan.diagnosis, /流量|投放/);
+  assert.match(result.repairPlan.steps.join("；"), /Search Term|搜索词|关键词/);
+  assert.doesNotMatch(result.repairPlan.diagnosis, /产品缺陷已确认/);
+});
+
+test("AI workbench renders the structured repair plan for paused listings", async () => {
+  const source = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
+  assert.match(source, /row\.action\.repairPlan/);
+  assert.match(source, /修复清单/);
+  assert.match(source, /验收后重测/);
 });
 
 test("hard stop overrides an inconclusive prior review", () => {
