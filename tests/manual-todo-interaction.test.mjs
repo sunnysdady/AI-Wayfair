@@ -38,6 +38,6 @@ test("renders every manual action at advertising-group grain with its Campaign I
 test("drops obsolete saved completion ids after tasks are split by advertising group", async () => {
   const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
 
-  assert.match(page, /const MANUAL_AD_TASK_IDS=new Set\(MANUAL_AD_TASKS\.map\(task=>task\.id\)\)/);
+  assert.match(page, /const MANUAL_AD_TASK_IDS=new Set<string>\(MANUAL_AD_TASKS\.map\(task=>task\.id\)\)/);
   assert.match(page, /filter\(item=>typeof item==='string'&&MANUAL_AD_TASK_IDS\.has\(item\)\)/);
 });

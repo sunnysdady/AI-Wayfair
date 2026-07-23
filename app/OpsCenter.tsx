@@ -156,7 +156,7 @@ const MANUAL_AD_TASKS = [
   { id: "dmom1019-keyword", priority: "P1", group: "Keyword 新建", adGroup: "YB_US_KW_DMOM1019_CORE_202608", campaignId: "新建后回填", title: "新建 DMOM1019 Keyword Core 广告组", detail: "将已验证的 vertical / 3 drawer 词放入独立组。创建后回填真实 Campaign ID，与 622737 Product 组分开复盘。", sku: "DMOM1019 · VFC-3B / VFC-3W", adType: "Sponsored Products · Keyword", keywords: "vertical file cabinet; 3 drawer file cabinet; metal file cabinet", match: "Exact / Phrase 分层", bid: "按词级设定", budget: "$200/月 · Daily Cap $6.45", rule: "初始 Paused；US站点、Listing、词意和 Negative 双人 QA 通过后启用。" },
   { id: "dmom1003-product", priority: "P1", group: "Product 调整", adGroup: "Product US · HIGH_POTENTIAL_SKU-Wayfair(US)-0507", campaignId: "635903", title: "下调 4T-Kayak Product Bid 并独立复盘", detail: "只调整 635903；新建的 DMOM1003 Keyword 测试必须使用另一 Campaign ID。", sku: "DMOM1003 · 4T-Kayak", adType: "Sponsored Products · Product", keywords: "Product Targeting", match: "不适用", bid: "$0.75 → $0.55（硬上限 $0.60）", budget: "$90/月 · Daily Cap $2.90", rule: "4T-Kayak Live 且库存节点归属确认后执行；Backorder 立即暂停该 Campaign。" },
 ] as const;
-const MANUAL_AD_TASK_IDS=new Set(MANUAL_AD_TASKS.map(task=>task.id));
+const MANUAL_AD_TASK_IDS=new Set<string>(MANUAL_AD_TASKS.map(task=>task.id));
 
 const presetOptions = [
   ["today", "今天"], ["yesterday", "昨天"], ["7d", "最近 7 天"], ["14d", "最近 14 天"],
