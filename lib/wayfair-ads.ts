@@ -337,6 +337,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     const strategy = recommendCpcAction({
       listing,
       campaignStatus: current.latest.campaign_status,
+      parts: String(current.latest.first_10_part_numbers || "").split(",").map((item)=>item.trim()).filter(Boolean),
       currentBid,
       current,
       rolling28d: rolling28d || emptyMetric(),
@@ -389,6 +390,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       weeklyReview: weeklyMemory.get(listing) || null,
       action: {
         type: actionType, label: strategy.label, recommendation, execution, confidence, reasons, blockers, warnings,
+        repairPlan: strategy.repairPlan || null,
         before: { bid: currentBid, active: !/inactive|false/i.test(current.latest.product_status || "") }, proposed: strategy.proposed,
       },
     };
