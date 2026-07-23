@@ -57,7 +57,7 @@ export async function GET(request:Request) {
 
 export async function POST(request: Request) {
   try {
-    const body=await request.json() as {snapshotId?:string;dryRun?:boolean;confirmation?:string;zeroStockConfirmed?:boolean};
+    const body=await request.json() as {snapshotId?:string;dryRun?:boolean;confirmation?:string;zeroStockConfirmed?:boolean;resumePushId?:string};
     if(!body.snapshotId) return Response.json({error:"缺少库存快照"},{status:400});
     const env=await bindings();
     const items=await loadSnapshotItems(env.DB,body.snapshotId);
@@ -70,9 +70,13 @@ export async function POST(request: Request) {
     const zeroRatio=items.filter((item)=>item.quantityOnHand===0).length/items.length;
     if(zeroRatio>=.5&&!body.zeroStockConfirmed) return Response.json({error:"零库存占比过高，需要单独确认"},{status:400});
     const accessToken=await token(env);
-    const pushId=crypto.randomUUID();
-    const receipts:{index:number;expectedItemCount:number;feed?:FeedReceipt;state:string;reason:string}[]=[];
-    for(let index=0;index<batches.length;index++){
+    const resumed=body.resumePushId?await loadInventoryPushRun(env.DB,body.resumePushId):null;
+    if(body.resumePushId&&!resumed)return Response.json({error:"续传回执不存在"},{status:404});
+    if(resumed&&(resumed.snapshotId!==body.snapshotId||resumed.batchCount!==batches.length))return Response.json({error:"续传回执与当前库存快照不一致"},{status:409});
+    if(resumed?.batches.some(batch=>batch.state==="failed"||!batch.feed.id&&!batch.feed.handle))return Response.json({error:"前序批次存在失败或缺失回执，不能自动续传"},{status:409});
+    const pushId=resumed?.pushId||crypto.randomUUID();
+    const receipts:{index:number;expectedItemCount:number;feed?:FeedReceipt;state:string;reason:string}[]=resumed?.batches||[];
+    for(let index=receipts.length;index<batches.length;index++){
       const inventory=batches[index];
       try {
         const data=await wayfairRequest(accessToken,MUTATION,{inventory,feedKind:"TRUE_UP"}) as {inventory?:{save?:FeedReceipt}};
@@ -86,7 +90,7 @@ export async function POST(request: Request) {
       }
     }
     const summary=summarizeInventoryFeeds(receipts);
-    await saveInventoryPushRun(env.DB,{pushId,snapshotId:body.snapshotId,status:summary.status,itemCount:items.length,batchCount:batches.length,completedBatches:summary.completed,failedBatches:summary.failed,batches:receipts});
+    await saveInventoryPushRun(env.DB,{pushId,snapshotId:body.snapshotId,status:summary.status,itemCount:items.length,batchCount:batches.length,completedBatches:summary.completed,failedBatches:summary.failed,batches:receipts,createdAt:resumed?.createdAt});
     const payload={mode:"live",pushId,snapshotId:body.snapshotId,itemCount:items.length,batchCount:batches.length,status:summary.status,completedBatches:summary.completed,failedBatches:summary.failed,batches:publicBatches(receipts)};
     if(summary.status==="failed") return Response.json({...payload,error:"Wayfair 库存批次未全部成功，请检查批次错误后再处理"},{status:422});
     if(summary.status==="processing") return Response.json(payload,{status:202});

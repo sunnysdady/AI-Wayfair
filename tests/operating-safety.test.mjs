@@ -100,6 +100,7 @@ test("inventory UI and route do not equate HTTP success with completed processin
   assert.match(route, /classifyInventoryFeed/);
   assert.match(route, /saveInventoryPushRun/);
   assert.match(route, /transactions\(filters:\[\{field:id,equals:\$id\}\]/);
+  assert.match(route, /resumePushId/);
   assert.match(inventory, /inventory_push_batches/);
   assert.match(route, /status:202/);
   assert.match(page, /waitForPush/);
