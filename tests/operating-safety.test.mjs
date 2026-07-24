@@ -105,7 +105,7 @@ test("inventory UI and route do not equate HTTP success with completed processin
   assert.match(route, /status:202/);
   assert.match(page, /waitForPush/);
   assert.match(page, /Wayfair 处理中/);
-  assert.match(page, /Wayfair 已完成处理/);
+  assert.match(page, /Wayfair feed 已处理/);
   assert.doesNotMatch(page, /正式库存已提交，共/);
 });
 
