@@ -30,15 +30,6 @@ function authorized(request: Request, expected: string | undefined) {
   return request.headers.get("authorization") === `Bearer ${expected}`;
 }
 
-function bytesToBase64(bytes: Uint8Array) {
-  let output = "";
-  const chunkSize = 0x8000;
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    output += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
-  }
-  return btoa(output);
-}
-
 function quotedIdentifier(value: string) {
   return `"${value.replaceAll('"', '""')}"`;
 }
@@ -53,15 +44,11 @@ async function tableNames(db: D1Database) {
 export async function GET(request: Request) {
   try {
     const env = await getRuntimeBindings();
-    const url = new URL(request.url);
-    const queryToken = url.searchParams.get("token");
-    if (
-      !authorized(request, env.MIGRATION_EXPORT_TOKEN)
-      && (!env.MIGRATION_EXPORT_TOKEN || queryToken !== env.MIGRATION_EXPORT_TOKEN)
-    ) {
+    if (!authorized(request, env.MIGRATION_EXPORT_TOKEN)) {
       return json({ error: "unauthorized" }, 401);
     }
 
+    const url = new URL(request.url);
     const kind = url.searchParams.get("kind") || "manifest";
 
     if (kind === "settings") {
@@ -123,19 +110,6 @@ export async function GET(request: Request) {
       });
       if (object.httpEtag) headers.set("etag", object.httpEtag);
       return new Response(object.body, { headers });
-    }
-
-    if (kind === "object-base64") {
-      const key = url.searchParams.get("key");
-      if (!key) return json({ error: "missing object key" }, 400);
-      const object = await env.FILES.get(key);
-      if (!object) return json({ error: "object not found" }, 404);
-      const bytes = new Uint8Array(await object.arrayBuffer());
-      return json({
-        key,
-        contentType: object.httpMetadata?.contentType || "application/octet-stream",
-        base64: bytesToBase64(bytes),
-      });
     }
 
     return json({ error: "unknown export kind" }, 400);
