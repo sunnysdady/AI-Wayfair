@@ -2,7 +2,7 @@
 
 面向 Wayfair 店铺日常经营的全栈运营工作台。项目把订单、广告、商品目录、库存、运营计划和复盘资料集中到同一个界面，并通过明确的审批、预检和开关机制保护高风险写入操作。
 
-> 当前项目以 **OpenAI Sites / Cloudflare Workers** 为主要运行环境，依赖 Cloudflare D1 和 R2。Vercel 可以完成 Next.js 构建，但尚不能提供完整的数据读写能力，详见[部署说明](#部署说明)。
+> 当前项目以 **OpenAI Sites / Cloudflare Workers** 保存 D1 和 R2 数据。Vercel 版本通过仅在服务端生效的 API 桥接复用同一份数据，详见[部署说明](#部署说明)。
 
 ## 核心能力
 
@@ -165,11 +165,16 @@ npm run dev
 
 数据库结构以 `db/schema.ts` 和 `drizzle/` 中的迁移为准。生产环境启用写操作前，应先完成数据库迁移并验证 Dry-run。
 
-### Vercel（暂不作为生产环境）
+### Vercel
 
-`vercel.json` 使用 `npx next build`，因此项目可以通过 Vercel 的构建阶段。但 Vercel 没有原生 D1/R2 绑定，依赖数据库或文件存储的 API 会返回明确的不可用错误，完整运营功能无法正常工作。
+`vercel.json` 使用 `npx next build`。由于 Vercel 没有原生 D1/R2 绑定，生产环境通过服务端 Proxy 将 `/api/*` 请求转发到现有 Sites 后端，从而与 Sites 版本共用同一份 D1/R2 数据。
 
-在为 Vercel 配置等价的持久化数据库和对象存储之前，请不要把 Vercel 部署提升为本项目的生产版本。
+Vercel Production 需要配置以下环境变量：
+
+- `SITES_API_ORIGIN`：Sites 当前生产地址，必须是 HTTPS `*.chatgpt.site` 域名；
+- `SITES_BYPASS_TOKEN`：Sites 的 SIWC bypass token，仅保存在 Vercel 服务端，不得使用 `NEXT_PUBLIC_` 前缀。
+
+桥接层只接受 `/api/*`，会移除访问者的 Cookie、Authorization 和上游 `Set-Cookie`，并禁止自动跟随重定向，避免服务端凭证泄露。未配置桥接变量时，Vercel API 会以 503 失败关闭。
 
 ## 验证清单
 
