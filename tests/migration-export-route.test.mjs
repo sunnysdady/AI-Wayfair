@@ -14,6 +14,9 @@ test("temporary migration export is token-gated and allowlists settings", async 
   assert.match(source, /SETTINGS_KEYS/);
   assert.doesNotMatch(source, /Object\.entries\(env\)/);
   assert.match(source, /sqlite_master/);
+  assert.match(source, /kind === "database"/);
+  assert.match(source, /tableRows/);
+  assert.match(source, /objectManifest/);
   assert.match(source, /env\.FILES\.list/);
   assert.match(source, /env\.FILES\.get/);
   assert.match(source, /object-base64/);

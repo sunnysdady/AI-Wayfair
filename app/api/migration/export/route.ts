@@ -50,6 +50,35 @@ async function tableNames(db: D1Database) {
   return (result.results || []).map((row) => row.name);
 }
 
+async function tableRows(db: D1Database, name: string) {
+  const rows: Record<string, unknown>[] = [];
+  const limit = 1000;
+  for (let offset = 0; ; offset += limit) {
+    const result = await db.prepare(
+      `SELECT * FROM ${quotedIdentifier(name)} LIMIT ? OFFSET ?`,
+    ).bind(limit, offset).all<Record<string, unknown>>();
+    const page = result.results || [];
+    rows.push(...page);
+    if (page.length < limit) return rows;
+  }
+}
+
+async function objectManifest(files: R2Bucket) {
+  const objects = [];
+  let cursor: string | undefined;
+  do {
+    const listed = await files.list({ limit: 1000, cursor });
+    objects.push(...listed.objects.map((item) => ({
+      key: item.key,
+      size: item.size,
+      etag: item.etag,
+      uploaded: item.uploaded,
+    })));
+    cursor = listed.truncated ? listed.cursor : undefined;
+  } while (cursor);
+  return objects;
+}
+
 export async function GET(request: Request) {
   try {
     const env = await getRuntimeBindings();
@@ -82,6 +111,21 @@ export async function GET(request: Request) {
         tables.push({ name, count: Number(row?.count || 0) });
       }
       return json({ tables });
+    }
+
+    if (kind === "database") {
+      const names = await tableNames(env.DB);
+      const tables: Record<string, Record<string, unknown>[]> = {};
+      for (const name of names) {
+        tables[name] = await tableRows(env.DB, name);
+      }
+      return json({
+        tables,
+        settings: Object.fromEntries(
+          SETTINGS_KEYS.flatMap((key) => env[key] === undefined ? [] : [[key, env[key]]]),
+        ),
+        objects: await objectManifest(env.FILES),
+      });
     }
 
     if (kind === "table") {
