@@ -25,5 +25,11 @@ compose=(docker compose --env-file "$env_file" -f "$compose_file")
 "${compose[@]}" config --quiet
 "${compose[@]}" build --pull web scheduler migrate
 "${compose[@]}" --profile tools run --rm migrate
-"${compose[@]}" up -d --remove-orphans
+enable_scheduler="$(awk -F= '$1 == "ENABLE_SCHEDULER" { print tolower($2) }' "$env_file" | tail -1)"
+if [[ "$enable_scheduler" == "true" ]]; then
+  "${compose[@]}" --profile sync up -d --remove-orphans
+else
+  "${compose[@]}" --profile sync stop scheduler >/dev/null 2>&1 || true
+  "${compose[@]}" up -d --remove-orphans
+fi
 "${compose[@]}" ps
