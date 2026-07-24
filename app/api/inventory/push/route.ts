@@ -6,6 +6,8 @@ import { classifyInventoryFeed, summarizeInventoryFeeds } from "@/lib/wayfair-in
 const FEED_FIELDS = `id handle status submittedAt completedAt itemCount errorCount completedCount processingCount errors(limit:100) { key message }`;
 const MUTATION = `mutation saveInventory($inventory: [inventoryInput]!, $feedKind: inventoryFeedKind) { inventory { save(inventory: $inventory, feedKind: $feedKind) { ${FEED_FIELDS} } } }`;
 const STATUS_QUERY = `query InventoryTransaction($id:String!) { transactions(filters:[{field:id,equals:$id}],limit:1) { ${FEED_FIELDS} } }`;
+// These uploads are chunked and may omit missing SKU/warehouse combinations.
+// TRUE_UP is a full snapshot feed, so it must never be used for these partial batches.
 const INVENTORY_FEED_KIND = "DIFFERENTIAL";
 
 const bindings = getRuntimeBindings;
@@ -52,7 +54,7 @@ export async function GET(request:Request) {
     }
     const summary=summarizeInventoryFeeds(receipts);
     await saveInventoryPushRun(env.DB,{pushId:run.pushId,snapshotId:run.snapshotId,status:summary.status,itemCount:run.itemCount,batchCount:run.batchCount,completedBatches:summary.completed,failedBatches:summary.failed,batches:receipts,createdAt:run.createdAt});
-    return Response.json({mode:"status",feedKind:INVENTORY_FEED_KIND,pushId:run.pushId,snapshotId:run.snapshotId,itemCount:run.itemCount,batchCount:run.batchCount,status:summary.status,completedBatches:summary.completed,failedBatches:summary.failed,batches:publicBatches(receipts)});
+    return Response.json({mode:"status",pushId:run.pushId,snapshotId:run.snapshotId,itemCount:run.itemCount,batchCount:run.batchCount,status:summary.status,completedBatches:summary.completed,failedBatches:summary.failed,batches:publicBatches(receipts)});
   } catch(error){return Response.json({error:error instanceof Error?error.message:"Wayfair feed 状态查询失败"},{status:500});}
 }
 
