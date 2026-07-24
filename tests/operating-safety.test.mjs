@@ -108,3 +108,16 @@ test("inventory UI and route do not equate HTTP success with completed processin
   assert.match(page, /Wayfair 已完成处理/);
   assert.doesNotMatch(page, /正式库存已提交，共/);
 });
+
+test("uses differential inventory feeds for partial batches and avoids false applied claims", async () => {
+  const [route, page] = await Promise.all([
+    readFile(new URL("../app/api/inventory/push/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(route, /INVENTORY_FEED_KIND\s*=\s*"DIFFERENTIAL"/);
+  assert.match(route, /feedKind:INVENTORY_FEED_KIND/);
+  assert.doesNotMatch(route, /feedKind:"TRUE_UP"/);
+  assert.match(page, /Wayfair feed 已处理/);
+  assert.doesNotMatch(page, /Wayfair 已完成处理/);
+});
