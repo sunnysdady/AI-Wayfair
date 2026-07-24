@@ -1,0 +1,78 @@
+name: wayfair-ai-ops
+
+services:
+  web:
+    image: wayfair-ai-ops-web:${APP_IMAGE_TAG:-local}
+    build:
+      context: .
+      target: runner
+    env_file:
+      - .env.production
+    environment:
+      HOSTNAME: 0.0.0.0
+      NODE_ENV: production
+      PORT: 3000
+    restart: unless-stopped
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+
+  scheduler:
+    image: wayfair-ai-ops-scheduler:${APP_IMAGE_TAG:-local}
+    build:
+      context: .
+      target: scheduler
+    env_file:
+      - .env.production
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN must be set}
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/digitalocean/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+
+  migrate:
+    image: wayfair-ai-ops-migrator:${APP_IMAGE_TAG:-local}
+    build:
+      context: .
+      target: migrator
+    env_file:
+      - .env.production
+    profiles:
+      - tools
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  caddy_data:
+  caddy_config:

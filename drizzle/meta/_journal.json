@@ -1,0 +1,76 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1784173259541,
+      "tag": "0000_motionless_silver_fox",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784187935238,
+      "tag": "0001_stormy_madripoor",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784188028134,
+      "tag": "0002_sweet_skin",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784189553399,
+      "tag": "0003_new_ultimates",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784191198999,
+      "tag": "0004_skinny_the_fallen",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1784196321570,
+      "tag": "0005_productive_banshee",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784196944250,
+      "tag": "0006_thick_prowler",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1784251200000,
+      "tag": "0007_weekly_memory_outlook",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784821275472,
+      "tag": "0008_chilly_patriot",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1784822469935,
+      "tag": "0009_purple_captain_america",
+      "breakpoints": true
+    }
+  ]
+}

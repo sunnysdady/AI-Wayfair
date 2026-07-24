@@ -1,0 +1,49 @@
+{
+  "name": "wayfair-ai-ops-center",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "sync:once": "node scripts/run-scheduled-sync.mjs",
+    "sync:scheduler": "node scripts/sync-scheduler.mjs",
+    "deploy:digitalocean": "bash scripts/deploy-digitalocean.sh",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "db:migrate:postgres": "node scripts/migrate-postgres.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1094.0",
+    "@vercel/functions": "^3.7.5",
+    "exceljs": "^4.4.0",
+    "next": "16.2.11",
+    "pg": "^8.22.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "overrides": {
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.25.12"
+    },
+    "uuid": "^11.1.1",
+    "postcss": "^8.5.10",
+    "sharp": "0.35.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.2.1",
+    "@types/node": "22.19.19",
+    "@types/pg": "^8.20.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.11",
+    "react-server-dom-webpack": "19.2.6",
+    "tailwindcss": "4.2.1",
+    "typescript": "5.9.3"
+  },
+  "type": "module"
+}
