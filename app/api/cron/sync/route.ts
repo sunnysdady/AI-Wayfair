@@ -64,6 +64,10 @@ export async function GET(request: Request) {
 
   try {
     const origin = syncOrigin(request, env.APP_ORIGIN);
+    const outlookConfigured = Boolean(
+      env.MICROSOFT_CLIENT_ID
+      && env.MICROSOFT_CLIENT_SECRET,
+    );
     const result = await runLayeredSync({
       scheduledTime: now.getTime(),
       request: (target: URL | Request) => {
@@ -74,7 +78,9 @@ export async function GET(request: Request) {
           cache: "no-store",
         });
       },
-      syncOutlook: () => syncOutlookDaily({ env, db, now }),
+      syncOutlook: outlookConfigured
+        ? () => syncOutlookDaily({ env, db, now })
+        : undefined,
       record: async (entry: unknown) => {
         const updatedAt = new Date().toISOString();
         await db.prepare(

@@ -1,5 +1,8 @@
 # DigitalOcean Droplet 生产部署
 
+> 固定生产域名：`aiwayfair.sunnysdady.com`。本项目不得部署到
+> `sunnysdady.com` 根域或 `www.sunnysdady.com`。
+
 本文对应当前的独立 Node.js 运行时，不使用 Sites、D1、R2 或 Vercel 代理。推荐结构如下：
 
 ```text
@@ -96,12 +99,14 @@ S3_USE_DEFAULT_CREDENTIAL_CHAIN=false
 
 ```text
 Type: A
-Name: ops
-Value: <Droplet Reserved IP>
-TTL: 300
+Name: aiwayfair
+Value: 104.236.233.106
+TTL: Auto
 ```
 
-最终域名示例为 `ops.example.com`。如果域名当前托管在 Cloudflare，必须使用 DNS only；若要求完全不经过 Cloudflare，改用注册商 DNS 或 DigitalOcean DNS。
+最终域名固定为 `aiwayfair.sunnysdady.com`。Cloudflare 记录保持 DNS only。只有为
+该主机验证 Full (strict) 源站规则后才允许开启代理；不得修改全站 SSL 模式，
+以免影响根域、`www` 或现有 Shoplazza 服务。
 
 Caddy 会在 80/443 可访问且 DNS 生效后自动申请和续期 HTTPS 证书。
 
@@ -140,8 +145,8 @@ chmod 600 .env.production
 编辑 `.env.production`，至少完成以下内容：
 
 ```dotenv
-APP_DOMAIN=ops.example.com
-APP_ORIGIN=https://ops.example.com
+APP_DOMAIN=aiwayfair.sunnysdady.com
+APP_ORIGIN=https://aiwayfair.sunnysdady.com
 DATABASE_URL=postgresql://...private.../defaultdb?sslmode=require
 DATABASE_POOL_MAX=5
 
@@ -194,7 +199,7 @@ bash scripts/deploy-digitalocean.sh
 数据库健康检查无需 Basic 登录，但只返回 `ok/unavailable`：
 
 ```bash
-curl -fsS https://ops.example.com/api/health
+curl -fsS https://aiwayfair.sunnysdady.com/api/health
 ```
 
 预期：
@@ -206,7 +211,7 @@ curl -fsS https://ops.example.com/api/health
 检查页面保护：
 
 ```bash
-curl -I https://ops.example.com/
+curl -I https://aiwayfair.sunnysdady.com/
 ```
 
 未带凭证时应返回 `401`。浏览器访问域名后使用 `APP_ACCESS_USER` / `APP_ACCESS_PASSWORD` 登录。

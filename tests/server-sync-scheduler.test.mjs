@@ -138,3 +138,18 @@ test("Vercel exports a protected scheduler route and declares the two-hour trigg
   assert.match(route, /runLayeredSync/);
   assert.match(vercel, /0 \*\/2 \* \* \*/);
 });
+
+test("scheduler skips Outlook only when Microsoft Graph credentials are incomplete", async () => {
+  const route = await readFile(
+    new URL("../app/api/cron/sync/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(route, /const outlookConfigured = Boolean\(/);
+  assert.match(route, /env\.MICROSOFT_CLIENT_ID/);
+  assert.match(route, /env\.MICROSOFT_CLIENT_SECRET/);
+  assert.match(
+    route,
+    /syncOutlook: outlookConfigured\s*\?\s*\(\) => syncOutlookDaily\(\{ env, db, now \}\)\s*:\s*undefined/,
+  );
+});

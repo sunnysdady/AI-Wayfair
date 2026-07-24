@@ -4,6 +4,12 @@
 
 DigitalOcean 完整操作手册见 [`docs/DIGITALOCEAN_DEPLOYMENT.md`](./docs/DIGITALOCEAN_DEPLOYMENT.md)。
 
+## 固定生产地址
+
+本项目以后统一部署到 `https://aiwayfair.sunnysdady.com`。不得部署到
+`sunnysdady.com` 根域或 `www.sunnysdady.com`，也不得为本项目修改这两个入口的
+DNS、代理或 SSL 配置。完整的仓库级约束见 [`AGENTS.md`](./AGENTS.md)。
+
 ## 运行架构
 
 | 层 | 当前方案 | 自有服务器迁移 |
@@ -43,7 +49,7 @@ npm test
 - `S3_BUCKET`、`S3_REGION`：报告对象存储；非 AWS 服务再配置 `S3_ENDPOINT` 与路径风格。
 - S3 必须配置访问密钥；只有使用 AWS IAM Role/OIDC 等默认凭证链时才显式设置 `S3_USE_DEFAULT_CREDENTIAL_CHAIN=true`。
 - `CRON_SECRET`：保护定时同步端点的随机长字符串。
-- `APP_ORIGIN`：部署后的 HTTPS 来源，例如 `https://ops.example.com`。
+- `APP_ORIGIN`：固定为 `https://aiwayfair.sunnysdady.com`。
 - `APP_ACCESS_USER`、`APP_ACCESS_PASSWORD`：生产页面和普通 API 的 HTTP Basic 登录。生产环境缺少这两个变量时应用会拒绝访问。
 - Microsoft Graph：`MICROSOFT_CLIENT_ID`、`MICROSOFT_CLIENT_SECRET`，并选择：
   - 委托授权：配置 `MICROSOFT_REFRESH_TOKEN`；
