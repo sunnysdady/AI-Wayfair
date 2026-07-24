@@ -1,6 +1,7 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
+import { runLayeredSync } from "../lib/server-sync.mjs";
 
 interface Env {
   ASSETS: Fetcher;
@@ -41,6 +42,19 @@ const worker = {
     }
 
     return handler.fetch(request, env, ctx);
+  },
+
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    await runLayeredSync({
+      scheduledTime: controller.scheduledTime,
+      request: (request: Request) => handler.fetch(request, env, ctx),
+      record: async (entry: unknown) => {
+        const updatedAt = new Date().toISOString();
+        await env.DB.prepare(
+          "INSERT INTO sync_state(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",
+        ).bind("server:layered-sync:last-run", JSON.stringify(entry), updatedAt).run();
+      },
+    });
   },
 };
 

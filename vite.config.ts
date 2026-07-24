@@ -31,6 +31,9 @@ const localBindingConfig = {
         },
       ]
     : [],
+  triggers: {
+    crons: ["0 */2 * * *"],
+  },
   vars: Object.fromEntries(
     ["WAYFAIR_OPS_CLIENT_ID", "WAYFAIR_OPS_CLIENT_SECRET", "WAYFAIR_CATALOG_CLIENT_ID", "WAYFAIR_CATALOG_CLIENT_SECRET", "WAYFAIR_CATALOG_SUPPLIER_ID", "WAYFAIR_AD_CLIENT_ID", "WAYFAIR_AD_CLIENT_SECRET", "WAYFAIR_DEPLOYMENT_ENV", "WAYFAIR_EXPECTED_SUPPLIER_IDS", "ALLOW_WAYFAIR_LIVE_PUSH", "ALLOW_WAYFAIR_AD_LIVE_CHANGES", "OUTLOOK_INGEST_TOKEN"]
       .flatMap((key) => process.env[key] ? [[key, process.env[key]]] : []),

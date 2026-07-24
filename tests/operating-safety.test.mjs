@@ -5,6 +5,7 @@ import test from "node:test";
 import { assertLiveOperation, buildOperatingReadiness } from "../lib/operating-safety.mjs";
 import { METRIC_DEFINITIONS } from "../lib/metric-definitions.mjs";
 import { calculateInventoryValueRisk } from "../lib/inventory-value-risk.mjs";
+import { classifyInventoryFeed, summarizeInventoryFeeds } from "../lib/wayfair-inventory-feed.mjs";
 
 const productionEnv = {
   RUNTIME_PLATFORM: "cloudflare",
@@ -77,4 +78,33 @@ test("weights inventory snapshot changes by SKU cost instead of row count", asyn
   ]);
   assert.match(inventory, /loadInventoryValueRisk/);
   assert.match(preview, /valueRisk/);
+});
+
+test("only treats fully reconciled Wayfair inventory feeds as completed", () => {
+  const completed = classifyInventoryFeed({ id: "feed-1", status: "COMPLETE", completedAt: "2026-07-23T15:30:00Z", itemCount: 5, completedCount: 5, processingCount: 0, errorCount: 0, errors: [] });
+  const processing = classifyInventoryFeed({ id: "feed-2", status: "PROCESSING", itemCount: 5, completedCount: 2, processingCount: 3, errorCount: 0, errors: [] });
+  const failed = classifyInventoryFeed({ id: "feed-3", status: "COMPLETE", completedAt: "2026-07-23T15:30:00Z", itemCount: 5, completedCount: 4, processingCount: 0, errorCount: 0, errors: [] });
+  assert.equal(completed.state, "completed");
+  assert.equal(processing.state, "processing");
+  assert.equal(failed.state, "failed");
+  assert.equal(summarizeInventoryFeeds([completed, processing]).status, "processing");
+  assert.equal(summarizeInventoryFeeds([completed, failed]).status, "failed");
+});
+
+test("inventory UI and route do not equate HTTP success with completed processing", async () => {
+  const [route, inventory, page] = await Promise.all([
+    readFile(new URL("../app/api/inventory/push/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/inventory.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(route, /classifyInventoryFeed/);
+  assert.match(route, /saveInventoryPushRun/);
+  assert.match(route, /transactions\(filters:\[\{field:id,equals:\$id\}\]/);
+  assert.match(route, /resumePushId/);
+  assert.match(inventory, /inventory_push_batches/);
+  assert.match(route, /status:202/);
+  assert.match(page, /waitForPush/);
+  assert.match(page, /Wayfair 处理中/);
+  assert.match(page, /Wayfair 已完成处理/);
+  assert.doesNotMatch(page, /正式库存已提交，共/);
 });
