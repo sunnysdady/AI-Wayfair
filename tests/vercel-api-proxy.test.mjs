@@ -163,6 +163,56 @@ test("uses separate gateway and ingest credentials for authorized Outlook writes
   assert.equal(response.status, 201);
 });
 
+test("removes browser origin metadata before forwarding action queue writes", async () => {
+  let forwarded;
+  const payload = JSON.stringify({
+    runKey: "weekly:2026-07-04:2026-07-10",
+    listing: "DMOM1000",
+    campaignId: "622741",
+    actionType: "SET_LISTING_ACTIVE",
+    before: { active: true },
+    proposed: { active: false },
+  });
+  const response = await proxySitesApi(
+    new Request("https://ai-wayfair.vercel.app/api/ads/actions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "https://ai-wayfair.vercel.app",
+        referer: "https://ai-wayfair.vercel.app/ads",
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        forwarded: "for=192.0.2.1;host=ai-wayfair.vercel.app;proto=https",
+        "x-forwarded-host": "ai-wayfair.vercel.app",
+        "x-forwarded-proto": "https",
+      },
+      body: payload,
+    }),
+    validEnv,
+    async (url, init) => {
+      forwarded = { url: String(url), init };
+      return Response.json({ status: "PLANNED" }, { status: 201 });
+    },
+  );
+
+  assert.equal(
+    forwarded.url,
+    "https://wayfair-ai-ops-center.sunnysdady.chatgpt.site/api/ads/actions",
+  );
+  assert.equal(forwarded.init.headers.get("origin"), null);
+  assert.equal(forwarded.init.headers.get("referer"), null);
+  assert.equal(forwarded.init.headers.get("sec-fetch-dest"), null);
+  assert.equal(forwarded.init.headers.get("sec-fetch-mode"), null);
+  assert.equal(forwarded.init.headers.get("sec-fetch-site"), null);
+  assert.equal(forwarded.init.headers.get("forwarded"), null);
+  assert.equal(forwarded.init.headers.get("x-forwarded-host"), null);
+  assert.equal(forwarded.init.headers.get("x-forwarded-proto"), null);
+  assert.equal(forwarded.init.headers.get("content-type"), "application/json");
+  assert.equal(new TextDecoder().decode(forwarded.init.body), payload);
+  assert.equal(response.status, 201);
+});
+
 test("refuses to proxy paths outside the API namespace", async () => {
   let called = false;
   const response = await proxySitesApi(
