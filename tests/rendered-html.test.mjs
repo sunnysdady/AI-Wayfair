@@ -40,12 +40,24 @@ test("keeps July execution and BFIJ strategy between June review and August prep
   assert.match(plan, /flashConfirmationDeadline: "2026-07-17"/);
 });
 
+test("puts DMOM1018 and DMOM1000 into zero-budget stop-loss repair pools", async () => {
+  const plan = await readFile(new URL("../lib/operating-plan.ts", import.meta.url), "utf8");
+
+  assert.match(plan, /listing: "DMOM1018"[^\n]+budget: 0[^\n]+64击0单[^\n]+eligible: false/);
+  assert.match(plan, /listing: "DMOM1000"[^\n]+budget: 0[^\n]+85击1单[^\n]+eligible: false/);
+  assert.doesNotMatch(plan, /DMOM1000[^\n]+后台ROAS 2028%；维持Bid/);
+});
+
 test("separates the visible advertising period from the mature weekly decision window", async () => {
   const [page, ads] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /成熟周（推荐）/);
+  assert.doesNotMatch(page, /成熟周（推荐）|matureWeek/);
+  assert.match(page, /const initial=adRangeFor\('7d'\)/);
+  assert.match(page, /const \[preset,setPreset\]=useState\('7d'\)/);
+  assert.doesNotMatch(page, /决策成熟周/);
+  assert.doesNotMatch(page, /恢复 2026-07-15 广告分析的布局/);
   assert.match(page, /最近 14 天/);
   assert.match(page, /加入执行 \(/);
   assert.match(page, /保本ROAS/);
@@ -235,6 +247,19 @@ test("keeps an API-backed advertising manager ahead of AI recommendations", asyn
   assert.match(ads, /class_name/);
 });
 
+test("offers combined filters in the Campaign manager", async () => {
+  const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
+  assert.match(page, /筛选状态/);
+  assert.match(page, /投放类型/);
+  assert.match(page, /客群/);
+  assert.match(page, /效果/);
+  assert.match(page, /清除筛选/);
+  assert.match(page, /managerCampaignStatus/);
+  assert.match(page, /managerCampaignTargeting/);
+  assert.match(page, /managerCampaignAudience/);
+  assert.match(page, /managerCampaignPerformance/);
+});
+
 test("splits manual work from one unified AI API execution workbench", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
@@ -258,7 +283,7 @@ test("splits manual work from one unified AI API execution workbench", async () 
   assert.match(styles, /\.keyword-allocation-grid/);
   assert.match(styles, /\.manual-todo-list/);
   assert.match(styles, /\.manual-sku-group/);
-  assert.match(styles, /\.manual-operation-item/);
+  assert.match(styles, /\.manual-todo-row/);
 });
 
 test("keeps parent-SKU advertising performance focused on search, filters, sorting and decision metrics", async () => {

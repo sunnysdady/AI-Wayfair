@@ -21,9 +21,13 @@ test("keeps daily email details inside the operations center without clipping ro
   assert.match(daily, /email-finance-summary/);
   assert.match(daily, /汇款金额/);
   assert.match(daily, /关联发票/);
+  assert.match(daily, /aria-label="日报 JSON"/);
+  assert.match(daily, /onClick=\{importDailyBrief\}/);
+  assert.match(daily, /fetch\("\/api\/email\/daily"/);
   assert.match(daily, /onKeyDown=\{\(event\) => \{ if \(event\.key === "Escape"\) setPreviewEmail\(null\); \}\}/);
   assert.match(styles, /\.daily-mail-list\.outlook-mail-list\{margin:0/);
   assert.match(styles, /\.email-preview-overlay\{/);
   assert.match(styles, /\.email-preview-dialog\{/);
   assert.match(styles, /\.email-finance-summary\{/);
+  assert.match(styles, /\.daily-import\{/);
 });

@@ -1,4 +1,5 @@
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+import { hasOutlookIngestAuthorization } from "@/lib/outlook-ingest-auth.mjs";
 
 const bindings = getRuntimeBindings;
 
@@ -7,13 +8,7 @@ const MAX_TASKS = 100;
 const MAX_SECTIONS = 24;
 
 function hasIngestAuthorization(request: Request, env: Awaited<ReturnType<typeof bindings>>) {
-  const authorization = request.headers.get("authorization");
-  if (env.OUTLOOK_INGEST_TOKEN && authorization === `Bearer ${env.OUTLOOK_INGEST_TOKEN}`) return true;
-
-  // Sites verifies and removes OAI-Sites-Authorization before requests reach this
-  // Worker. This marker is accepted only behind that protected Sites gateway, so
-  // the automation does not need a second secret copied into its prompt.
-  return request.headers.get("x-wayfair-automation") === "outlook-daily-sync";
+  return hasOutlookIngestAuthorization(request.headers, env.OUTLOOK_INGEST_TOKEN);
 }
 
 function isBriefPayload(body: Record<string, unknown>) {

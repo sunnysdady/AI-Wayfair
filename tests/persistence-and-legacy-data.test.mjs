@@ -17,11 +17,40 @@ test("keeps one-hour snapshots across page switches without clearing ad actions"
   assert.match(orders, /60 \* 60 \* 1000/);
   assert.match(catalog, /60 \* 60 \* 1000/);
   assert.match(page, /ad-queue:/);
-  assert.match(page, /ads:v7:/);
+  assert.match(page, /ads:v8:/);
+  assert.doesNotMatch(page, /ads:v7:/);
   assert.doesNotMatch(page, /`ads:\$\{/);
   assert.match(page, /writeClientCache\(`ad-queue:/);
   assert.doesNotMatch(page, /setQueuedActions\(\[\]\)/);
   assert.match(page, /每小时自动同步/);
+});
+
+test("renders retained global snapshots immediately and refreshes stale data in the background", async () => {
+  const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /orders:\$\{initialRange\.start\}:\$\{initialRange\.end\}/);
+  assert.match(page, /readClientCache<OrderSummary>\(initialDashboardCacheKey,CLIENT_CACHE_RETENTION_MS\)/);
+  assert.match(page, /const fresh=readClientCache<OrderSummary>\(cacheKey\)/);
+  assert.match(page, /const retained=readClientCache<OrderSummary>\(cacheKey,CLIENT_CACHE_RETENTION_MS\)/);
+  assert.match(page, /retained\?"后台更新中":"同步中"/);
+  assert.match(page, /ad-history:dashboard/);
+  assert.match(page, /system:readiness/);
+});
+
+test("offers a compact accessible manual refresh without clearing the retained dashboard", async () => {
+  const [page, styles] = await Promise.all([
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /function refreshDashboard\(\)/);
+  assert.match(page, /refresh=1/);
+  assert.match(page, /className=\{`dashboard-refresh/);
+  assert.match(page, /aria-label="立即刷新订单数据"/);
+  assert.match(page, /title="立即刷新"/);
+  assert.match(page, /disabled=\{refreshing\}/);
+  assert.match(styles, /\.dashboard-refresh\{/);
+  assert.match(styles, /\.dashboard-refresh\.refreshing svg/);
 });
 
 test("refreshes current campaign learning data while keeping Listing decisions on the mature window", async () => {

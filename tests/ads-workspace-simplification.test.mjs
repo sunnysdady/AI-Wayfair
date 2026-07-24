@@ -26,3 +26,12 @@ test("turns zombie diagnostics into a local completion tracker and keeps one lin
   assert.match(aiWorkspace, /executionResultForAction\(queuedAction\)/);
   assert.doesNotMatch(aiWorkspace, /ai-execution-boundary|stat-grid four ad-kpis|API 执行批次|API 调整记录与效果复盘/);
 });
+
+test("keeps hold recommendations visible in the AI audit workbench", async () => {
+  const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /const optimizationListings=data\?\.listings\|\|\[\]/);
+  assert.match(page, /filterAdActions\(optimizationListings/);
+  assert.match(page, /const recommendationSelectable=API_AD_ACTION_TYPES\.has\(row\.action\.type\)&&!queuedAction/);
+  assert.doesNotMatch(page, /const apiListings=\(data\?\.listings\|\|\[\]\)\.filter/);
+});

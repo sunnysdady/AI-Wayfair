@@ -124,6 +124,39 @@ export const inventorySnapshotRows = sqliteTable("inventory_snapshot_rows", {
   index("inventory_snapshot_rows_part_idx").on(table.partNumber),
 ]);
 
+export const inventoryPushRuns = sqliteTable("inventory_push_runs", {
+  id: text("id").primaryKey(),
+  snapshotId: text("snapshot_id").notNull(),
+  status: text("status").notNull(),
+  itemCount: integer("item_count").notNull(),
+  batchCount: integer("batch_count").notNull(),
+  completedBatches: integer("completed_batches").notNull().default(0),
+  failedBatches: integer("failed_batches").notNull().default(0),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [index("inventory_push_runs_snapshot_idx").on(table.snapshotId)]);
+
+export const inventoryPushBatches = sqliteTable("inventory_push_batches", {
+  pushId: text("push_id").notNull(),
+  batchIndex: integer("batch_index").notNull(),
+  feedId: text("feed_id"),
+  handle: text("handle"),
+  status: text("status").notNull(),
+  state: text("state").notNull(),
+  expectedItemCount: integer("expected_item_count").notNull(),
+  itemCount: integer("item_count"),
+  errorCount: integer("error_count").notNull().default(0),
+  completedCount: integer("completed_count"),
+  processingCount: integer("processing_count"),
+  errors: text("errors").notNull().default("[]"),
+  submittedAt: text("submitted_at"),
+  completedAt: text("completed_at"),
+  reason: text("reason"),
+}, (table) => [
+  primaryKey({ columns: [table.pushId, table.batchIndex] }),
+  index("inventory_push_batches_push_idx").on(table.pushId),
+]);
+
 export const reportUploads = sqliteTable("report_uploads", {
   id: text("id").primaryKey(),
   fileName: text("file_name").notNull(),
