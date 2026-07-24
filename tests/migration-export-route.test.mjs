@@ -10,10 +10,12 @@ test("temporary migration export is token-gated and allowlists settings", async 
 
   assert.match(source, /MIGRATION_EXPORT_TOKEN/);
   assert.match(source, /authorization/);
+  assert.match(source, /queryToken/);
   assert.match(source, /SETTINGS_KEYS/);
   assert.doesNotMatch(source, /Object\.entries\(env\)/);
   assert.match(source, /sqlite_master/);
   assert.match(source, /env\.FILES\.list/);
   assert.match(source, /env\.FILES\.get/);
+  assert.match(source, /object-base64/);
   assert.match(source, /cache-control": "no-store"/);
 });
