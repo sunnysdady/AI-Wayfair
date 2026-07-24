@@ -28,6 +28,28 @@ test("translates D1 placeholders and preserves D1 result shapes", async () => {
   assert.deepEqual(result, { results: [{ id: "one" }], success: true });
 });
 
+test("normalizes PostgreSQL Date values to D1-compatible ISO strings", async () => {
+  const date = new Date("2026-07-24T01:02:03.000Z");
+  const pool = {
+    async query() {
+      return { rows: [{ max_date: date }], rowCount: 1 };
+    },
+  };
+  const db = createPostgresD1Database({ pool });
+
+  assert.deepEqual(
+    await db.prepare("SELECT MAX(po_date) AS max_date FROM orders").first(),
+    { max_date: "2026-07-24T01:02:03.000Z" },
+  );
+  assert.deepEqual(
+    await db.prepare("SELECT po_date FROM orders").all(),
+    {
+      results: [{ max_date: "2026-07-24T01:02:03.000Z" }],
+      success: true,
+    },
+  );
+});
+
 test("runs D1 batches atomically on one PostgreSQL client", async () => {
   const calls = [];
   const client = {
