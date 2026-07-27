@@ -58,7 +58,7 @@ type NewProductSop = {
   recommendation: string;
   blockers: string[];
   automaticExecution: boolean;
-  evidence: { imagesComplete: boolean; attributesComplete: boolean; contentEvidence: string; units30d: number; catalogStatus: string; listingCount: number; catalogProblems: number };
+  evidence: { imagesComplete: boolean; attributesComplete: boolean; contentEvidence: string; hasSalesEvidence: boolean; units30d: number; catalogStatus: string; listingCount: number; catalogProblems: number };
   steps: { order: number; action: string; label: string; dependsOn: string[]; instruction: string; acceptance: string }[];
 };
 type CatalogItem = {
