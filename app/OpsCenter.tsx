@@ -12,7 +12,7 @@ import legacyOperatingDataSource from "../data/dmom-operating-2026-06.json";
 type View = "dashboard" | "daily" | "ads" | "planning" | "products" | "sources" | "help";
 type AdsTab = "manager" | "listings" | "ai" | "manual" | "review";
 type PlanningTab = "plan" | "review" | "history";
-type ProductTab = "inventory" | "catalog" | "performance";
+type ProductTab = "inventory" | "catalog" | "launch" | "performance";
 type PlanSection = "july" | "bfij" | "august";
 type SubView = AdsTab | PlanningTab | ProductTab;
 
@@ -32,7 +32,7 @@ const SYSTEM_NAV: { id: View; label: string }[] = [
 const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
   ads: [{ id: "manager", label: "广告管理器" }, { id: "listings", label: "父体 SKU 广告表现" }, { id: "ai", label: "AI 优化" }, { id: "manual", label: "手动优化 To-Do" }, { id: "review", label: "优化记录与复盘" }],
   planning: [{ id: "plan", label: "运营计划" }, { id: "review", label: "复盘资料" }, { id: "history", label: "历史月度" }],
-  products: [{ id: "inventory", label: "库存更新" }, { id: "catalog", label: "商品数据" }, { id: "performance", label: "SKU 经营" }],
+  products: [{ id: "inventory", label: "库存更新" }, { id: "catalog", label: "商品数据" }, { id: "launch", label: "推新 SOP" }, { id: "performance", label: "SKU 经营" }],
 };
 
 type LegacySku = { "Supplier Part Number":string;"Wayfair Sku":string;"Product Name":string;"Class Name":string;"Total Revenue":number;Sessions:number;CVR:number;rating:number;review_count:number;tag_pct:number;wsc:number;cogs:number;my_profit:number;my_margin:number;wf_space:number;grade:string;cn_name:string|null };
@@ -790,6 +790,52 @@ function Catalog({ embedded = false }: { embedded?: boolean }) {
     </section></>;
 }
 
+function NewProductSopWorkspace() {
+  const [items,setItems]=useState<CatalogItem[]>([]);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  const [refresh,setRefresh]=useState(0);
+  useEffect(()=>{
+    const controller=new AbortController();
+    async function loadPage(page:number){
+      const response=await fetch(`/api/catalog/items?page=${page}&pageSize=30`,{signal:controller.signal});
+      const body=await response.json() as CatalogResponse;
+      if(!response.ok)throw new Error(body.error||'推新 SOP 商品读取失败');
+      return body;
+    }
+    loadPage(1).then(async first=>{
+      const totalPages=Math.min(10,Math.max(1,Number(first.paginationInfo?.totalPages||1)));
+      const rest=totalPages>1?await Promise.all(Array.from({length:totalPages-1},(_,index)=>loadPage(index+2))):[];
+      const unique=new Map<string,CatalogItem>();
+      for(const item of [first,...rest].flatMap(result=>result.items||[])){
+        const key=`${item.supplierPartNumber}:${item.marketContext?.country||''}:${item.marketContext?.channel||''}`;
+        unique.set(key,item);
+      }
+      if(!controller.signal.aborted)setItems([...unique.values()]);
+    }).catch(reason=>{if(reason.name!=='AbortError')setError(reason.message||'推新 SOP 商品读取失败');}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    return()=>controller.abort();
+  },[refresh]);
+  function refreshQueue(){setLoading(true);setError('');setRefresh(value=>value+1);}
+  const ready=items.filter(item=>item.newProductSop?.status==='RECOMMENDED');
+  const blocked=items.filter(item=>item.newProductSop?.status==='BLOCKED');
+  return <div className="sop-board">
+    <section className="card sop-summary">
+      <div><span>OPERATIONS AGENT</span><h2>推新规则队列</h2><p>图片与属性齐全后先送测；送测步骤通过，再进入小预算广告测试与 7/14 天复查。</p></div>
+      <div className="sop-summary-metrics"><article><b>{ready.length}</b><span>运营 Agent 待接</span></article><article><b>{blocked.length}</b><span>待补条件</span></article><article><b>{items.length}</b><span>已扫描商品</span></article></div>
+      <button className="primary" disabled={loading} onClick={refreshQueue}>{loading?'同步中…':'刷新队列'}</button>
+    </section>
+    {error?<p className="inventory-message bad">{error}</p>:null}
+    <section className="sop-lane">
+      <div className="section-head"><div><span>READY FOR OPERATIONS</span><h2>待送测</h2></div><b>{ready.length} 个新品候选</b></div>
+      <div className="sop-card-grid">{ready.map(item=>{const sop=item.newProductSop!;return <article className="card sop-item ready" key={`${item.supplierPartNumber}:${item.marketContext?.country||''}:ready`}><header><span>{sop.priority} · {item.catalogItemStatus}</span><h3>{item.supplierPartNumber}</h3><small>{item.class?.className||'未分类'} · {item.listings?.map(listing=>listing.listingId).filter(Boolean).join(' / ')||'Listing待映射'}</small></header><div className="sop-evidence"><b>图片 {sop.evidence.imagesComplete?'齐全':'缺失'}</b><b>属性 {sop.evidence.attributesComplete?'齐全':'缺失'}</b><b>近30天 {sop.evidence.units30d} 件</b></div><ol>{sop.steps.map(step=><li key={step.action}><span>{step.order}</span><p><b>{step.label}</b>{step.instruction}</p></li>)}</ol><footer>{sop.automaticExecution?'允许自动执行':'建议推送，不自动送测或投广告'}</footer></article>})}{!loading&&!ready.length?<p className="empty-state">当前没有满足全部 Gate 的新品候选。</p>:null}</div>
+    </section>
+    <section className="sop-lane blocked">
+      <div className="section-head"><div><span>BLOCKED BY GATES</span><h2>待补条件</h2></div><b>{blocked.length} 个候选</b></div>
+      <div className="sop-blocked-list">{blocked.map(item=>{const sop=item.newProductSop!;return <article className="card" key={`${item.supplierPartNumber}:${item.marketContext?.country||''}:blocked`}><div><span>{item.catalogItemStatus||'状态未知'}</span><h3>{item.supplierPartNumber}</h3><small>{item.class?.className||'未分类'} · {item.marketContext?.country||'-'}</small></div><ul>{sop.blockers.map(blocker=><li key={blocker}>{blocker}</li>)}</ul></article>})}{!loading&&!blocked.length?<p className="empty-state">没有被 Gate 阻断的新品候选。</p>:null}</div>
+    </section>
+  </div>;
+}
+
 function SkuOperatingPerformance() {
   const [query,setQuery]=useState('');const [category,setCategory]=useState('ALL');const [sort,setSort]=useState<SortState>({key:'revenue',direction:'desc'});
   const categories=Array.from(new Set(LEGACY_OPERATING_DATA.skus.map(item=>item["Class Name"]).filter(Boolean))).sort();
@@ -813,8 +859,8 @@ function PlanningWorkspace({ tab, onTabChange }: { tab: PlanningTab; onTabChange
 }
 
 function ProductWorkspace({ tab }: { tab: ProductTab }) {
-  return <><Hero eyebrow="" title={tab==='inventory'?'库存更新':tab==='performance'?'SKU 经营':'商品数据'} text="" />
-    {tab==='inventory'?<Inventory embedded/>:tab==='performance'?<SkuOperatingPerformance/>:<Catalog embedded/>}
+  return <><Hero eyebrow="" title={tab==='inventory'?'库存更新':tab==='launch'?'推新 SOP':tab==='performance'?'SKU 经营':'商品数据'} text="" />
+    {tab==='inventory'?<Inventory embedded/>:tab==='launch'?<NewProductSopWorkspace/>:tab==='performance'?<SkuOperatingPerformance/>:<Catalog embedded/>}
   </>;
 }
 
@@ -848,7 +894,7 @@ export default function OpsCenter() {
   const [productTab,setProductTab]=useState<ProductTab>('inventory');
   useEffect(()=>{window.scrollTo(0,0);const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view]);
   const activeSub: SubView | null=view==='ads'?adsTab:view==='planning'?planningTab:view==='products'?productTab:null;
-  function navigateSub(next:SubView){if(view==='ads'&&(next==='manager'||next==='listings'||next==='ai'||next==='manual'||next==='review'))setAdsTab(next);if(view==='planning'&&(next==='plan'||next==='review'||next==='history'))setPlanningTab(next);if(view==='products'&&(next==='inventory'||next==='catalog'||next==='performance'))setProductTab(next);}
+  function navigateSub(next:SubView){if(view==='ads'&&(next==='manager'||next==='listings'||next==='ai'||next==='manual'||next==='review'))setAdsTab(next);if(view==='planning'&&(next==='plan'||next==='review'||next==='history'))setPlanningTab(next);if(view==='products'&&(next==='inventory'||next==='catalog'||next==='launch'||next==='performance'))setProductTab(next);}
   const page=useMemo(()=>({dashboard:<Dashboard/>,daily:<Daily/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={setPlanningTab}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view],[view,adsTab,planningTab,productTab]);
   return <div className="app app-shell"><ShellHeader active={view} activeSub={activeSub} onNavigate={setView} onSubNavigate={navigateSub}/><div className="content-shell"><main>{page}</main><footer><span>Wayfair AI 运营中台</span><span>个人测试阶段</span></footer></div></div>;
 }
