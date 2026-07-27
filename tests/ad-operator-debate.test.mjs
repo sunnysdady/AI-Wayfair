@@ -80,6 +80,8 @@ test("wires the operations debate into every recommendation, queue boundary, and
 
   assert.match(analysis, /applyOperatorDebate/);
   assert.match(analysis, /operatorReview/);
+  assert.match(analysis, /KNOWN_PORTFOLIO_CHANGE_DATE\s*=\s*"2026-07-17"/);
+  assert.match(analysis, /KNOWN_PORTFOLIO_COOLDOWN_UNTIL\s*=\s*"2026-08-07"/);
   assert.match(page, /运营 Agent 辩论/);
   assert.match(page, /row\.operatorReview/);
   assert.match(queue, /运营 Agent 辩论未形成候选动作/);

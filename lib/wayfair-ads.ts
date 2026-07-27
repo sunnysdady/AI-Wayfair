@@ -15,6 +15,8 @@ const ATTRIBUTION_DAYS = 14;
 const ANALYSIS_CACHE_MS = 60 * 60 * 1000;
 const MUTABLE_REPORT_CACHE_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_MARGIN = .2826;
+const KNOWN_PORTFOLIO_CHANGE_DATE = "2026-07-17";
+const KNOWN_PORTFOLIO_COOLDOWN_UNTIL = "2026-08-07";
 
 type CsvRow = Record<string, string>;
 type AdvertisingEnv = {
@@ -330,6 +332,12 @@ function total(rows: CsvRow[], start: string, end: string) {
   return finalize(metric);
 }
 
+function knownPortfolioChangeDate(asOf: string) {
+  return asOf >= KNOWN_PORTFOLIO_CHANGE_DATE && asOf <= KNOWN_PORTFOLIO_COOLDOWN_UNTIL
+    ? KNOWN_PORTFOLIO_CHANGE_DATE
+    : null;
+}
+
 function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: string, end: string, decisionStart: string, decisionEnd: string, inventory: Map<string,InventoryEvidence>, goals: GoalEvidence, weeklyMemory = new Map<string, Record<string, unknown>>()) {
   const span = daysBetween(start, end);
   const previousEnd = addDays(start, -1);
@@ -346,6 +354,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
   const liveRecentByCampaignListing = aggregate(listingRows, campaignListingKey, liveSafetyStart, liveSafetyEnd);
   const liveTrailingByCampaignListing = aggregate(listingRows, campaignListingKey, liveTrailingStart, liveSafetyEnd);
   const settingChanges = latestSettingChangeDates(listingRows, addDays(asOf, -35), asOf);
+  const portfolioChangeDate = knownPortfolioChangeDate(asOf);
   const parentCurrentByListing = aggregate(listingRows, "listing", decisionStart, decisionEnd);
   const currentByListing = aggregate(listingRows, campaignListingKey, decisionStart, decisionEnd);
   const previousByListing = aggregate(listingRows, campaignListingKey, decisionPreviousStart, decisionPreviousEnd);
@@ -406,7 +415,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     const operatorDebate = applyOperatorDebate({
       strategy: safetyApplied.strategy,
       liveSafety: safetyApplied.liveSafety,
-      lastChangeDate: settingChanges.get(exactKey) || null,
+      lastChangeDate: settingChanges.get(exactKey) || portfolioChangeDate,
       asOf,
       cooldownDays: 21,
       eventPhase: goals.eventPhase,
@@ -495,7 +504,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     const operatorDebate = applyOperatorDebate({
       strategy: assessed.strategy,
       liveSafety: assessed.liveSafety,
-      lastChangeDate: settingChanges.get(exactKey) || null,
+      lastChangeDate: settingChanges.get(exactKey) || portfolioChangeDate,
       asOf,
       cooldownDays: 21,
       eventPhase: goals.eventPhase,
@@ -611,11 +620,16 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
   return {
     source: "Wayfair Advertising API + PostgreSQL", generatedAt: new Date().toISOString(), attributionWindowDays: ATTRIBUTION_DAYS, runKey,
     range: { start, end, previousStart, previousEnd, asOf, matureThrough, mature: end <= matureThrough },
-    decisionRange: { start: decisionStart, end: decisionEnd, previousStart: decisionPreviousStart, previousEnd: decisionPreviousEnd, cadence: "WEEKLY", rule: "T-14成熟周用于效果评估与扩量；最近4个完整日只用于防守止损，最近7个完整日用于保护近期赢家。" },
+    decisionRange: { start: decisionStart, end: decisionEnd, previousStart: decisionPreviousStart, previousEnd: decisionPreviousEnd, cadence: "WEEKLY", rule: "T-14成熟周用于效果评估；最近4个完整日只生成预警，最近7日持续异常需经过运营辩论。活动期与调整后21天冷却期禁止绩效调参。" },
     liveSafetyRange: { start: liveSafetyStart, end: liveSafetyEnd, trailingStart: liveTrailingStart, days: 4, rule: "4日花费≥$20、点击≥30且0单只触发预警；持续7日且达到Campaign成熟CVR的95%异常样本门槛才进入运营辩论，未成熟数据禁止直接调参。" },
     current: total(campaignRows, start, end), previous: total(campaignRows, previousStart, previousEnd), decision: { current: total(campaignRows, decisionStart, decisionEnd), previous: total(campaignRows, decisionPreviousStart, decisionPreviousEnd) }, history, campaigns, listings, parentListings, liveSafetyFindings, aiCampaignDiagnostics, aiAdEligibility, zombieFindings, zombieAudit,
     plan: { month: JULY_PLAN.month, plannedListings: JULY_PLAN_LISTINGS.filter((item) => item.eligible).length, plannedBudget: JULY_PLAN.adBudget, cpcAnchor: MAKEACE_CPC_PLAN, goalGuardrail: { julyPaceGap: goals.julyPaceGap, eventPhase: goals.eventPhase, reliable: goals.reliable } },
-    safety: { liveWritesEnabled: false, approvalEnabled: true, reason: "AI建议自动生成并可加入周执行单；生产写入保留人工确认与回滚。" },
+    safety: {
+      liveWritesEnabled: false,
+      approvalEnabled: true,
+      knownPortfolioChange: { date: KNOWN_PORTFOLIO_CHANGE_DATE, cooldownUntil: KNOWN_PORTFOLIO_COOLDOWN_UNTIL, source: "已确认运营变更" },
+      reason: "AI建议自动生成并可加入周执行单；生产写入保留人工确认与回滚。",
+    },
   };
 }
 
@@ -676,7 +690,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const listingFetchEnd = today;
   const fetchEnd = [campaignFetchEnd, listingFetchEnd].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v16:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v17:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
     const cached = await env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>();
     if (cached && Date.now() - Date.parse(cached.updated_at) < ANALYSIS_CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, layer: "POSTGRESQL_ANALYSIS", updatedAt: cached.updated_at } };
