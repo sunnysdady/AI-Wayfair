@@ -30,8 +30,8 @@ test("turns zombie diagnostics into a local completion tracker and keeps one lin
 test("keeps hold recommendations visible in the AI audit workbench", async () => {
   const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
 
-  assert.match(page, /const optimizationListings=data\?\.listings\|\|\[\]/);
+  assert.match(page, /const optimizationListings=\[\.\.\.\(data\?\.liveSafetyFindings\|\|\[\]\)/);
   assert.match(page, /filterAdActions\(optimizationListings/);
-  assert.match(page, /const recommendationSelectable=API_AD_ACTION_TYPES\.has\(row\.action\.type\)&&!queuedAction/);
+  assert.match(page, /const recommendationSelectable=API_AD_ACTION_TYPES\.has\(row\.action\.type\)&&row\.operatorReview\?\.verdict==='CANDIDATE'&&!queuedAction/);
   assert.doesNotMatch(page, /const apiListings=\(data\?\.listings\|\|\[\]\)\.filter/);
 });

@@ -85,18 +85,47 @@ export async function POST(request: Request) {
       return Response.json({ error: "执行单参数不完整或动作类型不允许" }, { status: 400 });
     }
     if (!/^weekly:\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/.test(body.runKey) || !/^\d+$/.test(body.campaignId) || body.listing.length > 100) return Response.json({ error: "执行批次、Campaign 或 Listing 格式无效" }, { status: 400 });
+    const decision = await env.DB.prepare("SELECT payload FROM ad_decision_runs WHERE run_key=?").bind(body.runKey).first<{ payload: string }>();
+    if (!decision) return Response.json({ error: "决策批次不存在，不能绕过运营辩论 Gate" }, { status: 409 });
+    let proposedBySystem: {
+      action?: { type?: string; before?: Record<string, unknown>; proposed?: Record<string, unknown> };
+      operatorReview?: { verdict?: string; requiresHumanApproval?: boolean; singleVariable?: boolean; [key: string]: unknown };
+    } | undefined;
+    try {
+      const payload = JSON.parse(decision.payload) as { listings?: Array<Record<string, unknown>>; liveSafetyFindings?: Array<Record<string, unknown>> };
+      proposedBySystem = [...(payload.liveSafetyFindings || []), ...(payload.listings || [])].find((item) =>
+        String(item.listing) === body.listing && String(item.campaignId) === body.campaignId,
+      ) as typeof proposedBySystem;
+    } catch {
+      return Response.json({ error: "决策批次损坏，不能进入执行单" }, { status: 409 });
+    }
+    if (!proposedBySystem || proposedBySystem.action?.type !== body.actionType || proposedBySystem.operatorReview?.verdict !== "CANDIDATE" || proposedBySystem.operatorReview?.requiresHumanApproval !== true) {
+      return Response.json({ error: "运营 Agent 辩论未形成候选动作，禁止加入执行单" }, { status: 409 });
+    }
+    if (proposedBySystem.operatorReview.singleVariable !== true) {
+      return Response.json({ error: "动作未通过单一变量 Gate" }, { status: 409 });
+    }
+    if (JSON.stringify(proposedBySystem.action.before || {}) !== JSON.stringify(body.before || {}) || JSON.stringify(proposedBySystem.action.proposed || {}) !== JSON.stringify(body.proposed || {})) {
+      return Response.json({ error: "执行载荷与运营辩论后的候选方案不一致" }, { status: 409 });
+    }
     const id = `${body.runKey}:${body.campaignId}:${body.listing}:${body.actionType}`;
     const now = new Date().toISOString();
     const existing = await env.DB.prepare("SELECT status FROM ad_action_queue WHERE id=?").bind(id).first<{status:string}>();
     if (existing && !["PLANNED", "FAILED"].includes(existing.status)) return Response.json({ error: `执行项已进入 ${existing.status}，不能被重置` }, { status: 409 });
+    const mutation = await env.DB.prepare("SELECT id,action_type,status FROM ad_action_queue WHERE campaign_id=? AND listing=? AND status IN ('PLANNED','APPROVED','VALIDATED','EXECUTING') AND id<>? LIMIT 1").bind(body.campaignId, body.listing, id).first<{ id: string; action_type: string; status: string }>();
+    if (mutation) return Response.json({ error: `该 Campaign × Listing 已有 ${mutation.action_type} 处于 ${mutation.status}，单一变量锁禁止叠加动作` }, { status: 409 });
     if (API_ACTIONS.has(body.actionType)) {
       try { buildCampaignUpdates([{ id, campaign_id: body.campaignId, listing: body.listing, action_type: body.actionType, before_payload: body.before || {}, proposed_payload: body.proposed || {}, status: "APPROVED" }]); }
       catch (error) { return Response.json({ error: error instanceof Error ? error.message : "执行载荷无效" }, { status: 400 }); }
     }
-    await env.DB.prepare(`INSERT INTO ad_action_queue(id,run_key,listing,campaign_id,action_type,before_payload,proposed_payload,status,created_at,updated_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?)
-      ON CONFLICT(id) DO UPDATE SET before_payload=excluded.before_payload,proposed_payload=excluded.proposed_payload,status='PLANNED',updated_at=excluded.updated_at`)
-      .bind(id, body.runKey, body.listing, body.campaignId, body.actionType, JSON.stringify(body.before || {}), JSON.stringify(body.proposed || {}), "PLANNED", now, now).run();
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO ad_action_queue(id,run_key,listing,campaign_id,action_type,before_payload,proposed_payload,status,created_at,updated_at)
+        VALUES(?,?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(id) DO UPDATE SET before_payload=excluded.before_payload,proposed_payload=excluded.proposed_payload,status='PLANNED',updated_at=excluded.updated_at`)
+        .bind(id, body.runKey, body.listing, body.campaignId, body.actionType, JSON.stringify(body.before || {}), JSON.stringify(body.proposed || {}), "PLANNED", now, now),
+      env.DB.prepare("INSERT INTO ad_action_events(id,action_id,event_type,payload,created_at) VALUES(?,?,?,?,?)")
+        .bind(crypto.randomUUID(), id, "OPERATOR_DEBATE_ACCEPTED", JSON.stringify(proposedBySystem.operatorReview), now),
+    ]);
     return Response.json({ id, status: "PLANNED", message: "已加入本周执行单；生产写入仍需人工确认。" });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "执行单保存失败" }, { status: 500 });

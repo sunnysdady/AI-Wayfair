@@ -18,7 +18,8 @@ test("locks AI optimization to the mature decision week while keeping period con
   assert.match(page, /const aiDecisionPrevious=data\?\.decision\.previous/);
   assert.match(page, /tab==='ai'\?data\?\.decisionRange/);
   assert.match(aiWorkspace, /建议与动作依据/);
-  assert.match(aiWorkspace, /固定使用 T-14 成熟数据/);
+  assert.match(aiWorkspace, /成熟数据负责评估/);
+  assert.match(aiWorkspace, /4日异常只报警/);
   assert.match(aiWorkspace, /成熟周花费/);
   assert.doesNotMatch(page.slice(0, aiStart), /决策成熟周|成熟周（推荐）/);
   assert.doesNotMatch(aiWorkspace, /data\?\.current\.spend|所选周期花费/);

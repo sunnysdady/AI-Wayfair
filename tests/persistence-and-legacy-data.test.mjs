@@ -56,7 +56,7 @@ test("offers a compact accessible manual refresh without clearing the retained d
 test("refreshes current campaign learning data while keeping Listing decisions on the mature window", async () => {
   const ads = await readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8");
   assert.match(ads, /const campaignFetchEnd = today/);
-  assert.match(ads, /const listingFetchEnd = \[end, decisionEnd\]/);
+  assert.match(ads, /const listingFetchEnd = today/);
   assert.match(ads, /fetchReport\(reportType, refreshStart, refreshEnd/);
   assert.match(ads, /getReportRows\(env\.DB, "CAMPAIGN_REPORT", fetchStart, campaignFetchEnd, token, force, start, campaignFetchEnd\)/);
   assert.match(ads, /getReportRows\(env\.DB, "LISTING_REPORT", fetchStart, listingFetchEnd, token, force, start, end\)/);
