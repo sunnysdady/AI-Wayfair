@@ -63,8 +63,23 @@ export async function GET(request: Request) {
       : await env.DB.prepare("SELECT payload,synced_at FROM outlook_daily_briefs ORDER BY brief_date DESC LIMIT 1").first<{payload:string;synced_at:string}>();
     if (!latest) return Response.json({ briefDate: briefDate || "", syncedAt: "", source: "Outlook 邮件同步等待首次运行", summary: { total: 0, unread: 0, actionRequired: 0, highestPriority: "-" }, items: [], tasks: [] }, { headers: { "Cache-Control": "private, max-age=300" } });
     const payload = JSON.parse(latest.payload) as Record<string, unknown>;
+    const normalizedItems = Array.isArray(payload.items)
+      ? (payload.items as Record<string, unknown>[]).map(normalizeEmailBriefItem)
+      : [];
+    const financeBrief = normalizedItems
+      .filter((item) => /财务|账单|回款|付款|finance|payment|remittance|invoice/i.test(String(item.category || "")))
+      .map((item) => String(item.summary || ""))
+      .filter(Boolean)
+      .join("；");
+    const normalizedSections = Array.isArray(payload.sections)
+      ? (payload.sections as Record<string, unknown>[]).map((section) => (
+        financeBrief && /财务|账单|回款|finance|payment/i.test(String(section.title || ""))
+          ? { ...section, body: financeBrief }
+          : section
+      ))
+      : payload.sections;
     const normalizedPayload = Array.isArray(payload.items)
-      ? { ...payload, items: (payload.items as Record<string, unknown>[]).map(normalizeEmailBriefItem) }
+      ? { ...payload, items: normalizedItems, sections: normalizedSections }
       : payload;
     return Response.json({ ...normalizedPayload, syncedAt: latest.synced_at }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
