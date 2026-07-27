@@ -3,6 +3,8 @@ export type CostIssue = { line: number; part?: string; message: string };
 export type SoldPartInput = { partNumber: string; units?: number; revenueCents?: number };
 export type MissingPart = { partNumber: string; units: number; revenueCents: number };
 
+export function parseCostCsv(input: unknown): { headers: string[]; rows: string[][] };
+
 export function resolveColumns(headers: string[]): { partNumber: number; unitCost: number };
 
 export function validateCostRows(

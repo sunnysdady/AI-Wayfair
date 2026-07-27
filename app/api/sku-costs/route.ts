@@ -1,9 +1,7 @@
 import ExcelJS from "exceljs";
 
-import { costTemplateCsv, resolveColumns, summarizeCostCoverage, validateCostRows } from "@/lib/sku-costs.mjs";
+import { costTemplateCsv, parseCostCsv, resolveColumns, summarizeCostCoverage, validateCostRows } from "@/lib/sku-costs.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
-
-const bindings = getRuntimeBindings;
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_ROWS = 5000;
@@ -16,7 +14,12 @@ async function ensureCostTable(db: D1Database) {
 }
 
 function shanghaiToday() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 function addDays(value: string, days: number) {
@@ -57,13 +60,6 @@ async function loadCoverage(db: D1Database) {
   return { soldParts, costs, summary };
 }
 
-function parseCsv(text: string) {
-  const lines = text.split(/\r?\n/).filter((line) => line.trim().length);
-  if (!lines.length) return { headers: [] as string[], rows: [] as string[][] };
-  const split = (line: string) => line.split(",").map((cell) => cell.replace(/^"|"$/g, "").trim());
-  return { headers: split(lines[0]), rows: lines.slice(1).map(split) };
-}
-
 async function parseWorkbook(file: File) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(new Uint8Array(await file.arrayBuffer()) as unknown as ExcelJS.Buffer);
@@ -85,7 +81,7 @@ async function parseWorkbook(file: File) {
 
 export async function GET(request: Request) {
   try {
-    const env = await bindings();
+    const env = await getRuntimeBindings();
     await ensureCostTable(env.DB);
     const { costs, summary } = await loadCoverage(env.DB);
     if (new URL(request.url).searchParams.get("template") === "1") {
@@ -97,7 +93,10 @@ export async function GET(request: Request) {
         },
       });
     }
-    return Response.json({ ...summary, costs, lookbackDays: SOLD_LOOKBACK_DAYS }, { headers: { "cache-control": "no-store" } });
+    return Response.json(
+      { ...summary, costs, lookbackDays: SOLD_LOOKBACK_DAYS },
+      { headers: { "cache-control": "no-store" } },
+    );
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "SKU 成本读取失败" }, { status: 500 });
   }
@@ -105,7 +104,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const env = await bindings();
+    const env = await getRuntimeBindings();
     await ensureCostTable(env.DB);
 
     let parsed: { headers: string[]; rows: string[][] };
@@ -114,11 +113,11 @@ export async function POST(request: Request) {
       const file = (await request.formData()).get("file");
       if (!(file instanceof File)) return Response.json({ error: "请选择 CSV 或 XLSX 成本文件" }, { status: 400 });
       if (!file.size || file.size > MAX_UPLOAD_BYTES) return Response.json({ error: "文件为空或超过 5MB" }, { status: 400 });
-      parsed = file.name.toLowerCase().endsWith(".xlsx") ? await parseWorkbook(file) : parseCsv(await file.text());
+      parsed = file.name.toLowerCase().endsWith(".xlsx") ? await parseWorkbook(file) : parseCostCsv(await file.text());
     } else {
       const body = await request.json() as { csv?: string };
       if (typeof body.csv !== "string" || !body.csv.trim()) return Response.json({ error: "请提供 csv 文本" }, { status: 400 });
-      parsed = parseCsv(body.csv);
+      parsed = parseCostCsv(body.csv);
     }
 
     const columns = resolveColumns(parsed.headers);
@@ -134,10 +133,11 @@ export async function POST(request: Request) {
       priceByPart,
     );
 
-    // A partial import would leave margins half-real and half-estimated with no
-    // way to tell which, so nothing is written unless every row is valid.
     if (errors.length) {
-      return Response.json({ error: "成本文件校验未通过，未写入任何数据", errors: errors.slice(0, 50), warnings }, { status: 422 });
+      return Response.json(
+        { error: "成本文件校验未通过，未写入任何数据", errors: errors.slice(0, 50), warnings },
+        { status: 422 },
+      );
     }
     if (!costs.length) return Response.json({ error: "文件没有可导入的成本行" }, { status: 422 });
 
@@ -145,7 +145,9 @@ export async function POST(request: Request) {
     const statements = costs.map((cost) => env.DB.prepare(
       "INSERT INTO sku_costs(part_number,unit_cost_cents,source,updated_at) VALUES(?,?,?,?) ON CONFLICT(part_number) DO UPDATE SET unit_cost_cents=excluded.unit_cost_cents,source=excluded.source,updated_at=excluded.updated_at",
     ).bind(cost.partNumber, cost.unitCostCents, "manual", now));
-    for (let index = 0; index < statements.length; index += 80) await env.DB.batch(statements.slice(index, index + 80));
+    for (let index = 0; index < statements.length; index += 80) {
+      await env.DB.batch(statements.slice(index, index + 80));
+    }
 
     const after = await loadCoverage(env.DB);
     return Response.json({

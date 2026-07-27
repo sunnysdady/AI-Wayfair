@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { costTemplateCsv, resolveColumns, summarizeCostCoverage, validateCostRows } from "../lib/sku-costs.mjs";
+import {
+  costTemplateCsv,
+  parseCostCsv,
+  resolveColumns,
+  summarizeCostCoverage,
+  validateCostRows,
+} from "../lib/sku-costs.mjs";
 
 test("accepts common Chinese and English cost headers", () => {
   assert.deepEqual(resolveColumns(["part_number", "unit_cost"]), { partNumber: 0, unitCost: 1 });
@@ -23,7 +30,16 @@ test("converts dollar costs to cents and strips currency formatting", () => {
   assert.deepEqual(result.errors, []);
 });
 
-test("rejects rows that would corrupt every downstream margin", () => {
+test("parses quoted CSV costs without splitting currency thousands separators", () => {
+  const parsed = parseCostCsv('part_number,unit_cost\r\nMFC-D3-B,"$1,234.56"\r\n"A""B",68');
+
+  assert.deepEqual(parsed, {
+    headers: ["part_number", "unit_cost"],
+    rows: [["MFC-D3-B", "$1,234.56"], ['A"B', "68"]],
+  });
+});
+
+test("rejects rows that would corrupt downstream margins", () => {
   const result = validateCostRows([
     { partNumber: "", unitCost: 10 },
     { partNumber: "A", unitCost: "" },
@@ -61,7 +77,7 @@ test("keeps the last value for a duplicated SKU and flags the conflict", () => {
   assert.match(result.warnings[0].message, /重复/);
 });
 
-test("weights coverage by revenue and ranks missing SKUs by what they cost you", () => {
+test("weights coverage by revenue and ranks missing SKUs by impact", () => {
   const summary = summarizeCostCoverage({
     soldParts: [
       { partNumber: "A", units: 1, revenueCents: 8000 },
@@ -85,4 +101,17 @@ test("reports zero coverage without dividing by zero on an empty store", () => {
 test("builds a fillable template seeded with the uncosted SKUs", () => {
   const csv = costTemplateCsv([{ partNumber: "B" }, { partNumber: "C" }]);
   assert.equal(csv, "part_number,unit_cost\nB,\nC,");
+});
+
+test("keeps the production cost import API and inventory entry point in source control", async () => {
+  const [route, page] = await Promise.all([
+    readFile(new URL("../app/api/sku-costs/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(route, /成本文件校验未通过，未写入任何数据/);
+  assert.match(route, /ON CONFLICT\(part_number\)/);
+  assert.match(page, /function SkuCostPanel/);
+  assert.match(page, /下载待补 SKU 模板/);
+  assert.match(page, /校验并导入成本/);
 });
