@@ -219,6 +219,11 @@ function money(value = 0) { return new Intl.NumberFormat("en-US", { style: "curr
 function money2(value = 0) { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value); }
 function metricCpc(metric?: AdMetric) { return metric?.clicks ? metric.spend / metric.clicks : 0; }
 function adBudgetValue(value?: string) { const numeric=Number(value); return value&&Number.isFinite(numeric)?money2(numeric):value||"—"; }
+function adSpendGapNote(coverage?: string) {
+  if (coverage === "PENDING") return "Wayfair 广告数据 T+1 提供，当日广告费次日回传";
+  if (coverage === "UNAVAILABLE" || coverage === "NO_DB") return "广告快照存储不可读，净利润暂不可计算";
+  return "该周期广告快照缺失，到广告优化同步后才计净利润";
+}
 function change(current = 0, previous = 0) {
   if (!previous) return current ? "新发生" : "无变化";
   const value = (current - previous) / previous * 100;
@@ -377,7 +382,7 @@ function Dashboard() {
         [loading ? "-" : String(current?.units || 0), "件数", change(current?.units, previous?.units)],
         [loading ? "-" : money(current?.aov), "客单价", change(current?.aov, previous?.aov)],
         [loading ? "-" : money(current?.advertisingBeforeGrossProfit), "广告前商品毛利", `成本覆盖 ${Math.round((current?.costCoverage || 0) * 100)}% · 未覆盖部分按 ${((current?.marginRate || .2826) * 100).toFixed(2)}%估算`],
-        [loading ? "-" : current?.contributionAfterAds == null ? "待广告同步" : money(current.contributionAfterAds), "广告后店铺贡献", current?.advertisingSpend == null ? "先到广告优化同步相同周期，不能伪称净利润" : `已扣广告费 ${money(current.advertisingSpend)} · ${current.advertisingCoverage === 'FULL' ? '完整覆盖' : '部分覆盖'}`],
+        [loading ? "-" : current?.contributionAfterAds == null ? "待广告同步" : money(current.contributionAfterAds), "广告后店铺贡献", current?.advertisingSpend == null ? adSpendGapNote(current?.advertisingCoverage) : `已扣广告费 ${money(current.advertisingSpend)} · ${current.advertisingCoverage === 'FULL' ? '完整覆盖' : '部分覆盖（当期仍在累计）'}`],
       ].map(([value,label,note]) => <article className={`stat ${/毛利|贡献/.test(label) ? "profit-stat" : ""}`} key={label}><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}
     </section>
     <section className="card order-performance">

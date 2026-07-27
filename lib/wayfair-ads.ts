@@ -5,6 +5,7 @@ import { diagnoseAiCampaign } from "./ai-campaign-diagnosis.mjs";
 import { platformObservationForCampaign } from "./ai-campaign-observations.mjs";
 import { evaluateAiAdCandidate } from "./ai-ad-eligibility.mjs";
 import { detectZombieCampaigns, ZOMBIE_MATURE_DAYS } from "./zombie-campaign-rules.mjs";
+import { summarizeAdSpendCoverage } from "./ad-spend-coverage.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -565,21 +566,22 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
 export async function cachedAdSpend(db: D1Database | undefined, start: string, end: string) {
   if (!db) return { spend: null, coverage: "NO_DB" };
   try {
-    const coverage = await db.prepare("SELECT COUNT(*) AS days FROM ad_report_days WHERE report_type='CAMPAIGN_REPORT' AND report_date>=? AND report_date<=?").bind(start, end).first<{ days: number }>();
-    const stored = await db.prepare("SELECT payload FROM ad_report_rows WHERE report_type='CAMPAIGN_REPORT' AND report_date>=? AND report_date<=?").bind(start, end).all<{ payload: string }>();
-    const rows = (stored.results || []).map((item) => JSON.parse(item.payload) as CsvRow);
-    if (rows.length) {
-      const spend = rows.reduce((sum, item) => sum + number(item, "spend_USD"), 0);
-      const expected = daysBetween(start, end);
-      return { spend: Number(spend.toFixed(2)), coverage: Number(coverage?.days || 0) >= expected ? "FULL" : "PARTIAL", coveredDays: Number(coverage?.days || 0), expectedDays: expected, source: "D1_DATABASE" };
-    }
-  } catch { /* Migration may not be applied yet; fall through to legacy cache. */ }
-  const cached = await db.prepare("SELECT value,updated_at FROM sync_state WHERE key=?").bind("ads-daily-latest").first<{ value: string; updated_at: string }>();
-  if (!cached) return { spend: null, coverage: "NOT_SYNCED" };
-  const parsed = JSON.parse(cached.value) as { history?: { date: string; spend: number }[] };
-  const rows = (parsed.history || []).filter((item) => item.date >= start && item.date <= end);
-  if (!rows.length) return { spend: null, coverage: "OUTSIDE_CACHE", updatedAt: cached.updated_at };
-  const expected = daysBetween(start, end);
-  return { spend: Number(rows.reduce((sum, item) => sum + Number(item.spend || 0), 0).toFixed(2)), coverage: rows.length >= expected ? "FULL" : "PARTIAL", coveredDays: rows.length, expectedDays: expected, updatedAt: cached.updated_at, source: "LEGACY_CACHE" };
+    const [ledger, stored] = await Promise.all([
+      db.prepare("SELECT report_date, refreshed_at FROM ad_report_days WHERE report_type='CAMPAIGN_REPORT' AND report_date>=? AND report_date<=?").bind(start, end).all<{ report_date: string; refreshed_at: string }>(),
+      db.prepare("SELECT report_date, payload FROM ad_report_rows WHERE report_type='CAMPAIGN_REPORT' AND report_date>=? AND report_date<=?").bind(start, end).all<{ report_date: string; payload: string }>(),
+    ]);
+    const summary = summarizeAdSpendCoverage({
+      start,
+      end,
+      asOf: todayShanghai(),
+      days: (ledger.results || []).map((row) => ({ reportDate: row.report_date, refreshedAt: row.refreshed_at })),
+      rows: (stored.results || []).map((row) => ({ reportDate: row.report_date, spend: number(JSON.parse(row.payload) as CsvRow, "spend_USD") })),
+    });
+    return { ...summary, source: "D1_DATABASE" };
+  } catch (error) {
+    // Storage is unreachable (unmigrated D1, or the read-only Vercel binding).
+    // Orders must still render, so report the gap instead of failing the route.
+    return { spend: null, coverage: "UNAVAILABLE", error: error instanceof Error ? error.message : "广告花费快照不可读" };
+  }
 }
 import { WAYFAIR_ADVERTISING_AUDIENCE } from "./ad-action-queue.mjs";
