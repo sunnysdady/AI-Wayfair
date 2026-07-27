@@ -1,0 +1,55 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { normalizeEmailBriefItem } from "../lib/email-summary.mjs";
+
+test("keeps the PO and shipping service while removing order boilerplate", () => {
+  const result = normalizeEmailBriefItem({
+    category: "订单履约",
+    subject: "Action Required: PO# CS670434030 -- Ship FedEx Home Delivery",
+    summary: "ACTION REQUIRED:\nPO #: CS670434030 -- Ship FedEx Home Delivery",
+    bodyPreview: "TO DO\nPlease Note: Shipping FedEx Home Delivery (See Below)\nWayfair expects all fulfilled items containing composite wood to be CARB and TSCA Title VI compliant\nRegister and Fulfill PO",
+  });
+
+  assert.match(result.summary, /CS670434030/);
+  assert.match(result.summary, /FedEx Home Delivery/);
+  assert.doesNotMatch(result.summary, /CARB|TSCA|composite wood/i);
+  assert.doesNotMatch(result.bodyPreview, /^ACTION REQUIRED|^TO DO|CARB|TSCA/im);
+});
+
+test("prioritizes structured remittance facts over generic finance prose", () => {
+  const result = normalizeEmailBriefItem({
+    category: "账单/回款",
+    subject: "Payment Remittance",
+    summary: "Please note that your payment has been processed. Thank you.",
+    bodyPreview: "This email is intended for the named recipient.\nManage your preferences",
+    financial: {
+      amount: 18240.56,
+      currency: "USD",
+      remittanceId: "10002005889913",
+      paymentDate: "2026-07-20",
+      paymentMethod: "ACH",
+      invoiceIds: ["INV-1001"],
+    },
+  });
+
+  assert.match(result.summary, /USD 18240\.56/);
+  assert.match(result.summary, /10002005889913/);
+  assert.match(result.bodyPreview, /2026-07-20/);
+  assert.match(result.bodyPreview, /ACH/);
+  assert.doesNotMatch(result.bodyPreview, /intended recipient|preferences/i);
+});
+
+test("keeps identifiers, deadline, and exception for other operational mail", () => {
+  const result = normalizeEmailBriefItem({
+    category: "其他运营",
+    subject: "Supplier case update",
+    summary: "General account information is available in Partner Home.",
+    bodyPreview: "Case #WF-48291 is blocked because the document is missing.\nPlease submit the document by 2026-07-29.\nBest regards",
+  });
+
+  assert.match(result.summary, /WF-48291/);
+  assert.match(result.summary, /blocked|missing/i);
+  assert.match(`${result.summary}\n${result.bodyPreview}`, /2026-07-29/);
+  assert.doesNotMatch(result.bodyPreview, /Best regards/i);
+});
