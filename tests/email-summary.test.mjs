@@ -30,6 +30,35 @@ test("reduces the collapsed production order text to atomic business facts", () 
   assert.doesNotMatch(result.summary, /ACTION REQUIRED|TO DO|Please Note|CARB|TSCA|composite wood|See Below|Register/i);
 });
 
+test("includes order number, SKU, product name, quantity, and amount", () => {
+  const result = normalizeEmailBriefItem({
+    category: "订单履约",
+    subject: "Action Required: PO# CS670434030 -- Ship FedEx Home Delivery",
+    summary: "Must Ship By 07/29/2026",
+    bodyPreview: "",
+    order: {
+      poNumber: "CS670434030",
+      currency: "USD",
+      totalQuantity: 1,
+      totalAmount: 126,
+      items: [{
+        sku: "4T-Kayak",
+        name: "Freestanding 4-tier Kayak & Canoe Storage Rack, Black",
+        quantity: 1,
+        unitPrice: 126,
+      }],
+    },
+  });
+
+  assert.match(result.summary, /订单号 CS670434030/);
+  assert.match(result.summary, /SKU 4T-Kayak/);
+  assert.match(result.summary, /商品 Freestanding 4-tier Kayak/);
+  assert.match(result.summary, /数量 1/);
+  assert.match(result.summary, /金额 USD 126\.00/);
+  assert.match(result.summary, /FedEx Home Delivery/);
+  assert.match(result.summary, /截止 07\/29\/2026/);
+});
+
 test("prioritizes structured remittance facts over generic finance prose", () => {
   const result = normalizeEmailBriefItem({
     category: "账单/回款",
