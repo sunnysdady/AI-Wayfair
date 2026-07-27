@@ -1,5 +1,6 @@
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import { hasOutlookIngestAuthorization } from "@/lib/outlook-ingest-auth.mjs";
+import { normalizeEmailBriefItem } from "@/lib/email-summary.mjs";
 
 const bindings = getRuntimeBindings;
 
@@ -73,10 +74,11 @@ export async function POST(request: Request) {
     if (!hasIngestAuthorization(request, env)) return Response.json({ error: "Outlook 同步凭证无效" }, { status: 401 });
     const body = await request.json() as Record<string, unknown>;
     if (!isBriefPayload(body)) return Response.json({ error: "Outlook 日报载荷无效" }, { status: 400 });
+    const normalizedBody = { ...body, items: (body.items as Record<string, unknown>[]).map(normalizeEmailBriefItem) };
     await ensureTable(env.DB);
     const now = new Date().toISOString();
     await env.DB.prepare("INSERT INTO outlook_daily_briefs(brief_date,payload,synced_at) VALUES(?,?,?) ON CONFLICT(brief_date) DO UPDATE SET payload=excluded.payload,synced_at=excluded.synced_at")
-      .bind(String(body.briefDate), JSON.stringify({ ...body, source: typeof body.source === "string" ? body.source : "Outlook Email · daily connector sync" }), now).run();
+      .bind(String(body.briefDate), JSON.stringify({ ...normalizedBody, source: typeof body.source === "string" ? body.source : "Outlook Email · daily connector sync" }), now).run();
     return Response.json({ ok: true, briefDate: body.briefDate, syncedAt: now });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Outlook 日报同步失败" }, { status: 500 });
