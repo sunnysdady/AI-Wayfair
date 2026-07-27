@@ -53,6 +53,18 @@ test("prioritizes structured remittance facts over generic finance prose", () =>
   assert.doesNotMatch(result.bodyPreview, /intended recipient|preferences/i);
 });
 
+test("extracts remittance and attachment while removing invisible formatting", () => {
+  const result = normalizeEmailBriefItem({
+    category: "账单/回款",
+    subject: "Payment Remittance - #10002005943962",
+    summary: "账单/回款：͏ ‌ ͏ ‌ ͏ ‌ 附件：Wayfair_Remittance_10002005943962.csv。",
+    bodyPreview: "",
+  });
+
+  assert.equal(result.summary, "汇款单 #10002005943962；附件 Wayfair_Remittance_10002005943962.csv");
+  assert.doesNotMatch(result.summary, /[\u034f\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/);
+});
+
 test("keeps identifiers, deadline, and exception for other operational mail", () => {
   const result = normalizeEmailBriefItem({
     category: "其他运营",
