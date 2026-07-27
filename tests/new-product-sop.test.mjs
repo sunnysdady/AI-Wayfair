@@ -106,6 +106,22 @@ test("blocks advertising until the product is live and has a listing", () => {
   assert.ok(result.blockers.some((item) => /Listing/.test(item)));
 });
 
+test("fails closed when sales or Catalog content evidence is unavailable", () => {
+  const missingSales = evaluateNewProductPromotionSop(readyItem({
+    recent30d: undefined,
+  }));
+  assert.equal(missingSales.status, "BLOCKED");
+  assert.ok(missingSales.blockers.some((item) => /销量证据/.test(item)));
+
+  const missingContentEvidence = evaluateNewProductPromotionSop(readyItem({
+    contentHealth: undefined,
+    insights: undefined,
+  }));
+  assert.equal(missingContentEvidence.status, "BLOCKED");
+  assert.ok(missingContentEvidence.blockers.some((item) => /图片/.test(item)));
+  assert.ok(missingContentEvidence.blockers.some((item) => /属性/.test(item)));
+});
+
 test("wires the SOP into Catalog responses, the daily full refresh, and the operator-facing product detail", async () => {
   const [catalogRoute, scheduler, page] = await Promise.all([
     readFile(new URL("../app/api/catalog/items/route.ts", import.meta.url), "utf8"),
