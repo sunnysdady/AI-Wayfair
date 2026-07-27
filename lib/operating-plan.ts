@@ -25,6 +25,25 @@ export type PlanListing = {
   sourceWarning?: string;
 };
 
+export const LISTING_PORTFOLIO_POLICY = {
+  mode: "ONE_PRODUCT_ONE_LISTING",
+  status: "BLOCKED_DUPLICATE_LINKS",
+  title: "成功老品放大 · 合规边界",
+  decision: "不执行视觉去重规避",
+  rule: "同一产品不得仅通过文案、图片或价格差异创建2–3条链接。",
+  originalListingPlan: "原Listing持续优化：主图、场景图、标题卖点和价格按单变量分阶段测试，并用广告流量与成熟归因比较结果。",
+  newListingGate: "只有真实型号、结构、尺寸、材质、功能或套装数量存在可核验差异，且使用独立MPN/UPC与准确规格时，才进入新Listing审核。",
+  experiments: [
+    { axis: "图片", action: "原Listing至少3张高清图；组合单品白底、不同角度、环境、功能与尺寸图，建议2000×2000像素。", guardrail: "所有图片必须真实对应交付商品并拥有使用权。" },
+    { axis: "文案", action: "围绕真实卖点改标题、描述、Feature与Specs；一次只改一个主题并保留版本。", guardrail: "不得夸大、遗漏关键规格或复制近似商品内容。" },
+    { axis: "价格", action: "在原Listing内做分阶段价格测试，记录基线、毛利、CVR与退货变化。", guardrail: "价格不得虚高或制造虚假折扣，且必须通过贡献毛利Gate。" },
+    { axis: "流量", action: "同一Listing可按Keyword、Product与B2B意图拆分广告承接和预算。", guardrail: "用广告结构扩覆盖，不复制商品详情页。" },
+  ],
+  source: "Wayfair Supplier Code of Conduct",
+  sourceUrl: "https://sell.wayfair.com/wayfair-supplier-code-of-conduct",
+  sourceAsOf: "2026-07-27",
+};
+
 export const JULY_PLAN = {
   id: "yb-2026-07-true-baseline",
   month: "2026-07",

@@ -5,6 +5,7 @@ import {
   JULY_EVENTS,
   JULY_PLAN,
   JULY_PLAN_LISTINGS,
+  LISTING_PORTFOLIO_POLICY,
   MAKEACE_CPC_PLAN,
   WEEKLY_MILESTONES,
 } from "../../../../lib/operating-plan";
@@ -109,6 +110,7 @@ export async function GET() {
       },
       listings,
       events: JULY_EVENTS,
+      listingPortfolioPolicy: LISTING_PORTFOLIO_POLICY,
       activity: { ...BFIJ_PLAN, activePhase },
       cpcPlan: MAKEACE_CPC_PLAN,
       nextPlan: {
