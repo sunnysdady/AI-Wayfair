@@ -47,6 +47,62 @@ async function ensureTable(db: D1Database) {
   await db.prepare("CREATE TABLE IF NOT EXISTS outlook_daily_briefs (brief_date TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL, synced_at TEXT NOT NULL)").run();
 }
 
+function poNumberFor(item: Record<string, unknown>) {
+  const text = [item.subject, item.summary, item.bodyPreview].filter(Boolean).join("\n");
+  return text.match(/\bPO\s*(?:number|no\.?|#)?\s*[:#-]?\s*([a-z0-9][a-z0-9-]{3,})\b/i)?.[1] || "";
+}
+
+async function enrichOrderEmails(db: D1Database, items: Record<string, unknown>[]) {
+  const poNumbers = [...new Set(items.map(poNumberFor).filter(Boolean))];
+  if (!poNumbers.length) return items.map((item) => normalizeEmailBriefItem(item) as Record<string, unknown>);
+  const placeholders = poNumbers.map(() => "?").join(",");
+  const orderRows = await db.prepare(`SELECT o.po_number,i.part_number,i.quantity,i.unit_price_cents
+    FROM orders o JOIN order_items i ON i.po_number=o.po_number
+    WHERE o.po_number IN (${placeholders}) ORDER BY o.po_number,i.line_key`).bind(...poNumbers)
+    .all<{po_number:string;part_number:string;quantity:number;unit_price_cents:number}>();
+  const wantedSkus = new Set(orderRows.results.map((row) => row.part_number));
+  const names = new Map<string, string>();
+  if (wantedSkus.size) {
+    try {
+      const adRows = await db.prepare("SELECT payload FROM ad_report_rows WHERE report_type=? ORDER BY report_date DESC LIMIT 2000")
+        .bind("LISTING_REPORT").all<{payload:string}>();
+      for (const row of adRows.results) {
+        const payload = JSON.parse(row.payload) as Record<string, unknown>;
+        const productName = String(payload.product_name || "").trim();
+        if (!productName) continue;
+        for (const sku of String(payload.first_10_part_numbers || "").split(",").map((value) => value.trim()).filter(Boolean)) {
+          if (wantedSkus.has(sku) && !names.has(sku)) names.set(sku, productName);
+        }
+      }
+    } catch {
+      // Product names are optional; order totals remain available from the orders tables.
+    }
+  }
+  const rowsByPo = new Map<string, typeof orderRows.results>();
+  for (const row of orderRows.results) rowsByPo.set(row.po_number, [...(rowsByPo.get(row.po_number) || []), row]);
+  return items.map((item) => {
+    const poNumber = poNumberFor(item);
+    const rows = rowsByPo.get(poNumber) || [];
+    if (!rows.length) return normalizeEmailBriefItem(item) as Record<string, unknown>;
+    const orderItems = rows.map((row) => ({
+      sku: row.part_number,
+      name: names.get(row.part_number) || "",
+      quantity: Number(row.quantity || 0),
+      unitPrice: Number(row.unit_price_cents || 0) / 100,
+    }));
+    return normalizeEmailBriefItem({
+      ...item,
+      order: {
+        poNumber,
+        currency: "USD",
+        totalQuantity: orderItems.reduce((sum, orderItem) => sum + orderItem.quantity, 0),
+        totalAmount: orderItems.reduce((sum, orderItem) => sum + orderItem.quantity * orderItem.unitPrice, 0),
+        items: orderItems,
+      },
+    }) as Record<string, unknown>;
+  });
+}
+
 export async function GET(request: Request) {
   try {
     const env = await bindings();
@@ -64,7 +120,7 @@ export async function GET(request: Request) {
     if (!latest) return Response.json({ briefDate: briefDate || "", syncedAt: "", source: "Outlook 邮件同步等待首次运行", summary: { total: 0, unread: 0, actionRequired: 0, highestPriority: "-" }, items: [], tasks: [] }, { headers: { "Cache-Control": "private, max-age=300" } });
     const payload = JSON.parse(latest.payload) as Record<string, unknown>;
     const normalizedItems: Record<string, unknown>[] = Array.isArray(payload.items)
-      ? (payload.items as Record<string, unknown>[]).map((item) => normalizeEmailBriefItem(item) as Record<string, unknown>)
+      ? await enrichOrderEmails(env.DB, payload.items as Record<string, unknown>[])
       : [];
     const financeBrief = normalizedItems
       .filter((item) => /财务|账单|回款|付款|finance|payment|remittance|invoice/i.test(String(item.category || "")))
@@ -93,8 +149,8 @@ export async function POST(request: Request) {
     if (!hasIngestAuthorization(request, env)) return Response.json({ error: "Outlook 同步凭证无效" }, { status: 401 });
     const body = await request.json() as Record<string, unknown>;
     if (!isBriefPayload(body)) return Response.json({ error: "Outlook 日报载荷无效" }, { status: 400 });
-    const normalizedBody = { ...body, items: (body.items as Record<string, unknown>[]).map(normalizeEmailBriefItem) };
     await ensureTable(env.DB);
+    const normalizedBody = { ...body, items: await enrichOrderEmails(env.DB, body.items as Record<string, unknown>[]) };
     const now = new Date().toISOString();
     await env.DB.prepare("INSERT INTO outlook_daily_briefs(brief_date,payload,synced_at) VALUES(?,?,?) ON CONFLICT(brief_date) DO UPDATE SET payload=excluded.payload,synced_at=excluded.synced_at")
       .bind(String(body.briefDate), JSON.stringify({ ...normalizedBody, source: typeof body.source === "string" ? body.source : "Outlook Email · daily connector sync" }), now).run();
