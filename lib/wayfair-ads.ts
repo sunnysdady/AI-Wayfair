@@ -6,6 +6,7 @@ import { platformObservationForCampaign } from "./ai-campaign-observations.mjs";
 import { evaluateAiAdCandidate } from "./ai-ad-eligibility.mjs";
 import { detectZombieCampaigns, ZOMBIE_MATURE_DAYS } from "./zombie-campaign-rules.mjs";
 import { summarizeAdSpendCoverage } from "./ad-spend-coverage.mjs";
+import { eventCycleForDate } from "./event-cycle.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -27,6 +28,7 @@ type GoalListingEvidence = { actualUnits: number; julyRemainingUnits: number; au
 type GoalEvidence = {
   julyPaceGap: number;
   eventPhase: string;
+  eventContext: ReturnType<typeof eventCycleForDate>;
   reliable: boolean;
   byListing: Map<string, GoalListingEvidence>;
 };
@@ -81,7 +83,8 @@ async function loadGoalEvidence(db: D1Database | undefined, asOf: string): Promi
       marginKnown: false,
     }];
   }));
-  const fallback = { julyPaceGap: 0, eventPhase: eventPhaseForDate(asOf), reliable: false, byListing: base };
+  const eventContext = eventCycleForDate(asOf);
+  const fallback = { julyPaceGap: 0, eventPhase: eventPhaseForDate(asOf), eventContext, reliable: false, byListing: base };
   if (!db || !asOf.startsWith("2026-07")) return fallback;
   try {
     const endExclusive = addDays(asOf, 1);
@@ -119,6 +122,7 @@ async function loadGoalEvidence(db: D1Database | undefined, asOf: string): Promi
     return {
       julyPaceGap: Number((Number(orders?.orders || 0) - expectedOrders).toFixed(1)),
       eventPhase: eventPhaseForDate(asOf),
+      eventContext,
       reliable: true,
       byListing: base,
     };
@@ -345,6 +349,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       breakEvenRoas,
       adRole: plan?.adRole || "observe",
       eventPhase: goals.eventPhase,
+      eventContext: goals.eventContext,
       julyPaceGap: goals.julyPaceGap,
       qualityPass: qualityKnown && ratingPass,
       marginKnown: goal.marginKnown || Boolean(plan?.marginRate),

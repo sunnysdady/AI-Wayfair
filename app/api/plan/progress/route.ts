@@ -10,6 +10,7 @@ import {
   WEEKLY_MILESTONES,
 } from "../../../../lib/operating-plan";
 import { cachedAdSpend } from "../../../../lib/wayfair-ads";
+import { eventCycleForDate } from "../../../../lib/event-cycle.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
 const DEFAULT_MARGIN_RATE = .2826;
@@ -81,6 +82,7 @@ export async function GET() {
       const [phaseStart, phaseEnd] = phaseRange(phase.range);
       return today >= phaseStart && today <= phaseEnd;
     })?.id || (today < "2026-07-16" ? "before" : "closed");
+    const eventCycle = eventCycleForDate(today);
 
     return Response.json({
       plan: JULY_PLAN,
@@ -110,6 +112,7 @@ export async function GET() {
       },
       listings,
       events: JULY_EVENTS,
+      eventCycle,
       listingPortfolioPolicy: LISTING_PORTFOLIO_POLICY,
       activity: { ...BFIJ_PLAN, activePhase },
       cpcPlan: MAKEACE_CPC_PLAN,

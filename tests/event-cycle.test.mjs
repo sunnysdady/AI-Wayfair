@@ -83,7 +83,7 @@ test("exposes the shared event-cycle context through the plan API and August wor
   ]);
 
   assert.match(route, /eventCycleForDate/);
-  assert.match(route, /eventCycle:/);
+  assert.match(route, /eventCycle[:,]/);
   assert.match(page, /活动周期判断/);
   assert.match(page, /活动峰值回落/);
   assert.match(ads, /eventContext/);
