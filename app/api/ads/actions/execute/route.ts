@@ -1,4 +1,5 @@
 import { WAYFAIR_ADVERTISING_AUDIENCE, buildCampaignUpdates, executeCampaignUpdates } from "@/lib/ad-action-queue.mjs";
+import { validateAdActionFreshness } from "@/lib/ad-action-freshness.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import { assertLiveOperation } from "@/lib/operating-safety.mjs";
 
@@ -8,6 +9,77 @@ type QueueRow = {
 };
 
 const bindings = getRuntimeBindings;
+
+function todayShanghai() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+function addDays(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function active(value: unknown) {
+  return !/inactive|paused|false/i.test(String(value || ""));
+}
+
+async function validateLatestReportState(db: D1Database, actions: QueueRow[]) {
+  const asOf = todayShanghai();
+  const start = addDays(asOf, -7);
+  const stored = await db.prepare("SELECT report_date,payload FROM ad_report_rows WHERE report_type='LISTING_REPORT' AND report_date>=? ORDER BY report_date DESC,entity_key").bind(start).all<{ report_date: string; payload: string }>();
+  const latest = new Map<string, { reportDate: string; active: boolean; campaignActive: boolean; bid: number }>();
+  for (const item of stored.results || []) {
+    let row: Record<string, unknown>;
+    try { row = JSON.parse(item.payload) as Record<string, unknown>; } catch { continue; }
+    const key = `${String(row.campaign_id || "")}:${String(row.listing || "")}`;
+    if (!latest.has(key)) {
+      latest.set(key, {
+        reportDate: item.report_date,
+        active: active(row.product_status),
+        campaignActive: active(row.campaign_status) && active(row.campaign_is_active),
+        bid: Number(row.product_default_bid || 0),
+      });
+    }
+  }
+  for (const row of actions) {
+    const result = validateAdActionFreshness({
+      action: {
+        listing: row.listing,
+        campaignId: row.campaign_id,
+        actionType: row.action_type,
+        before: JSON.parse(row.before_payload) as Record<string, unknown>,
+        proposed: JSON.parse(row.proposed_payload) as Record<string, unknown>,
+      },
+      latest: latest.get(`${row.campaign_id}:${row.listing}`) || null,
+      asOf,
+    });
+    if (!result.ok) return `${row.listing} / Campaign ${row.campaign_id}：${result.reason}`;
+  }
+  return null;
+}
+
+async function validateOperatorGate(db: D1Database, runKey: string, actions: QueueRow[]) {
+  const stored = await db.prepare("SELECT payload FROM ad_decision_runs WHERE run_key=?").bind(runKey).first<{ payload: string }>();
+  if (!stored) return "决策批次不存在";
+  let candidates: Array<Record<string, unknown>>;
+  try {
+    const payload = JSON.parse(stored.payload) as { listings?: Array<Record<string, unknown>>; liveSafetyFindings?: Array<Record<string, unknown>> };
+    candidates = [...(payload.liveSafetyFindings || []), ...(payload.listings || [])];
+  } catch {
+    return "决策批次损坏";
+  }
+  for (const row of actions) {
+    const candidate = candidates.find((item) => String(item.listing) === row.listing && String(item.campaignId) === row.campaign_id) as {
+      action?: { type?: string };
+      operatorReview?: { verdict?: string; requiresHumanApproval?: boolean; singleVariable?: boolean };
+    } | undefined;
+    if (!candidate || candidate.action?.type !== row.action_type || candidate.operatorReview?.verdict !== "CANDIDATE" || candidate.operatorReview?.requiresHumanApproval !== true || candidate.operatorReview?.singleVariable !== true) {
+      return `${row.listing} / Campaign ${row.campaign_id} 未通过运营辩论与单一变量 Gate`;
+    }
+  }
+  return null;
+}
 
 async function ensureTables(db: D1Database) {
   await db.prepare("CREATE TABLE IF NOT EXISTS ad_action_queue (id TEXT PRIMARY KEY NOT NULL, run_key TEXT NOT NULL, listing TEXT NOT NULL, campaign_id TEXT NOT NULL, action_type TEXT NOT NULL, before_payload TEXT NOT NULL, proposed_payload TEXT NOT NULL, status TEXT DEFAULT 'PLANNED' NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)").run();
@@ -84,6 +156,10 @@ export async function POST(request: Request) {
     const requiredStatus = body.dryRun === false ? "VALIDATED" : "APPROVED";
     const result = await env.DB.prepare("SELECT * FROM ad_action_queue WHERE run_key=? AND status=? AND action_type IN ('SET_LISTING_BID','SET_LISTING_ACTIVE') ORDER BY campaign_id,listing").bind(body.runKey, requiredStatus).all<QueueRow>();
     const actions = result.results || [];
+    const operatorError = await validateOperatorGate(env.DB, body.runKey, actions);
+    if (operatorError) return Response.json({ error: `运营辩论预检未通过：${operatorError}` }, { status: 409 });
+    const freshnessError = await validateLatestReportState(env.DB, actions);
+    if (freshnessError) return Response.json({ error: `最新广告报表预检未通过：${freshnessError}` }, { status: 409 });
     const campaigns = buildCampaignUpdates(actions);
     if (!campaigns.length) return Response.json({ error: requiredStatus === "APPROVED" ? "没有已确认、可预检的广告动作" : "没有已通过预检的广告动作" }, { status: 409 });
     if (body.dryRun !== false) {

@@ -274,7 +274,8 @@ test("splits manual work from one unified AI API execution workbench", async () 
   assert.match(page, /DMOM1021/);
   assert.match(page, /filing cabinets/);
   assert.match(page, /关键词、否词、Campaign Cap 和 tROAS 保留人工执行/);
-  assert.match(page, /每行把成熟数据、经营 Gate、建议动作、API 状态与执行结果放在一起/);
+  assert.match(page, /双窗口决策：成熟归因负责评估和扩量，实时安全窗负责预警和阻止过时动作/);
+  assert.match(page, /运营 Agent 辩论/);
   assert.match(page, /MANUAL_AD_TASK_GROUPS\.map/);
   assert.match(page, /manualTaskKey\(group\.sku,task\.id\)/);
   assert.match(page, /手动优化 To-Do List · 按父体 SKU/);
