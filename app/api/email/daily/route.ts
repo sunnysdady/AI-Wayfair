@@ -23,6 +23,7 @@ function isBriefPayload(body: Record<string, unknown>) {
     const hasValidFinancial = financial == null || (typeof financial === "object"
       && ["remittanceId", "currency", "paymentDate", "paymentMethod"].every((key) => financial[key] == null || (typeof financial[key] === "string" && financial[key].length <= 120))
       && (financial.amount == null || (typeof financial.amount === "number" && Number.isFinite(financial.amount) && financial.amount >= 0))
+      && ["grossAmount", "allowanceAmount", "epdAmount", "serviceFeeAmount"].every((key) => financial[key] == null || (typeof financial[key] === "number" && Number.isFinite(financial[key])))
       && (financial.invoiceIds == null || (Array.isArray(financial.invoiceIds) && financial.invoiceIds.length <= 100 && financial.invoiceIds.every((id) => typeof id === "string" && id.length <= 120))));
     return ["id", "category", "subject", "sender", "receivedAt", "priority", "summary", "owner", "status", "webLink"].every((key) => typeof value[key] === "string" && value[key].length <= 500)
       && (value.bodyPreview == null || (typeof value.bodyPreview === "string" && value.bodyPreview.length <= 4000))
@@ -45,6 +46,28 @@ function isBriefPayload(body: Record<string, unknown>) {
 
 async function ensureTable(db: D1Database) {
   await db.prepare("CREATE TABLE IF NOT EXISTS outlook_daily_briefs (brief_date TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL, synced_at TEXT NOT NULL)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS outlook_financial_details (remittance_id TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL, synced_at TEXT NOT NULL)").run();
+}
+
+function remittanceIdFor(item: Record<string, unknown>) {
+  const financial = item.financial && typeof item.financial === "object" ? item.financial as Record<string, unknown> : {};
+  if (typeof financial.remittanceId === "string" && financial.remittanceId.trim()) return financial.remittanceId.trim();
+  const text = [item.subject, item.summary, item.bodyPreview].filter(Boolean).join("\n");
+  return text.match(/remittance[^\n#\d]{0,24}#?\s*(\d{8,})/i)?.[1] || "";
+}
+
+async function mergeStoredFinancials(db: D1Database, items: Record<string, unknown>[]) {
+  const remittanceIds = [...new Set(items.map(remittanceIdFor).filter(Boolean))];
+  if (!remittanceIds.length) return items;
+  const placeholders = remittanceIds.map(() => "?").join(",");
+  const rows = await db.prepare(`SELECT remittance_id,payload FROM outlook_financial_details WHERE remittance_id IN (${placeholders})`)
+    .bind(...remittanceIds).all<{remittance_id:string;payload:string}>();
+  const stored = new Map(rows.results.map((row) => [row.remittance_id, JSON.parse(row.payload) as Record<string, unknown>]));
+  return items.map((item) => {
+    const remittanceId = remittanceIdFor(item);
+    const saved = stored.get(remittanceId);
+    return saved ? { ...item, financial: { ...saved, ...(item.financial && typeof item.financial === "object" ? item.financial : {}) } } : item;
+  });
 }
 
 function poNumberFor(item: Record<string, unknown>) {
@@ -120,7 +143,7 @@ export async function GET(request: Request) {
     if (!latest) return Response.json({ briefDate: briefDate || "", syncedAt: "", source: "Outlook 邮件同步等待首次运行", summary: { total: 0, unread: 0, actionRequired: 0, highestPriority: "-" }, items: [], tasks: [] }, { headers: { "Cache-Control": "private, max-age=300" } });
     const payload = JSON.parse(latest.payload) as Record<string, unknown>;
     const normalizedItems: Record<string, unknown>[] = Array.isArray(payload.items)
-      ? await enrichOrderEmails(env.DB, payload.items as Record<string, unknown>[])
+      ? await enrichOrderEmails(env.DB, await mergeStoredFinancials(env.DB, payload.items as Record<string, unknown>[]))
       : [];
     const financeBrief = normalizedItems
       .filter((item) => /财务|账单|回款|付款|finance|payment|remittance|invoice/i.test(String(item.category || "")))
@@ -150,7 +173,16 @@ export async function POST(request: Request) {
     const body = await request.json() as Record<string, unknown>;
     if (!isBriefPayload(body)) return Response.json({ error: "Outlook 日报载荷无效" }, { status: 400 });
     await ensureTable(env.DB);
-    const normalizedBody = { ...body, items: await enrichOrderEmails(env.DB, body.items as Record<string, unknown>[]) };
+    const financialStatements = (body.items as Record<string, unknown>[]).flatMap((item) => {
+      const remittanceId = remittanceIdFor(item);
+      const financial = item.financial && typeof item.financial === "object" ? item.financial : null;
+      return remittanceId && financial
+        ? [env.DB.prepare("INSERT INTO outlook_financial_details(remittance_id,payload,synced_at) VALUES(?,?,?) ON CONFLICT(remittance_id) DO UPDATE SET payload=excluded.payload,synced_at=excluded.synced_at")
+          .bind(remittanceId, JSON.stringify(financial), new Date().toISOString())]
+        : [];
+    });
+    if (financialStatements.length) await env.DB.batch(financialStatements);
+    const normalizedBody = { ...body, items: await enrichOrderEmails(env.DB, await mergeStoredFinancials(env.DB, body.items as Record<string, unknown>[])) };
     const now = new Date().toISOString();
     await env.DB.prepare("INSERT INTO outlook_daily_briefs(brief_date,payload,synced_at) VALUES(?,?,?) ON CONFLICT(brief_date) DO UPDATE SET payload=excluded.payload,synced_at=excluded.synced_at")
       .bind(String(body.briefDate), JSON.stringify({ ...normalizedBody, source: typeof body.source === "string" ? body.source : "Outlook Email · daily connector sync" }), now).run();
