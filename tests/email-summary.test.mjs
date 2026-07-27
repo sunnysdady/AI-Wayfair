@@ -17,6 +17,19 @@ test("keeps the PO and shipping service while removing order boilerplate", () =>
   assert.doesNotMatch(result.bodyPreview, /^ACTION REQUIRED|^TO DO|CARB|TSCA/im);
 });
 
+test("reduces the collapsed production order text to atomic business facts", () => {
+  const result = normalizeEmailBriefItem({
+    category: "订单履约",
+    subject: "Action Required: PO# CS670434030 -- Ship FedEx Home Delivery",
+    summary: "ACTION REQUIRED: PO #: CS670434030 -- Ship FedEx Home Delivery TO DO Please Note: Shipping FedEx Home Delivery (See Below) Wayfair expects all fulfilled items containing composite wood to be CARB and TSCA Title VI compliant Register and Fulfill P 明确日期：07/29/2026。",
+    bodyPreview: "",
+  });
+
+  assert.equal(result.summary, "PO #CS670434030 · FedEx Home Delivery；截止日期 07/29/2026");
+  assert.equal(result.bodyPreview, "PO #CS670434030 · FedEx Home Delivery\n截止日期 07/29/2026");
+  assert.doesNotMatch(result.summary, /ACTION REQUIRED|TO DO|Please Note|CARB|TSCA|composite wood|See Below|Register/i);
+});
+
 test("prioritizes structured remittance facts over generic finance prose", () => {
   const result = normalizeEmailBriefItem({
     category: "账单/回款",
