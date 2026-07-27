@@ -1,4 +1,5 @@
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+import { evaluateNewProductPromotionSop } from "@/lib/new-product-sop.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const CATALOG_ENDPOINT = "https://api.wayfair.io/product-catalog-api/graphql";
@@ -21,6 +22,7 @@ type CatalogItem = {
   marketContext?: { locale?: string; country?: string; brand?: string; channel?: string; segment?: string; location?: string };
   catalogItemStatus?: string;
   class?: { classId?: string; className?: string };
+  contentHealth?: { imageCount?: number; requiredAttributeCoverage?: number };
   insights?: { problems?: Insight[]; warnings?: Insight[]; opportunities?: Insight[] };
   listings?: { listingId?: string }[];
 };
@@ -139,10 +141,16 @@ export async function GET(request: Request) {
     if (result.httpError || result.internalError) throw new Error(result.httpError?.message || result.internalError?.message || "Catalog API 返回错误");
     const catalogItems = result.catalogItems || [];
     const sales = await salesBySku(catalogItems.map((item) => item.supplierPartNumber || "").filter(Boolean));
-    const items = catalogItems.map((item) => ({
-      ...item,
-      recent30d: sales.get(item.supplierPartNumber || "") || { units: 0, revenue: 0 },
-    }));
+    const items = catalogItems.map((item) => {
+      const enriched = {
+        ...item,
+        recent30d: sales.get(item.supplierPartNumber || "") || { units: 0, revenue: 0 },
+      };
+      return {
+        ...enriched,
+        newProductSop: evaluateNewProductPromotionSop(enriched),
+      };
+    });
     return Response.json({ source: "Wayfair Catalog Read V2 + PostgreSQL", cache: {layer:cacheLayer}, paginationInfo: result.paginationInfo, supplier: result.supplier, items }, {
       headers: { "Cache-Control": "private, max-age=300" },
     });
