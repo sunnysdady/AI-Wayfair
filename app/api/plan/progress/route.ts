@@ -27,6 +27,7 @@ import { cachedAdSpend } from "../../../../lib/wayfair-ads";
 import { eventCycleForDate } from "../../../../lib/event-cycle.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import {
+  AUGUST_AD_EXECUTION_STATUS,
   AUGUST_EXECUTION_POLICY,
   evaluateAugustStageTwo,
 } from "@/lib/august-execution-policy.mjs";
@@ -135,6 +136,7 @@ export async function GET() {
       activity: { ...BFIJ_PLAN, activePhase },
       cpcPlan: MAKEACE_CPC_PLAN,
       nextPlan: {
+        advertisingExecution: AUGUST_AD_EXECUTION_STATUS,
         executionPolicy: AUGUST_EXECUTION_POLICY,
         executionStage: evaluateAugustStageTwo({
           promotionEvents: AUGUST_PROMOTION_EVENTS,
