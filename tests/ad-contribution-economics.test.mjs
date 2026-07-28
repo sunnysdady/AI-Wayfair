@@ -8,8 +8,8 @@ test("uses fresh USD costs and scoped attributed units for a conservative margin
     parts: ["PART-A", "PART-B"],
     canonicalParts: ["PART-B", "PART-A"],
     costByPart: new Map([
-      ["PART-A", { unitCostCents: 6_000, currency: "USD", updatedAt: "2026-07-27T09:55:55.922Z" }],
-      ["PART-B", { unitCostCents: 5_000, currency: "USD", updatedAt: "2026-07-27T09:55:55.922Z" }],
+      ["PART-A", { unitCostCents: 6_000, currency: "USD", currencyCertifiedAt: "2026-07-27T09:55:55.922Z", currencyCertificationSource: "manual-usd-input-v2", updatedAt: "2026-07-27T09:55:55.922Z" }],
+      ["PART-B", { unitCostCents: 5_000, currency: "USD", currencyCertifiedAt: "2026-07-27T09:55:55.922Z", currencyCertificationSource: "manual-usd-input-v2", updatedAt: "2026-07-27T09:55:55.922Z" }],
     ]),
     attributedWsc: 300,
     attributedUnits: 3,
@@ -34,7 +34,7 @@ test("fails closed when any canonical mapped part lacks current cost evidence", 
     parts: ["PART-A", "PART-B"],
     canonicalParts: ["PART-A", "PART-B"],
     costByPart: new Map([
-      ["PART-A", { unitCostCents: 6_000, currency: "USD", updatedAt: "2026-07-27T09:55:55.922Z" }],
+      ["PART-A", { unitCostCents: 6_000, currency: "USD", currencyCertifiedAt: "2026-07-27T09:55:55.922Z", currencyCertificationSource: "manual-usd-input-v2", updatedAt: "2026-07-27T09:55:55.922Z" }],
     ]),
     attributedWsc: 300,
     attributedUnits: 3,
@@ -53,7 +53,7 @@ test("rejects truncated mappings, stale costs, non-USD costs, and unscoped metri
     parts: ["PART-A"],
     canonicalParts: ["PART-A", "PART-B"],
     costByPart: new Map([
-      ["PART-A", { unitCostCents: 6_000, currency: "USD", updatedAt: "2026-05-01T00:00:00.000Z" }],
+      ["PART-A", { unitCostCents: 6_000, currency: "USD", currencyCertifiedAt: "2026-07-27T09:55:55.922Z", currencyCertificationSource: "manual-usd-input-v2", updatedAt: "2026-05-01T00:00:00.000Z" }],
       ["PART-B", { unitCostCents: 5_000, currency: "UNVERIFIED", updatedAt: "2026-07-27T09:55:55.922Z" }],
     ]),
     attributedWsc: 300,
@@ -73,7 +73,7 @@ test("rejects a future-dated cost record", () => {
     parts: ["PART-A"],
     canonicalParts: ["PART-A"],
     costByPart: new Map([
-      ["PART-A", { unitCostCents: 6_000, currency: "USD", updatedAt: "2099-01-01T00:00:00.000Z" }],
+      ["PART-A", { unitCostCents: 6_000, currency: "USD", currencyCertifiedAt: "2026-07-27T09:55:55.922Z", currencyCertificationSource: "manual-usd-input-v2", updatedAt: "2099-01-01T00:00:00.000Z" }],
     ]),
     attributedWsc: 100,
     attributedUnits: 1,
@@ -83,4 +83,21 @@ test("rejects a future-dated cost record", () => {
 
   assert.equal(result.costFresh, false);
   assert.equal(result.marginKnown, false);
+});
+
+test("rejects USD cost rows that lack explicit certification evidence", () => {
+  const result = resolveContributionEconomics({
+    parts: ["PART-A"],
+    canonicalParts: ["PART-A"],
+    costByPart: new Map([
+      ["PART-A", { unitCostCents: 6_000, currency: "USD", updatedAt: "2026-07-27T09:55:55.922Z" }],
+    ]),
+    attributedWsc: 100,
+    attributedUnits: 1,
+    asOf: "2026-07-28",
+    mappingStable: true,
+  });
+
+  assert.equal(result.marginKnown, false);
+  assert.equal(result.costedParts, 0);
 });

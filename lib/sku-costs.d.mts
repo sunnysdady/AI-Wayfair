@@ -11,7 +11,7 @@ export function validateCostRows(
   rows: CostRowInput[],
   sellingPriceCents?: Map<string, number>,
 ): {
-  costs: { partNumber: string; unitCostCents: number }[];
+  costs: { partNumber: string; unitCostCents: number; currency?: "USD" }[];
   errors: CostIssue[];
   warnings: CostIssue[];
 };

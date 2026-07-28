@@ -10,7 +10,19 @@ const SOLD_LOOKBACK_DAYS = 180;
 type SoldPart = { partNumber: string; units: number; revenueCents: number; unitPriceCents: number };
 
 async function ensureCostTable(db: D1Database) {
-  await db.prepare("CREATE TABLE IF NOT EXISTS sku_costs (part_number TEXT PRIMARY KEY NOT NULL, unit_cost_cents INTEGER NOT NULL, source TEXT DEFAULT 'manual' NOT NULL, updated_at TEXT NOT NULL)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS sku_costs (part_number TEXT PRIMARY KEY NOT NULL, unit_cost_cents INTEGER NOT NULL, currency TEXT DEFAULT 'UNVERIFIED' NOT NULL, currency_certified_at TEXT, currency_certification_source TEXT, source TEXT DEFAULT 'manual' NOT NULL, updated_at TEXT NOT NULL)").run();
+  const legacyColumns = [
+    "ALTER TABLE sku_costs ADD COLUMN currency TEXT DEFAULT 'UNVERIFIED' NOT NULL",
+    "ALTER TABLE sku_costs ADD COLUMN currency_certified_at TEXT",
+    "ALTER TABLE sku_costs ADD COLUMN currency_certification_source TEXT",
+  ];
+  for (const sql of legacyColumns) {
+    try {
+      await db.prepare(sql).run();
+    } catch {
+      // Existing databases already migrated or the adapter does not support this idempotent alter.
+    }
+  }
 }
 
 function shanghaiToday() {
@@ -47,12 +59,15 @@ async function loadSoldParts(db: D1Database): Promise<SoldPart[]> {
 async function loadCoverage(db: D1Database) {
   const [soldParts, costed] = await Promise.all([
     loadSoldParts(db),
-    db.prepare("SELECT part_number, unit_cost_cents, source, updated_at FROM sku_costs ORDER BY part_number")
-      .all<{ part_number: string; unit_cost_cents: number; source: string; updated_at: string }>(),
+    db.prepare("SELECT part_number, unit_cost_cents, currency, currency_certified_at, currency_certification_source, source, updated_at FROM sku_costs ORDER BY part_number")
+      .all<{ part_number: string; unit_cost_cents: number; currency: string; currency_certified_at: string | null; currency_certification_source: string | null; source: string; updated_at: string }>(),
   ]);
   const costs = (costed.results || []).map((row) => ({
     partNumber: row.part_number,
     unitCost: Number(row.unit_cost_cents) / 100,
+    currency: row.currency,
+    currencyCertifiedAt: row.currency_certified_at,
+    currencyCertificationSource: row.currency_certification_source,
     source: row.source,
     updatedAt: row.updated_at,
   }));
@@ -143,8 +158,8 @@ export async function POST(request: Request) {
 
     const now = new Date().toISOString();
     const statements = costs.map((cost) => env.DB.prepare(
-      "INSERT INTO sku_costs(part_number,unit_cost_cents,source,updated_at) VALUES(?,?,?,?) ON CONFLICT(part_number) DO UPDATE SET unit_cost_cents=excluded.unit_cost_cents,source=excluded.source,updated_at=excluded.updated_at",
-    ).bind(cost.partNumber, cost.unitCostCents, "manual", now));
+      "INSERT INTO sku_costs(part_number,unit_cost_cents,currency,currency_certified_at,currency_certification_source,source,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(part_number) DO UPDATE SET unit_cost_cents=excluded.unit_cost_cents,currency=excluded.currency,currency_certified_at=excluded.currency_certified_at,currency_certification_source=excluded.currency_certification_source,source=excluded.source,updated_at=excluded.updated_at",
+    ).bind(cost.partNumber, cost.unitCostCents, "USD", now, "manual-usd-input-v2", "manual", now));
     for (let index = 0; index < statements.length; index += 80) {
       await env.DB.batch(statements.slice(index, index + 80));
     }

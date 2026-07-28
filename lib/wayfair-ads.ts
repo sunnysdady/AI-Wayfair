@@ -10,6 +10,7 @@ import { eventCycleForDate } from "./event-cycle.mjs";
 import { applyLiveSafety } from "./ad-live-safety.mjs";
 import { applyOperatorDebate } from "./ad-operator-debate.mjs";
 import { buildAdDecisionModel, normalizeAdAudience } from "./ad-decision-model.mjs";
+import { resolveContributionEconomics, type SkuCostEvidence } from "./ad-contribution-economics.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -69,6 +70,27 @@ async function loadInventoryEvidence(db: D1Database | undefined) {
   return result;
 }
 
+async function loadSkuCostEvidence(db: D1Database | undefined) {
+  const result = new Map<string, SkuCostEvidence>();
+  if (!db) return result;
+  try {
+    const rows = await db.prepare("SELECT part_number,unit_cost_cents,currency,currency_certified_at,currency_certification_source,updated_at FROM sku_costs")
+      .all<{ part_number: string; unit_cost_cents: number; currency: string; currency_certified_at: string | null; currency_certification_source: string | null; updated_at: string }>();
+    for (const row of rows.results || []) {
+      result.set(String(row.part_number), {
+        unitCostCents: Number(row.unit_cost_cents || 0),
+        currency: String(row.currency || "").toUpperCase() as "USD" | "UNVERIFIED",
+        currencyCertifiedAt: String(row.currency_certified_at || ""),
+        currencyCertificationSource: String(row.currency_certification_source || ""),
+        updatedAt: String(row.updated_at || ""),
+      });
+    }
+  } catch {
+    // Missing or unreadable cost evidence remains a hard model blocker.
+  }
+  return result;
+}
+
 function eventPhaseForDate(value: string) {
   for (const phase of BFIJ_PLAN.phases) {
     const [start, end] = phase.range.split("–").map((item) => `2026-${item.replace("/", "-")}`);
@@ -101,7 +123,11 @@ async function loadGoalEvidence(db: D1Database | undefined, asOf: string): Promi
         SUM(i.unit_price_cents*i.quantity) AS revenue_cents,
         SUM(CASE WHEN c.unit_cost_cents IS NOT NULL THEN c.unit_cost_cents*i.quantity ELSE 0 END) AS cost_cents,
         SUM(CASE WHEN c.unit_cost_cents IS NULL THEN i.unit_price_cents*i.quantity ELSE 0 END) AS uncovered_revenue_cents
-        FROM order_items i JOIN orders o ON o.po_number=i.po_number LEFT JOIN sku_costs c ON c.part_number=i.part_number
+        FROM order_items i JOIN orders o ON o.po_number=i.po_number LEFT JOIN sku_costs c
+          ON c.part_number=i.part_number
+          AND c.currency='USD'
+          AND c.currency_certified_at IS NOT NULL
+          AND c.currency_certification_source IS NOT NULL
         WHERE o.po_date>=? AND o.po_date<? GROUP BY i.part_number`)
         .bind("2026-07-01T00:00:00+08:00", `${endExclusive}T00:00:00+08:00`)
         .all<{ part_number: string; units: number; revenue_cents: number; cost_cents: number; uncovered_revenue_cents: number }>(),
@@ -343,7 +369,7 @@ function knownPortfolioChangeDate(asOf: string) {
     : null;
 }
 
-function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: string, end: string, decisionStart: string, decisionEnd: string, inventory: Map<string,InventoryEvidence>, goals: GoalEvidence, weeklyMemory = new Map<string, Record<string, unknown>>()) {
+function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: string, end: string, decisionStart: string, decisionEnd: string, inventory: Map<string,InventoryEvidence>, goals: GoalEvidence, skuCosts: Map<string, SkuCostEvidence>, weeklyMemory = new Map<string, Record<string, unknown>>()) {
   const span = daysBetween(start, end);
   const previousEnd = addDays(start, -1);
   const previousStart = addDays(previousEnd, -(span - 1));
@@ -373,6 +399,17 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
   const parentCurrentByListing = aggregate(listingRows, "listing", decisionStart, decisionEnd);
   const currentByListing = aggregate(listingRows, campaignListingKey, decisionStart, decisionEnd);
   const modelCurrentByUnit = aggregate(listingRows, modelUnitKey, decisionStart, decisionEnd);
+  const modelPartSets = new Map<string, Set<string>>();
+  for (const row of listingRows) {
+    if (row.Date < decisionStart || row.Date > decisionEnd) continue;
+    const key = modelUnitKey(row);
+    const partSet = JSON.stringify([...new Set(
+      String(row.first_10_part_numbers || "").split(",").map((part) => part.trim()).filter(Boolean),
+    )].sort());
+    const observed = modelPartSets.get(key) || new Set<string>();
+    observed.add(partSet);
+    modelPartSets.set(key, observed);
+  }
   const previousByListing = aggregate(listingRows, campaignListingKey, decisionPreviousStart, decisionPreviousEnd);
   const rolling28Start = addDays(decisionEnd, -27);
   const rollingByListing = aggregate(listingRows, campaignListingKey, rolling28Start, decisionEnd);
@@ -485,7 +522,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
   }).sort((a, b) => (a.action.recommendation === "READY" ? 0 : 1) - (b.action.recommendation === "READY" ? 0 : 1) || b.current.spend - a.current.spend);
   const decisionModel = buildAdDecisionModel({
     asOf,
-    units: [...modelCurrentByUnit].map(([, metric]) => {
+    units: [...modelCurrentByUnit].map(([unitKey, metric]) => {
       const latest = metric.latest;
       const listing = String(latest.listing || "");
       const campaignId = String(latest.campaign_id || "");
@@ -497,10 +534,24 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       const inventoryKnown = parts.length > 0 && inventoryRows.every(Boolean);
       const knownInventory = inventoryRows.filter(Boolean) as InventoryEvidence[];
       const base = listings.find((row) => row.listing === listing && String(row.campaignId) === campaignId);
+      const canonicalPlan = asOf.startsWith(JULY_PLAN.month)
+        ? planForListing(listing, JULY_PLAN.month)
+        : asOf.startsWith(AUGUST_PLAN.month)
+          ? planForListing(listing, AUGUST_PLAN.month)
+          : null;
+      const economics = resolveContributionEconomics({
+        parts,
+        canonicalParts: canonicalPlan?.parts || [],
+        costByPart: skuCosts,
+        attributedWsc: metric.wsc,
+        attributedUnits: metric.units,
+        asOf,
+        mappingStable: modelPartSets.get(unitKey)?.size === 1,
+      });
       return {
         identity: {
           site,
-          currency: site ? (/canada|\.ca/i.test(site) ? "CAD" : "USD") : "",
+          currency: "USD",
           isB2B: audience.isB2B,
           campaignId,
           targetingType,
@@ -513,15 +564,16 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
           wsc: metric.wsc,
         },
         economics: {
-          marginRate: null,
-          marginKnown: false,
-          mode: "SITE_CONTRIBUTION_SCOPE_UNVERIFIED",
+          marginRate: economics.marginRate,
+          marginKnown: economics.marginKnown,
+          mode: economics.mode,
+          coverage: economics.coverage,
         },
         readiness: {
           identityComplete: Boolean(site && audience.known && campaignId && targetingType && listing),
           attributionMature: decisionEnd <= matureThrough,
           mappingComplete: parts.length > 0,
-          mappingVerified: false,
+          mappingVerified: economics.mappingVerified,
           inventoryKnown,
           inventoryCoverDays: inventoryKnown ? Math.min(...knownInventory.map((item) => item.coverDays)) : null,
           inventoryFresh: inventoryKnown && knownInventory.every((item) => item.snapshotAt.slice(0, 10) >= addDays(asOf, -3)),
@@ -806,7 +858,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const listingFetchEnd = today;
   const fetchEnd = [campaignFetchEnd, listingFetchEnd].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v18:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v19:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
     const cached = await env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>();
     if (cached && Date.now() - Date.parse(cached.updated_at) < ANALYSIS_CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, layer: "POSTGRESQL_ANALYSIS", updatedAt: cached.updated_at } };
@@ -817,12 +869,16 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
     getReportRows(env.DB, "CAMPAIGN_REPORT", fetchStart, campaignFetchEnd, token, force, start, campaignFetchEnd),
     getReportRows(env.DB, "LISTING_REPORT", fetchStart, listingFetchEnd, token, force, start, end),
   ]);
-  const [inventory, goals] = await Promise.all([loadInventoryEvidence(env.DB), loadGoalEvidence(env.DB, today)]);
-  const preliminary = buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals);
+  const [inventory, goals, skuCosts] = await Promise.all([
+    loadInventoryEvidence(env.DB),
+    loadGoalEvidence(env.DB, today),
+    loadSkuCostEvidence(env.DB),
+  ]);
+  const preliminary = buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals, skuCosts);
   await syncWeeklyReviews(env.DB, preliminary);
   const weeklyMemory = await loadWeeklyMemory(env.DB);
   const analysis = {
-    ...buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals, weeklyMemory),
+    ...buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals, skuCosts, weeklyMemory),
     reports: { campaign: campaign.reportId, listing: listing.reportId },
     cache: { hit: campaign.source === "POSTGRESQL_DATABASE" && listing.source === "POSTGRESQL_DATABASE", layer: campaign.source === "POSTGRESQL_DATABASE" && listing.source === "POSTGRESQL_DATABASE" ? "POSTGRESQL_REPORT_ROWS" : "ADVERTISING_API" },
   };

@@ -21,8 +21,19 @@ CREATE INDEX IF NOT EXISTS order_items_part_number_idx ON order_items(part_numbe
 CREATE TABLE IF NOT EXISTS sku_costs (
   part_number TEXT PRIMARY KEY,
   unit_cost_cents INTEGER NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'UNVERIFIED' CHECK (currency IN ('USD', 'UNVERIFIED')),
+  currency_certified_at TEXT,
+  currency_certification_source TEXT,
   source TEXT NOT NULL DEFAULT 'manual',
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  CHECK (
+    currency = 'UNVERIFIED'
+    OR (
+      currency = 'USD'
+      AND currency_certified_at IS NOT NULL
+      AND currency_certification_source IS NOT NULL
+    )
+  )
 );
 
 CREATE TABLE IF NOT EXISTS sync_state (
