@@ -368,6 +368,7 @@ function ShellHeader({ active, activeSub, onNavigate, onSubNavigate }: { active:
       </nav>
       <nav className="nav utility-nav" aria-label="系统导航">
         {SYSTEM_NAV.map((item) => <button key={item.id} className={active === item.id ? "active" : ""} aria-current={active===item.id?'page':undefined} onClick={() => navigate(item.id)}>{item.label}</button>)}
+        <a className="release-link" href="/releases">版本记录 · v0.2.0</a>
       </nav>
     </div>
     <div className="system"><i></i><span><strong>生产数据已连接</strong><small>写操作需人工确认</small></span></div>
