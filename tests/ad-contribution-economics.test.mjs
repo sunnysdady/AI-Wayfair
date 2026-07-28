@@ -14,6 +14,7 @@ test("uses fresh USD costs and scoped attributed units for a conservative margin
     attributedWsc: 300,
     attributedUnits: 3,
     asOf: "2026-07-28",
+    mappingStable: true,
   });
 
   assert.deepEqual(result, {
@@ -38,6 +39,7 @@ test("fails closed when any canonical mapped part lacks current cost evidence", 
     attributedWsc: 300,
     attributedUnits: 3,
     asOf: "2026-07-28",
+    mappingStable: true,
   });
 
   assert.equal(result.marginRate, null);
@@ -57,10 +59,28 @@ test("rejects truncated mappings, stale costs, non-USD costs, and unscoped metri
     attributedWsc: 300,
     attributedUnits: 3,
     asOf: "2026-07-28",
+    mappingStable: false,
   };
 
   assert.equal(resolveContributionEconomics(base).mappingVerified, false);
-  assert.equal(resolveContributionEconomics({ ...base, parts: base.canonicalParts }).costFresh, false);
-  assert.equal(resolveContributionEconomics({ ...base, parts: base.canonicalParts }).marginKnown, false);
-  assert.equal(resolveContributionEconomics({ ...base, parts: base.canonicalParts, attributedUnits: 0 }).marginKnown, false);
+  assert.equal(resolveContributionEconomics({ ...base, parts: base.canonicalParts, mappingStable: true }).costFresh, false);
+  assert.equal(resolveContributionEconomics({ ...base, parts: base.canonicalParts, mappingStable: true }).marginKnown, false);
+  assert.equal(resolveContributionEconomics({ ...base, parts: base.canonicalParts, mappingStable: true, attributedUnits: 0 }).marginKnown, false);
+});
+
+test("rejects a future-dated cost record", () => {
+  const result = resolveContributionEconomics({
+    parts: ["PART-A"],
+    canonicalParts: ["PART-A"],
+    costByPart: new Map([
+      ["PART-A", { unitCostCents: 6_000, currency: "USD", updatedAt: "2099-01-01T00:00:00.000Z" }],
+    ]),
+    attributedWsc: 100,
+    attributedUnits: 1,
+    asOf: "2026-07-28",
+    mappingStable: true,
+  });
+
+  assert.equal(result.costFresh, false);
+  assert.equal(result.marginKnown, false);
 });

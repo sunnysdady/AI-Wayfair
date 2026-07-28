@@ -30,6 +30,17 @@ test("converts dollar costs to cents and strips currency formatting", () => {
   assert.deepEqual(result.errors, []);
 });
 
+test("rejects non-USD currency symbols at the cost write boundary", () => {
+  const result = validateCostRows([
+    { partNumber: "A", unitCost: "¥68" },
+    { partNumber: "B", unitCost: "€42" },
+  ]);
+
+  assert.equal(result.costs.length, 0);
+  assert.equal(result.errors.length, 2);
+  assert.ok(result.errors.every((item) => /USD/.test(item.message)));
+});
+
 test("parses quoted CSV costs without splitting currency thousands separators", () => {
   const parsed = parseCostCsv('part_number,unit_cost\r\nMFC-D3-B,"$1,234.56"\r\n"A""B",68');
 
@@ -103,14 +114,17 @@ test("builds a fillable template seeded with the uncosted SKUs", () => {
   assert.equal(csv, "part_number,unit_cost\nB,\nC,");
 });
 
-test("keeps the production cost import API and inventory entry point in source control", async () => {
-  const [route, page] = await Promise.all([
+test("keeps the production USD cost import API and inventory entry point in source control", async () => {
+  const [route, page, migration] = await Promise.all([
     readFile(new URL("../app/api/sku-costs/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../migrations/postgres/0004_certify_sku_cost_currency.sql", import.meta.url), "utf8"),
   ]);
 
   assert.match(route, /成本文件校验未通过，未写入任何数据/);
   assert.match(route, /ON CONFLICT\(part_number\)/);
+  assert.match(route, /currency/);
+  assert.match(migration, /CHECK \(currency = 'USD'\)/);
   assert.match(page, /function SkuCostPanel/);
   assert.match(page, /下载待补 SKU 模板/);
   assert.match(page, /校验并导入成本/);

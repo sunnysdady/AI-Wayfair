@@ -19,6 +19,8 @@ test("wires the shadow model into advertising analysis and model-generated To Do
   assert.match(analysis, /modelCurrentByUnit/);
   assert.match(analysis, /loadSkuCostEvidence/);
   assert.match(analysis, /resolveContributionEconomics/);
+  assert.match(analysis, /modelPartSets/);
+  assert.match(analysis, /mappingStable/);
   assert.match(economics, /CURRENT_USD_COST_CONSERVATIVE_ATTRIBUTED_UNIT_PROXY/);
   assert.match(analysis, /currency:\s*"USD"/);
   assert.doesNotMatch(analysis, /canada\|\\\.ca/);
