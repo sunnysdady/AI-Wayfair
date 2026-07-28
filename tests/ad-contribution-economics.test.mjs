@@ -54,7 +54,7 @@ test("rejects truncated mappings, stale costs, non-USD costs, and unscoped metri
     canonicalParts: ["PART-A", "PART-B"],
     costByPart: new Map([
       ["PART-A", { unitCostCents: 6_000, currency: "USD", updatedAt: "2026-05-01T00:00:00.000Z" }],
-      ["PART-B", { unitCostCents: 5_000, currency: "CAD", updatedAt: "2026-07-27T09:55:55.922Z" }],
+      ["PART-B", { unitCostCents: 5_000, currency: "UNVERIFIED", updatedAt: "2026-07-27T09:55:55.922Z" }],
     ]),
     attributedWsc: 300,
     attributedUnits: 3,

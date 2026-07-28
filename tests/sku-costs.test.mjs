@@ -124,7 +124,12 @@ test("keeps the production USD cost import API and inventory entry point in sour
   assert.match(route, /成本文件校验未通过，未写入任何数据/);
   assert.match(route, /ON CONFLICT\(part_number\)/);
   assert.match(route, /currency/);
-  assert.match(migration, /CHECK \(currency = 'USD'\)/);
+  assert.match(route, /currency_certification_source/);
+  assert.match(migration, /UNVERIFIED/);
+  assert.match(migration, /currency_certified_at/);
+  assert.match(migration, /legacy-cost-reconciliation:dmom-operating-2026-06\.json/);
+  assert.match(migration, /\('3T-B', 4300\)/);
+  assert.match(migration, /CHECK \(currency IN \('USD', 'UNVERIFIED'\)\)/);
   assert.match(page, /function SkuCostPanel/);
   assert.match(page, /下载待补 SKU 模板/);
   assert.match(page, /校验并导入成本/);
