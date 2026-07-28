@@ -1,6 +1,9 @@
 import { cachedAdSpend } from "../../../../lib/wayfair-ads";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
-import { fetchAllDropshipOrders } from "@/lib/wayfair-orders-pagination.mjs";
+import {
+  fetchAllDropshipOrders,
+  utcDatePart,
+} from "@/lib/wayfair-orders-pagination.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const ORDER_ENDPOINT = "https://api.wayfair.com/v1/graphql";
@@ -88,7 +91,9 @@ async function syncOrders(force = false) {
   if (!force && lastSync && Date.now() - lastSync < FRESH_MS) return { refreshed: false, syncedAt: state?.updated_at };
   const latest = await db.prepare("SELECT MAX(po_date) AS max_date, COUNT(*) AS count FROM orders").first<{ max_date: string | null; count: number }>();
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
-  const fromDate = latest?.count && latest.max_date ? addDays(String(latest.max_date).slice(0, 10), -2) : addDays(today, -PRELOAD_DAYS);
+  const fromDate = latest?.count && latest.max_date
+    ? addDays(utcDatePart(latest.max_date), -2)
+    : addDays(today, -PRELOAD_DAYS);
   const orderSync = await fetchOrders(fromDate) as {
     orders: PurchaseOrder[];
     pages: number;

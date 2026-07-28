@@ -4,6 +4,8 @@ export type DropshipOrderPageRequest = {
   sortOrder: "ASC";
 };
 
+export function utcDatePart(value: Date | string): string;
+
 export function fetchAllDropshipOrders<T extends { poNumber?: string; poDate?: string }>(
   options: {
     fromDate: string;

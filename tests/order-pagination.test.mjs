@@ -1,11 +1,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fetchAllDropshipOrders } from "../lib/wayfair-orders-pagination.mjs";
+import {
+  fetchAllDropshipOrders,
+  utcDatePart,
+} from "../lib/wayfair-orders-pagination.mjs";
 
 function order(poNumber, poDate) {
   return { poNumber, poDate, products: [] };
 }
+
+test("normalizes PostgreSQL Date objects and timestamp strings before incremental sync", () => {
+  assert.equal(
+    utcDatePart(new Date("2026-07-27T21:31:03.000Z")),
+    "2026-07-27",
+  );
+  assert.equal(
+    utcDatePart("2026-07-27 21:31:03+00"),
+    "2026-07-27",
+  );
+  assert.throws(() => utcDatePart("not-a-date"), /订单最大时间无效/);
+});
 
 test("walks ascending order pages past the API limit and removes boundary overlap", async () => {
   const calls = [];
