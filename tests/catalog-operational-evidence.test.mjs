@@ -159,4 +159,9 @@ test("selects the newest duplicate Catalog row and merges equal-time conflicts c
     item({ status: "LIVE", updatedAt: CURRENT }),
   );
   assert.equal(statusConflict.status, "CONFLICT");
+  const reversedStatusConflict = mergeCatalogPartEvidence(
+    item({ status: "LIVE", updatedAt: CURRENT }),
+    item({ status: "NOT_LIVE", updatedAt: CURRENT }),
+  );
+  assert.equal(reversedStatusConflict.status, "CONFLICT");
 });

@@ -13,6 +13,8 @@ import { buildAdDecisionModel, normalizeAdAudience } from "./ad-decision-model.m
 import { resolveContributionEconomics, type SkuCostEvidence } from "./ad-contribution-economics.mjs";
 import { fetchAdvertisingResponse } from "./wayfair-ad-retry.mjs";
 import { syncAdActionOperation } from "./ad-operation-link.mjs";
+import { catalogEvidenceKey, mergeCatalogPartEvidence, resolveCatalogOperationalEvidence, type CatalogPartEvidence } from "./catalog-operational-evidence.mjs";
+import { AD_CANARY_RISK_POLICY, canaryRiskForListing } from "./ad-experiment-policy.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -89,6 +91,49 @@ async function loadSkuCostEvidence(db: D1Database | undefined) {
     }
   } catch {
     // Missing or unreadable cost evidence remains a hard model blocker.
+  }
+  return result;
+}
+
+async function loadCatalogOperationalEvidence(db: D1Database | undefined) {
+  const result = new Map<string, CatalogPartEvidence>();
+  if (!db) return result;
+  try {
+    const rows = await db.prepare("SELECT value,updated_at FROM sync_state WHERE key LIKE 'catalog:v2:%:30::'")
+      .all<{ value: string; updated_at: string }>();
+    for (const row of rows.results || []) {
+      const payload = JSON.parse(row.value) as {
+        catalogItems?: Array<{
+          supplierPartNumber?: string;
+          catalogItemStatus?: string;
+          marketContext?: { country?: string; segment?: string };
+          listings?: Array<{ listingId?: string }>;
+          insights?: {
+            problems?: Array<{ title?: string; insightTypeId?: string }>;
+            warnings?: Array<{ title?: string; insightTypeId?: string }>;
+          };
+        }>;
+      };
+      for (const item of payload.catalogItems || []) {
+        const part = String(item.supplierPartNumber || "").trim();
+        if (!part) continue;
+        const country = String(item.marketContext?.country || "").trim().toUpperCase();
+        const segment = String(item.marketContext?.segment || "").trim().toUpperCase();
+        const key = catalogEvidenceKey(part, country, segment);
+        const evidence = {
+          status: String(item.catalogItemStatus || ""),
+          listingIds: (item.listings || []).map((listing) => String(listing.listingId || "")).filter(Boolean),
+          country,
+          segment,
+          problems: (item.insights?.problems || []).map((insight) => String(insight.title || insight.insightTypeId || "Catalog problem")),
+          warnings: (item.insights?.warnings || []).map((insight) => String(insight.title || insight.insightTypeId || "Catalog warning")),
+          updatedAt: String(row.updated_at || ""),
+        };
+        result.set(key, mergeCatalogPartEvidence(result.get(key), evidence));
+      }
+    }
+  } catch {
+    // Missing or stale Catalog evidence remains an explicit model blocker.
   }
   return result;
 }
@@ -374,7 +419,14 @@ function knownPortfolioChangeDate(asOf: string) {
     : null;
 }
 
-function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: string, end: string, decisionStart: string, decisionEnd: string, inventory: Map<string,InventoryEvidence>, goals: GoalEvidence, skuCosts: Map<string, SkuCostEvidence>, weeklyMemory = new Map<string, Record<string, unknown>>()) {
+function catalogCountryForSite(site: string) {
+  const normalized = String(site || "").trim().toUpperCase();
+  if (normalized === "CA" || normalized.includes("CANADA") || normalized.includes(".CA")) return "CA";
+  if (normalized === "US" || normalized === "USA" || normalized.includes("UNITED STATES") || normalized.includes(".COM")) return "US";
+  return "";
+}
+
+function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: string, end: string, decisionStart: string, decisionEnd: string, inventory: Map<string,InventoryEvidence>, goals: GoalEvidence, skuCosts: Map<string, SkuCostEvidence>, catalogEvidenceByPart: Map<string, CatalogPartEvidence>, weeklyMemory = new Map<string, Record<string, unknown>>()) {
   const span = daysBetween(start, end);
   const previousEnd = addDays(start, -1);
   const previousStart = addDays(previousEnd, -(span - 1));
@@ -529,9 +581,10 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       },
     };
   }).sort((a, b) => (a.action.recommendation === "READY" ? 0 : 1) - (b.action.recommendation === "READY" ? 0 : 1) || b.current.spend - a.current.spend);
-  const decisionModel = buildAdDecisionModel({
-    asOf,
-    units: [...modelCurrentByUnit].map(([unitKey, metric]) => {
+  const decisionModel = {
+    ...buildAdDecisionModel({
+      asOf,
+      units: [...modelCurrentByUnit].map(([unitKey, metric]) => {
       const latest = metric.latest;
       const listing = String(latest.listing || "");
       const campaignId = String(latest.campaign_id || "");
@@ -556,6 +609,15 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
         attributedUnits: metric.units,
         asOf,
         mappingStable: modelPartSets.get(unitKey)?.size === 1,
+      });
+      const catalogEvidence = resolveCatalogOperationalEvidence({
+        listing,
+        parts,
+        country: catalogCountryForSite(site),
+        segment: audience.key,
+        evidenceByPart: catalogEvidenceByPart,
+        asOf,
+        evaluatedAt: new Date().toISOString(),
       });
       return {
         identity: {
@@ -586,20 +648,23 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
           inventoryKnown,
           inventoryCoverDays: inventoryKnown ? Math.min(...knownInventory.map((item) => item.coverDays)) : null,
           inventoryFresh: inventoryKnown && knownInventory.every((item) => item.snapshotAt.slice(0, 10) >= addDays(asOf, -3)),
-          linkPass: Boolean(base?.linkQuality.pass),
-          linkEvidenceVerified: false,
+          linkPass: Boolean(base?.linkQuality.pass) && catalogEvidence.pass,
+          linkEvidenceVerified: catalogEvidence.verified,
           cooldownUntil: base?.operatorReview?.cooldownUntil || null,
           platformStrategy: String(latest.bidding_strategy || ""),
         },
       };
+      }),
     }),
-  });
+    riskPolicy: AD_CANARY_RISK_POLICY,
+  };
   const modelTodo = decisionModel.decisions
     .flatMap((decision) => {
       const candidate = decision.candidates.find((item) => item.action === decision.suggestedAction);
       const listing = String(decision.identity.listing || "UNKNOWN");
       const campaignId = String(decision.identity.campaignId || "UNKNOWN");
       const isCanary = decision.suggestedAction === "CANARY_BUDGET_10";
+      const canaryRisk = canaryRiskForListing(listing);
       if (!isCanary && !decision.blockers.length) return [];
       const waitForEvidence = decision.blockers.some((item) => ["ATTRIBUTION_IMMATURE", "MINIMUM_EVIDENCE", "COOLDOWN_ACTIVE"].includes(item));
       const manualAiReview = decision.blockers.includes("AI_TROAS_LISTING_ACTION_UNSUPPORTED");
@@ -627,14 +692,22 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
         } : null,
         incrementalContributionProbability: null,
         experimentContract: isCanary ? {
-          status: "DRAFT_REQUIRES_APPROVAL",
+          status: canaryRisk.approved ? "RISK_LIMIT_APPROVED_PENDING_GATES" : "DRAFT_REQUIRES_APPROVAL",
           treatment: "单一变量 10% 预算 Canary",
           control: "同期匹配对照或预注册 switchback",
           primaryMetric: "成熟总订单增量与广告后贡献代理",
           attributionWaitDays: ATTRIBUTION_DAYS,
           minimumSampleSize: null,
           requiresPowerAnalysis: true,
-          stopRule: "达到预先批准的最大损失立即停止；归因成熟前不判胜负。",
+          maxIncrementalLoss: canaryRisk.maxLoss,
+          maxDailyIncrementalLoss: canaryRisk.maxDailyIncrementalLoss,
+          portfolioMaxIncrementalLoss: AD_CANARY_RISK_POLICY.portfolioMaxLoss,
+          portfolioMaxDailyIncrementalLoss: AD_CANARY_RISK_POLICY.portfolioMaxDailyIncrementalLoss,
+          earliestStart: AD_CANARY_RISK_POLICY.earliestStart,
+          earliestMatureReview: AD_CANARY_RISK_POLICY.earliestMatureReview,
+          stopRule: canaryRisk.approved
+            ? `单 Listing 增量损失达到 $${canaryRisk.maxLoss.toFixed(2)}、组合达到 $${AD_CANARY_RISK_POLICY.portfolioMaxLoss.toFixed(2)}，或账户月度贡献代理预测低于 $${AD_CANARY_RISK_POLICY.monthlyContributionFloor.toFixed(2)}，任一触发立即停止；归因成熟前不判胜负。`
+            : "最大损失未获运营风险预算，不得启动；归因成熟前不判胜负。",
           contaminationControls: ["价格", "Promotion", "Offer", "素材", "库存", "Catalog"],
         } : null,
         mode: "SHADOW",
@@ -868,10 +941,14 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const listingFetchEnd = today;
   const fetchEnd = [campaignFetchEnd, listingFetchEnd].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v19:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v21:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
-    const cached = await env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>();
-    if (cached && Date.now() - Date.parse(cached.updated_at) < ANALYSIS_CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, layer: "POSTGRESQL_ANALYSIS", updatedAt: cached.updated_at } };
+    const [cached, catalogVersion] = await Promise.all([
+      env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>(),
+      env.DB.prepare("SELECT MAX(updated_at) AS updated_at FROM sync_state WHERE key LIKE 'catalog:v2:%:30::'").first<{ updated_at: string | null }>(),
+    ]);
+    const catalogNotNewer = !catalogVersion?.updated_at || (cached && Date.parse(cached.updated_at) >= Date.parse(catalogVersion.updated_at));
+    if (cached && catalogNotNewer && Date.now() - Date.parse(cached.updated_at) < ANALYSIS_CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, layer: "POSTGRESQL_ANALYSIS", updatedAt: cached.updated_at } };
   }
   let tokenPromise: Promise<string> | null = null;
   const token = () => tokenPromise ||= getToken(env);
@@ -879,16 +956,17 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
     getReportRows(env.DB, "CAMPAIGN_REPORT", fetchStart, campaignFetchEnd, token, force, start, campaignFetchEnd),
     getReportRows(env.DB, "LISTING_REPORT", fetchStart, listingFetchEnd, token, force, start, end),
   ]);
-  const [inventory, goals, skuCosts] = await Promise.all([
+  const [inventory, goals, skuCosts, catalogEvidence] = await Promise.all([
     loadInventoryEvidence(env.DB),
     loadGoalEvidence(env.DB, today),
     loadSkuCostEvidence(env.DB),
+    loadCatalogOperationalEvidence(env.DB),
   ]);
-  const preliminary = buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals, skuCosts);
+  const preliminary = buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals, skuCosts, catalogEvidence);
   await syncWeeklyReviews(env.DB, preliminary);
   const weeklyMemory = await loadWeeklyMemory(env.DB);
   const analysis = {
-    ...buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals, skuCosts, weeklyMemory),
+    ...buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals, skuCosts, catalogEvidence, weeklyMemory),
     reports: { campaign: campaign.reportId, listing: listing.reportId },
     cache: { hit: campaign.source === "POSTGRESQL_DATABASE" && listing.source === "POSTGRESQL_DATABASE", layer: campaign.source === "POSTGRESQL_DATABASE" && listing.source === "POSTGRESQL_DATABASE" ? "POSTGRESQL_REPORT_ROWS" : "ADVERTISING_API" },
   };
