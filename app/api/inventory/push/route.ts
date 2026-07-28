@@ -6,9 +6,9 @@ import { classifyInventoryFeed, summarizeInventoryFeeds } from "@/lib/wayfair-in
 const FEED_FIELDS = `id handle status submittedAt completedAt itemCount errorCount completedCount processingCount errors(limit:100) { key message }`;
 const MUTATION = `mutation saveInventory($inventory: [inventoryInput]!, $feedKind: inventoryFeedKind, $dryRun:Boolean!) { inventory { save(inventory: $inventory, feedKind: $feedKind, dryRun:$dryRun) { ${FEED_FIELDS} } } }`;
 const STATUS_QUERY = `query InventoryTransaction($handle:String!) { transactions(filters:[{field:handle,equals:$handle}],limit:1) { ${FEED_FIELDS} } }`;
-// These uploads are chunked and may omit missing SKU/warehouse combinations.
-// TRUE_UP is a full snapshot feed, so it must never be used for these partial batches.
-const INVENTORY_FEED_KIND = "DIFFERENTIAL";
+// Each snapshot contains every active supplier part across every production
+// warehouse. Wayfair requires that baseline to be sent as one TRUE_UP feed.
+const INVENTORY_FEED_KIND = "TRUE_UP";
 
 const bindings = getRuntimeBindings;
 type FeedReceipt = {id?:string;handle?:string;status?:string;submittedAt?:string;completedAt?:string;itemCount?:number;errorCount?:number;completedCount?:number;processingCount?:number;errors?:{key?:string;message?:string}[]};
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     const env=await bindings();
     const items=await loadSnapshotItems(env.DB,body.snapshotId);
     if(!items.length) return Response.json({error:"库存快照不存在或为空"},{status:404});
-    const batches=[]; for(let index=0;index<items.length;index+=100)batches.push(items.slice(index,index+100));
+    const batches=[items];
     const dryRun=body.dryRun!==false;
     if(!dryRun){
       try { assertLiveOperation(env, "inventory", items.map((item)=>item.supplierId)); }
