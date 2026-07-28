@@ -33,6 +33,7 @@ test("walks ascending order pages past the API limit and removes boundary overla
   assert.deepEqual(result.orders.map((item) => item.poNumber), ["PO-1", "PO-2", "PO-3", "PO-4"]);
   assert.equal(result.pages, 3);
   assert.equal(result.complete, true);
+  assert.equal(result.highWatermark, "2026-07-04T00:00:00Z");
   assert.deepEqual(calls, [
     { fromDate: "2026-07-01T00:00:00Z", limit: 2, sortOrder: "ASC" },
     { fromDate: "2026-07-02T00:00:00Z", limit: 2, sortOrder: "ASC" },

@@ -42,14 +42,18 @@ test("runs mature advertising and all reported catalog pages at 06:00 Shanghai",
     request: async (url) => {
       const value = String(url);
       requests.push(value);
-      if (value.includes("/api/catalog/items?page=1")) {
+      const page = value.includes("/api/catalog/items")
+        ? Number(new URL(value).searchParams.get("page"))
+        : null;
+      if (page === 1) {
         return jsonResponse({
           paginationInfo: { totalPages: 12, totalCount: 12 },
           items: [{ supplierPartNumber: "SKU-1" }],
         });
       }
-      const page = Number(new URL(value).searchParams.get("page"));
-      return jsonResponse({ items: [{ supplierPartNumber: `SKU-${page}` }] });
+      return page
+        ? jsonResponse({ items: [{ supplierPartNumber: `SKU-${page}` }] })
+        : jsonResponse({});
     },
     loadCatalogCheckpoint: async () => null,
     saveCatalogCheckpoint: async (checkpoint) => checkpoints.push(checkpoint),
@@ -147,6 +151,58 @@ test("marks catalog completion as an integrity error when totalCount does not cl
   assert.equal(checkpoint.fetchedCount, 2);
   assert.equal(checkpoint.uniqueCount, 1);
   assert.equal(checkpoint.integrity.closed, false);
+});
+
+test("classifies a catalog page failure and resumes from that page on the next run", async () => {
+  let checkpoint = null;
+
+  await assert.rejects(
+    runLayeredSync({
+      scheduledTime: Date.parse("2026-07-21T22:00:00Z"),
+      catalogPageBudget: 3,
+      request: async (url) => {
+        const value = String(url);
+        if (!value.includes("/api/catalog/items")) return jsonResponse({});
+        const page = Number(new URL(value).searchParams.get("page"));
+        if (page === 1) {
+          return jsonResponse({
+            paginationInfo: { totalPages: 3, totalCount: 3 },
+            items: [{ supplierPartNumber: "SKU-1" }],
+          });
+        }
+        return jsonResponse({ error: "rate limited" }, 429);
+      },
+      loadCatalogCheckpoint: async () => checkpoint,
+      saveCatalogCheckpoint: async (value) => { checkpoint = value; },
+      record: async () => {},
+    }),
+    /HTTP 429/,
+  );
+
+  assert.equal(checkpoint.status, "failed");
+  assert.equal(checkpoint.nextPage, 2);
+  assert.equal(checkpoint.resumable, true);
+  assert.match(checkpoint.error, /HTTP 429/);
+
+  const resumedPages = [];
+  await runLayeredSync({
+    scheduledTime: Date.parse("2026-07-22T00:00:00Z"),
+    catalogPageBudget: 3,
+    request: async (url) => {
+      const value = String(url);
+      if (!value.includes("/api/catalog/items")) return jsonResponse({});
+      const page = Number(new URL(value).searchParams.get("page"));
+      resumedPages.push(page);
+      return jsonResponse({ items: [{ supplierPartNumber: `SKU-${page}` }] });
+    },
+    loadCatalogCheckpoint: async () => checkpoint,
+    saveCatalogCheckpoint: async (value) => { checkpoint = value; },
+    record: async () => {},
+  });
+
+  assert.deepEqual(resumedPages, [2, 3]);
+  assert.equal(checkpoint.status, "complete");
+  assert.equal(checkpoint.integrity.closed, true);
 });
 
 test("supports a root-level catalog totalPages response", async () => {

@@ -38,6 +38,8 @@ interface WayfairEnvBindings {
   CRON_SECRET?: string;
   APP_ACCESS_USER?: string;
   APP_ACCESS_PASSWORD?: string;
+  CATALOG_SYNC_PAGE_BUDGET?: string;
+  CATALOG_SYNC_PAGE_DELAY_MS?: string;
   S3_BUCKET?: string;
   S3_REGION?: string;
   S3_ENDPOINT?: string;

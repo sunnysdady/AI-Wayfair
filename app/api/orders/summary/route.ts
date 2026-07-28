@@ -1,5 +1,6 @@
 import { cachedAdSpend } from "../../../../lib/wayfair-ads";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+import { fetchAllDropshipOrders } from "@/lib/wayfair-orders-pagination.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const ORDER_ENDPOINT = "https://api.wayfair.com/v1/graphql";
@@ -10,8 +11,9 @@ const FRESH_MS = 60 * 60 * 1000;
 type Product = { partNumber?: string; quantity?: number; price?: number };
 type PurchaseOrder = { poNumber?: string; poDate?: string; products?: Product[] };
 
+const ORDER_PAGE_SIZE = 2000;
 const ORDER_QUERY = `query RecentDropshipOrders($fromDate: IsoDateTime!) {
-  getDropshipPurchaseOrders(limit: 2000, fromDate: $fromDate, sortOrder: DESC) {
+  getDropshipPurchaseOrders(limit: 2000, fromDate: $fromDate, sortOrder: ASC) {
     poNumber
     poDate
     products { partNumber quantity price }
@@ -60,15 +62,21 @@ async function accessToken() {
 
 async function fetchOrders(fromDate: string) {
   const token = await accessToken();
-  const response = await fetch(ORDER_ENDPOINT, {
-    method: "POST",
-    headers: { authorization: `Bearer ${token}`, "content-type": "application/json", accept: "application/json" },
-    body: JSON.stringify({ query: ORDER_QUERY, variables: { fromDate: isoFromDate(fromDate) } }),
+  return fetchAllDropshipOrders({
+    fromDate: isoFromDate(fromDate),
+    pageSize: ORDER_PAGE_SIZE,
+    fetchPage: async ({ fromDate: pageFromDate }: { fromDate: string }) => {
+      const response = await fetch(ORDER_ENDPOINT, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ query: ORDER_QUERY, variables: { fromDate: pageFromDate } }),
+      });
+      if (!response.ok) throw new Error(`订单 API 请求失败（HTTP ${response.status}）`);
+      const body = await response.json() as { data?: { getDropshipPurchaseOrders?: PurchaseOrder[] }; errors?: { message?: string }[] };
+      if (body.errors?.length) throw new Error(body.errors.map((item) => item.message || "订单 API GraphQL 错误").join("；"));
+      return body.data?.getDropshipPurchaseOrders || [];
+    },
   });
-  if (!response.ok) throw new Error(`订单 API 请求失败（HTTP ${response.status}）`);
-  const body = await response.json() as { data?: { getDropshipPurchaseOrders?: PurchaseOrder[] }; errors?: { message?: string }[] };
-  if (body.errors?.length) throw new Error(body.errors.map((item) => item.message || "订单 API GraphQL 错误").join("；"));
-  return body.data?.getDropshipPurchaseOrders || [];
 }
 
 async function syncOrders(force = false) {
@@ -81,7 +89,13 @@ async function syncOrders(force = false) {
   const latest = await db.prepare("SELECT MAX(po_date) AS max_date, COUNT(*) AS count FROM orders").first<{ max_date: string | null; count: number }>();
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
   const fromDate = latest?.count && latest.max_date ? addDays(String(latest.max_date).slice(0, 10), -2) : addDays(today, -PRELOAD_DAYS);
-  const orders = await fetchOrders(fromDate);
+  const orderSync = await fetchOrders(fromDate) as {
+    orders: PurchaseOrder[];
+    pages: number;
+    complete: boolean;
+    highWatermark: string;
+  };
+  const orders = orderSync.orders;
   const now = new Date().toISOString();
   for (const order of orders) {
     if (!order.poNumber || !order.poDate) continue;
@@ -95,8 +109,20 @@ async function syncOrders(force = false) {
     ];
     await db.batch(statements);
   }
-  await db.prepare("INSERT INTO sync_state(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind("orders", JSON.stringify({ fromDate, fetched: orders.length }), now).run();
-  return { refreshed: true, syncedAt: now, fetched: orders.length };
+  await db.prepare("INSERT INTO sync_state(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind("orders", JSON.stringify({
+    fromDate,
+    fetched: orders.length,
+    pages: orderSync.pages,
+    complete: orderSync.complete,
+    highWatermark: orderSync.highWatermark,
+  }), now).run();
+  return {
+    refreshed: true,
+    syncedAt: now,
+    fetched: orders.length,
+    pages: orderSync.pages,
+    complete: orderSync.complete,
+  };
 }
 
 async function metrics(start: string, end: string) {
@@ -137,7 +163,7 @@ export async function GET(request: Request) {
     const end = assertDate(url.searchParams.get("end"), "end");
     const span = Math.floor((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86400000) + 1;
     if (span < 1 || span > 366) return Response.json({ error: "日期范围需在 1–366 天内" }, { status: 400 });
-    let sync: { refreshed?: boolean; syncedAt?: string; fetched?: number; stale?: boolean; error?: string };
+    let sync: { refreshed?: boolean; syncedAt?: string; fetched?: number; pages?: number; complete?: boolean; stale?: boolean; error?: string };
     try { sync = await syncOrders(url.searchParams.get("refresh") === "1"); }
     catch (error) {
       const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM orders").first<{ count: number }>();
