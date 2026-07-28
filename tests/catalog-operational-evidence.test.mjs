@@ -25,6 +25,8 @@ test("verifies a fresh exact Listing-to-Part mapping backed by live Catalog evid
   const result = resolveCatalogOperationalEvidence({
     listing: "DMOM1000",
     parts: ["PART-A", "PART-B"],
+    country: "US",
+    segment: "B2C",
     evidenceByPart: new Map([
       ["PART-A", item()],
       ["PART-B", item()],
@@ -48,6 +50,8 @@ test("fails closed for missing, stale, or mismatched Catalog evidence", () => {
   const missing = resolveCatalogOperationalEvidence({
     listing: "DMOM1000",
     parts: ["PART-A", "PART-B"],
+    country: "US",
+    segment: "B2C",
     evidenceByPart: new Map([["PART-A", item()]]),
     asOf: "2026-07-28",
     evaluatedAt: CURRENT,
@@ -55,6 +59,8 @@ test("fails closed for missing, stale, or mismatched Catalog evidence", () => {
   const stale = resolveCatalogOperationalEvidence({
     listing: "DMOM1000",
     parts: ["PART-A"],
+    country: "US",
+    segment: "B2C",
     evidenceByPart: new Map([["PART-A", item({ updatedAt: "2026-07-20T00:00:00.000Z" })]]),
     asOf: "2026-07-28",
     evaluatedAt: CURRENT,
@@ -62,6 +68,8 @@ test("fails closed for missing, stale, or mismatched Catalog evidence", () => {
   const mismatched = resolveCatalogOperationalEvidence({
     listing: "DMOM1000",
     parts: ["PART-A"],
+    country: "US",
+    segment: "B2C",
     evidenceByPart: new Map([["PART-A", item({ listingIds: ["DMOM9999"] })]]),
     asOf: "2026-07-28",
     evaluatedAt: CURRENT,
@@ -76,6 +84,8 @@ test("keeps verified evidence but blocks non-live parts and Catalog problems", (
   const result = resolveCatalogOperationalEvidence({
     listing: "DMOM1000",
     parts: ["PART-A", "PART-B"],
+    country: "US",
+    segment: "B2C",
     evidenceByPart: new Map([
       ["PART-A", item({ status: "NOT_LIVE" })],
       ["PART-B", item({ problems: ["Missing required attribute"], warnings: ["Image opportunity"] })],
@@ -143,4 +153,10 @@ test("selects the newest duplicate Catalog row and merges equal-time conflicts c
   assert.equal(conflict.status, "LIVE");
   assert.deepEqual(conflict.listingIds, ["DMOM1000"]);
   assert.deepEqual(conflict.warnings, ["Review"]);
+
+  const statusConflict = mergeCatalogPartEvidence(
+    item({ status: "NOT_LIVE", updatedAt: CURRENT }),
+    item({ status: "LIVE", updatedAt: CURRENT }),
+  );
+  assert.equal(statusConflict.status, "CONFLICT");
 });
