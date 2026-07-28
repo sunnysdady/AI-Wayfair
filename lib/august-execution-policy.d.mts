@@ -3,7 +3,7 @@ export type AugustPromotionEventStatus = {
 };
 
 export type AugustStageTwoInput = {
-  promotionEvents?: AugustPromotionEventStatus[];
+  promotionEvents?: readonly AugustPromotionEventStatus[];
   projectedPostAdMargin?: number;
   fillRate?: number;
   minimumInventoryCoverDays?: number;
