@@ -32,19 +32,27 @@ test("refreshes orders every run using the Shanghai month-to-date window", async
   assert.equal(records.at(-1).status, "succeeded");
 });
 
-test("runs mature advertising and up to ten catalog pages at 06:00 Shanghai", async () => {
+test("runs mature advertising and all reported catalog pages at 06:00 Shanghai", async () => {
   const requests = [];
+  const checkpoints = [];
 
   const result = await runLayeredSync({
     scheduledTime: Date.parse("2026-07-21T22:00:00Z"),
+    catalogPageBudget: 20,
     request: async (url) => {
       const value = String(url);
       requests.push(value);
       if (value.includes("/api/catalog/items?page=1")) {
-        return jsonResponse({ paginationInfo: { totalPages: 12 }, items: [] });
+        return jsonResponse({
+          paginationInfo: { totalPages: 12, totalCount: 12 },
+          items: [{ supplierPartNumber: "SKU-1" }],
+        });
       }
-      return jsonResponse({ items: [] });
+      const page = Number(new URL(value).searchParams.get("page"));
+      return jsonResponse({ items: [{ supplierPartNumber: `SKU-${page}` }] });
     },
+    loadCatalogCheckpoint: async () => null,
+    saveCatalogCheckpoint: async (checkpoint) => checkpoints.push(checkpoint),
     record: async () => {},
   });
 
@@ -52,11 +60,93 @@ test("runs mature advertising and up to ten catalog pages at 06:00 Shanghai", as
   assert.ok(requests.includes(
     "https://worker.internal/api/ads/analysis?start=2026-07-02&end=2026-07-08&refresh=1",
   ));
-  assert.equal(requests.filter((url) => url.includes("/api/catalog/items?")).length, 10);
+  assert.equal(requests.filter((url) => url.includes("/api/catalog/items?")).length, 12);
   assert.ok(requests.includes(
-    "https://worker.internal/api/catalog/items?page=10&pageSize=30&refresh=1",
+    "https://worker.internal/api/catalog/items?page=12&pageSize=30&refresh=1",
   ));
-  assert.equal(requests.some((url) => url.includes("page=11")), false);
+  assert.equal(checkpoints.at(-1).status, "complete");
+  assert.equal(checkpoints.at(-1).expectedTotalCount, 12);
+  assert.equal(checkpoints.at(-1).fetchedCount, 12);
+  assert.equal(checkpoints.at(-1).uniqueCount, 12);
+  assert.equal(checkpoints.at(-1).integrity.closed, true);
+});
+
+test("continues an incomplete catalog crawl on regular runs without repeating completed pages", async () => {
+  let checkpoint = null;
+  const firstRequests = [];
+  const request = (requests) => async (url) => {
+    const value = String(url);
+    requests.push(value);
+    if (value.includes("/api/catalog/items?page=1")) {
+      return jsonResponse({
+        paginationInfo: { totalPages: 7, totalCount: 7 },
+        items: [{ supplierPartNumber: "SKU-1" }],
+      });
+    }
+    const page = Number(new URL(value).searchParams.get("page"));
+    return jsonResponse({ items: [{ supplierPartNumber: `SKU-${page}` }] });
+  };
+
+  await runLayeredSync({
+    scheduledTime: Date.parse("2026-07-21T22:00:00Z"),
+    catalogPageBudget: 3,
+    request: request(firstRequests),
+    loadCatalogCheckpoint: async () => checkpoint,
+    saveCatalogCheckpoint: async (value) => { checkpoint = value; },
+    record: async () => {},
+  });
+
+  assert.deepEqual(
+    firstRequests.filter((url) => url.includes("/api/catalog/items?")).map((url) => Number(new URL(url).searchParams.get("page"))),
+    [1, 2, 3],
+  );
+  assert.equal(checkpoint.status, "running");
+  assert.equal(checkpoint.nextPage, 4);
+
+  const secondRequests = [];
+  await runLayeredSync({
+    scheduledTime: Date.parse("2026-07-22T00:00:00Z"),
+    catalogPageBudget: 3,
+    request: request(secondRequests),
+    loadCatalogCheckpoint: async () => checkpoint,
+    saveCatalogCheckpoint: async (value) => { checkpoint = value; },
+    record: async () => {},
+  });
+
+  assert.equal(secondRequests.some((url) => url.includes("/api/ads/analysis")), false);
+  assert.deepEqual(
+    secondRequests.filter((url) => url.includes("/api/catalog/items?")).map((url) => Number(new URL(url).searchParams.get("page"))),
+    [4, 5, 6],
+  );
+  assert.equal(checkpoint.nextPage, 7);
+});
+
+test("marks catalog completion as an integrity error when totalCount does not close", async () => {
+  let checkpoint = null;
+
+  await runLayeredSync({
+    scheduledTime: Date.parse("2026-07-21T22:00:00Z"),
+    catalogPageBudget: 10,
+    request: async (url) => {
+      const value = String(url);
+      if (!value.includes("/api/catalog/items")) return jsonResponse({});
+      if (value.includes("page=1")) {
+        return jsonResponse({
+          paginationInfo: { totalPages: 2, totalCount: 3 },
+          items: [{ supplierPartNumber: "DUPLICATE" }],
+        });
+      }
+      return jsonResponse({ items: [{ supplierPartNumber: "DUPLICATE" }] });
+    },
+    loadCatalogCheckpoint: async () => checkpoint,
+    saveCatalogCheckpoint: async (value) => { checkpoint = value; },
+    record: async () => {},
+  });
+
+  assert.equal(checkpoint.status, "integrity-error");
+  assert.equal(checkpoint.fetchedCount, 2);
+  assert.equal(checkpoint.uniqueCount, 1);
+  assert.equal(checkpoint.integrity.closed, false);
 });
 
 test("supports a root-level catalog totalPages response", async () => {
