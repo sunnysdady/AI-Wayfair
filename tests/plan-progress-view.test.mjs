@@ -17,6 +17,7 @@ test("renders a safe synced summary when an old cached plan lacks promotion fiel
     submittedEvents: 0,
     quantityPromotionParts: 0,
     marginAlertParts: 0,
+    marginExceptionParts: 0,
     recommendedAdBudget: 0,
     projectedPostAdMargin: 0,
   });
@@ -31,7 +32,8 @@ test("preserves the current promotion submission summary for the UI", () => {
     activeEvents: 1,
     submittedEvents: 5,
     quantityPromotionParts: 11,
-    marginAlertParts: 2,
+    marginAlertParts: 0,
+    marginExceptionParts: 2,
     recommendedAdBudget: 2700,
     projectedPostAdMargin: 0.1178,
   };

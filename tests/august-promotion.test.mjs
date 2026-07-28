@@ -63,7 +63,7 @@ test("uses role-specific margin floors and complete economics for every proposed
   const submitted = AUGUST_PROMOTION_PLAN.filter((item) => item.action === "SUBMITTED");
   const roleFloors = new Set(submitted.map((item) => item.roleMarginFloor));
 
-  assert.deepEqual(roleFloors, new Set([0.12, 0.2]));
+  assert.deepEqual(roleFloors, new Set([0.12, 0.18, 0.2]));
   assert.ok(submitted.every((item) => Number.isFinite(item.priceBasisCents)));
   assert.ok(submitted.every((item) => Number.isFinite(item.costCents)));
   assert.ok(submitted.every((item) => item.inventoryOnHand > 0));
@@ -83,6 +83,12 @@ test("uses role-specific margin floors and complete economics for every proposed
 
   assert.deepEqual(
     submitted.filter((item) => item.marginAlert).map((item) => item.part),
+    [],
+  );
+  assert.deepEqual(
+    submitted
+      .filter((item) => item.marginExceptionApproved)
+      .map((item) => item.part),
     ["VFC-3B", "VFC-3W"],
   );
 });
@@ -155,7 +161,8 @@ test("summarizes the completed Purple Bird handoff without calling processing ac
     submittedEvents: 5,
     quantityPromotionParts: 11,
     quantityPromotionStatus: "PROCESSING",
-    marginAlertParts: 2,
+    marginAlertParts: 0,
+    marginExceptionParts: 2,
     originalAdBudget: 4050,
     recommendedAdBudget: 2700,
     adBudgetReduction: 1350,
@@ -191,6 +198,10 @@ test("joins promotion status into every August sales-plan row", () => {
   assert.deepEqual(
     synced.find((row) => row.listing === "DMOM1019").promotion.discountTiers,
     ["10%/15%"],
+  );
+  assert.deepEqual(
+    synced.find((row) => row.listing === "DMOM1019").promotion.marginExceptionParts,
+    ["VFC-3B", "VFC-3W"],
   );
 });
 
