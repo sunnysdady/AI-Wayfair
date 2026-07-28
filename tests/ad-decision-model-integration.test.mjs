@@ -16,6 +16,8 @@ test("wires the shadow model into advertising analysis and model-generated To Do
   assert.match(analysis, /row\.store_url/);
   assert.match(analysis, /normalizeAdAudience/);
   assert.match(analysis, /row\.targeting_type/);
+  assert.match(analysis, /campaignTargetingById/);
+  assert.match(analysis, /latest\.targeting_type\s*\|\|\s*campaignTargetingById\.get\(campaignId\)/);
   assert.match(analysis, /modelCurrentByUnit/);
   assert.match(analysis, /loadSkuCostEvidence/);
   assert.match(analysis, /resolveContributionEconomics/);
