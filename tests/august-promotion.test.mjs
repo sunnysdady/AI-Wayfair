@@ -36,7 +36,11 @@ test("syncs all six August event receipts and separates active from submitted", 
   assert.equal(
     AUGUST_PROMOTION_EVENTS.find((event) => event.id === "member-pop-up-august-2026")
       .submittedProducts,
-    7,
+    8,
+  );
+  assert.deepEqual(
+    AUGUST_PROMOTION_EVENTS.map((event) => event.submittedProducts),
+    [15, 8, 15, 20, 20, 20],
   );
 });
 
@@ -47,14 +51,14 @@ test("maps all 21 current Parts to a completed submission or evidence-based hold
 
   const submitted = AUGUST_PROMOTION_PLAN.filter((item) => item.action === "SUBMITTED");
   const held = AUGUST_PROMOTION_PLAN.filter((item) => item.action === "HOLD");
-  assert.equal(submitted.length, 15);
-  assert.equal(held.length, 6);
+  assert.equal(submitted.length, 20);
+  assert.equal(held.length, 1);
   assert.ok(submitted.every((item) => item.reviewStatus === "APPROVED"));
   assert.ok(submitted.every((item) => item.submittedToZiniao === true));
   assert.ok(held.every((item) => item.reviewStatus === "APPROVED_HOLD"));
   assert.deepEqual(
     held.map((item) => item.part),
-    ["3T-B", "5T-1600-800", "5T-1830-1200", "5T-1830-900", "LFC-2W", "5T-wangge"],
+    ["5T-1830-900"],
   );
   assert.ok(held.every((item) => item.reason.length >= 12));
 });
@@ -63,18 +67,22 @@ test("uses role-specific margin floors and complete economics for every proposed
   const submitted = AUGUST_PROMOTION_PLAN.filter((item) => item.action === "SUBMITTED");
   const roleFloors = new Set(submitted.map((item) => item.roleMarginFloor));
 
-  assert.deepEqual(roleFloors, new Set([0.12, 0.18, 0.2]));
+  assert.deepEqual(roleFloors, new Set([0.12, 0.2]));
   assert.ok(submitted.every((item) => Number.isFinite(item.priceBasisCents)));
   assert.ok(submitted.every((item) => Number.isFinite(item.costCents)));
   assert.ok(submitted.every((item) => item.inventoryOnHand > 0));
   assert.ok(submitted.every((item) => item.catalogLiveCount === 1));
+  assert.ok(
+    submitted.every(
+      (item) => item.priceBasisType === "PARTNER_HOME_CURRENT_BASE_COST",
+    ),
+  );
   assert.ok(submitted.every((item) => item.requiredGates.includes("EXPLICIT_USER_APPROVAL")));
 
   const thinVolume = AUGUST_PROMOTION_PLAN.find((item) => item.part === "MFC-D3-B");
   assert.equal(thinVolume.b2cDiscount, 0.08);
   assert.equal(thinVolume.b2bTotalDiscount, 0.13);
-  assert.ok(thinVolume.estimatedWorstMargin >= 0.12);
-  assert.ok(thinVolume.estimatedWorstMargin < 0.13);
+  assert.equal(thinVolume.estimatedWorstMargin, 0.2556);
 
   const thinRepair = AUGUST_PROMOTION_PLAN.find((item) => item.part === "VFC-2B");
   assert.equal(thinRepair.b2bTotalDiscount, 0.08);
@@ -89,16 +97,16 @@ test("uses role-specific margin floors and complete economics for every proposed
     submitted
       .filter((item) => item.marginExceptionApproved)
       .map((item) => item.part),
-    ["VFC-3B", "VFC-3W"],
+    [],
   );
 });
 
-test("syncs the submitted 11-SKU B2B quantity offer and its stacking rule", () => {
-  assert.equal(AUGUST_QUANTITY_PROMOTION.projectId, "16685396");
+test("syncs the submitted 16-SKU B2B quantity offer and its stacking rule", () => {
+  assert.equal(AUGUST_QUANTITY_PROMOTION.projectId, "16685433");
   assert.equal(AUGUST_QUANTITY_PROMOTION.status, "PROCESSING");
   assert.equal(AUGUST_QUANTITY_PROMOTION.minimumQuantity, 2);
   assert.equal(AUGUST_QUANTITY_PROMOTION.additionalDiscount, 0.05);
-  assert.equal(AUGUST_QUANTITY_PROMOTION.parts.length, 11);
+  assert.equal(AUGUST_QUANTITY_PROMOTION.parts.length, 16);
   assert.match(AUGUST_QUANTITY_PROMOTION.stackingRule, /叠加/);
   assert.deepEqual(
     AUGUST_PROMOTION_PLAN.filter((item) => item.quantityOffer === 0.05).map(
@@ -152,17 +160,17 @@ test("summarizes the completed Purple Bird handoff without calling processing ac
   assert.deepEqual(summary, {
     totalListings: 10,
     totalParts: 21,
-    submittedListings: 9,
-    submittedParts: 15,
-    heldParts: 6,
-    approvedParts: 15,
-    ziniaoSubmittedParts: 15,
+    submittedListings: 10,
+    submittedParts: 20,
+    heldParts: 1,
+    approvedParts: 20,
+    ziniaoSubmittedParts: 20,
     activeEvents: 1,
     submittedEvents: 5,
-    quantityPromotionParts: 11,
+    quantityPromotionParts: 16,
     quantityPromotionStatus: "PROCESSING",
     marginAlertParts: 0,
-    marginExceptionParts: 2,
+    marginExceptionParts: 0,
     originalAdBudget: 4050,
     recommendedAdBudget: 2700,
     adBudgetReduction: 1350,
@@ -193,7 +201,7 @@ test("joins promotion status into every August sales-plan row", () => {
   );
   assert.equal(
     synced.find((row) => row.listing === "DMOM1016").promotion.status,
-    "ON_HOLD",
+    "SUBMITTED",
   );
   assert.deepEqual(
     synced.find((row) => row.listing === "DMOM1019").promotion.discountTiers,
@@ -201,7 +209,7 @@ test("joins promotion status into every August sales-plan row", () => {
   );
   assert.deepEqual(
     synced.find((row) => row.listing === "DMOM1019").promotion.marginExceptionParts,
-    ["VFC-3B", "VFC-3W"],
+    [],
   );
 });
 
