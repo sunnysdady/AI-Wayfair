@@ -33,7 +33,7 @@ test("preserves the current promotion summary for the review UI", () => {
 test("hydrates the plan cache after mount and uses a schema-versioned cache key", async () => {
   const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
 
-  assert.equal(PLAN_PROGRESS_CACHE_KEY, "plan:progress:v2");
+  assert.equal(PLAN_PROGRESS_CACHE_KEY, "plan:progress:v3");
   assert.match(page, /useState<PlanProgress\|null>\(null\)/);
   assert.match(page, /PLAN_PROGRESS_CACHE_KEY/);
   assert.doesNotMatch(
