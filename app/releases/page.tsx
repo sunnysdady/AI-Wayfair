@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import {
   RELEASE_NOTES,
@@ -39,7 +40,7 @@ export default function ReleasesPage() {
         <aside>
           <b>{versionLabel}</b>
           <small>生产基线 {release.productionBaseline}</small>
-          <a href="/">返回运营中台</a>
+          <Link href="/">返回运营中台</Link>
         </aside>
       </header>
 
