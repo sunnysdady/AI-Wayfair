@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  AUGUST_AD_EXECUTION_STATUS,
   AUGUST_EXECUTION_POLICY,
   evaluateAugustStageTwo,
   validateAugustRunForExecution,
@@ -30,6 +31,23 @@ test("locks the authorized August order target and phased advertising caps", () 
       retiredAdBudgets: [2700, 4050],
     },
   );
+});
+
+test("publishes the corrected active campaign and isolated product-row pauses", () => {
+  assert.deepEqual(AUGUST_AD_EXECUTION_STATUS, {
+    asOf: "2026-07-28",
+    walletDailyCap: 60,
+    activeCampaignDailyCap: 45,
+    otherActiveCampaignDailyCap: 41,
+    correctedCampaign: {
+      campaignId: "597350",
+      status: "ACTIVE",
+      dailyCap: 4,
+      last28RetailRoas: 25.3,
+      pausedProductRows: ["DMOM1025", "LFC-3W"],
+    },
+    pausedCampaignIds: ["661593", "622734", "622727"],
+  });
 });
 
 test("keeps stage two locked while submitted promotions or operating gates remain unresolved", () => {
@@ -85,9 +103,13 @@ test("freezes July decision batches instead of carrying them into the August pla
 });
 
 test("enforces the August cutover inside the live advertising route", async () => {
-  const [route, page] = await Promise.all([
+  const [route, planRoute, page] = await Promise.all([
     readFile(
       new URL("../app/api/ads/actions/execute/route.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/api/plan/progress/route.ts", import.meta.url),
       "utf8",
     ),
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
@@ -98,4 +120,9 @@ test("enforces the August cutover inside the live advertising route", async () =
   assert.match(route, /八月执行口径已冻结该跨月旧批次/);
   assert.match(page, /首阶段广告总上限/);
   assert.match(page, /原销售预算.*已废止/);
+  assert.match(planRoute, /AUGUST_AD_EXECUTION_STATUS/);
+  assert.match(page, /Wallet.*walletDailyCap/);
+  assert.match(page, /597350 保持 Active/);
+  assert.match(page, /DMOM1025 \/ LFC-3W 产品行 Paused/);
+  assert.doesNotMatch(page, /597350[^\n]{0,40}(?:状态|为)[:： ]*Paused/);
 });

@@ -205,6 +205,7 @@ type PlanProgress = {
   activity: { name: string; officialEventRange: string; canadaCoInvestRange: string; flashDealRange: string; flashConfirmationDeadline: string; catalogLockRange: string; strategyBudget: number; monthlyBudget: number; budgetNote: string; source: string; sourceAsOf: string; activePhase: string; phases: { id: string; label: string; range: string; budgetCap: number; bidRule: string; capRule: string; objective: string }[] };
   cpcPlan: { sourcePage: number; appliesTo: string[]; benchmarkMeaning: string; categoryBenchmarks: Record<string,number>; operatingRule: string; revenueGuardrail: string; augustGuardrail: string; juneAccountFacts: { adSpend: number; attributedOrders: number; attributedWsc: number; accountWsc: number; wspWscRoas: number } };
   nextPlan: {
+    advertisingExecution: { asOf: string; walletDailyCap: number; activeCampaignDailyCap: number; otherActiveCampaignDailyCap: number; correctedCampaign: { campaignId: "597350"; status: "ACTIVE"; dailyCap: number; last28RetailRoas: number; pausedProductRows: string[] }; pausedCampaignIds: string[] };
     executionPolicy: { authorizationStatus: "APPROVED"; targetMetric: "ORDERS"; stretchOrderTarget: number; baseAdBudget: number; canaryLossCap: number; stageOneAdCap: number; stageTwoAdCap: number; retiredAdBudgets: number[]; earliestCanaryStart: string; policy: string };
     executionStage: { ready: boolean; authorizedAdCap: number; blockers: string[] };
     plan: { targetMetric: "ORDERS"; orderTarget: number; baseAdBudget: number; hardAdCap: number; stageTwoHardAdCap: number; sourceAsOf: string; scopeWarning: string };
@@ -576,6 +577,7 @@ function Plan({ embedded = false, onOpenReview, tab, onTabChange }: { embedded?:
   const p=data?.progress; const actual=data?.actual;
   const salesSummary=data?.nextPlan?.salesPlanSummary;
   const promotionSummary=data?.nextPlan?.promotionSummary;
+  const advertisingExecution=data?.nextPlan?.advertisingExecution;
   const executionPolicy=data?.nextPlan?.executionPolicy;
   const executionStage=data?.nextPlan?.executionStage;
   const salesRoleNames:Record<string,string>={VOLUME_CORE:'跑量核心',PROFIT_POOL:'利润池',CONTROLLED_GROWTH:'受控增长',REPAIR_ORGANIC:'修复 / 自然'};
@@ -631,10 +633,11 @@ function Plan({ embedded = false, onOpenReview, tab, onTabChange }: { embedded?:
           <div className="section-head"><div><span>CONTROL ROOM</span><h2>只看这 4 条红线</h2></div></div>
           <div className="august-control-list">
             <article><b>01</b><div><strong>利润率低于 12%</strong><small>停止释放 $500 机动预算；低于 10% 停止扩量。</small></div></article>
-            <article><b>02</b><div><strong>广告不超过授权上限</strong><small>当前阶段 {money(executionStage?.authorizedAdCap||executionPolicy?.stageOneAdCap||0)}；已包含活动折扣和买 2 件额外 5%。</small></div></article>
+            <article><b>02</b><div><strong>月度授权 {money(executionStage?.authorizedAdCap||executionPolicy?.stageOneAdCap||0)} · Wallet {money(advertisingExecution?.walletDailyCap||60)}/day</strong><small>Active Campaign Cap 合计 {money(advertisingExecution?.activeCampaignDailyCap||45)}/day；其中 597350 为 {advertisingExecution?.correctedCampaign.status==='ACTIVE'||!advertisingExecution?'Active':'待核对'}、{money(advertisingExecution?.correctedCampaign.dailyCap||4)}/day。</small></div></article>
             <article><b>03</b><div><strong>5T-1830-900 保持保护</strong><small>当前库存 37；恢复到 60 件再评估活动和广告。</small></div></article>
-            <article><b>04</b><div><strong>{executionStage?.ready?'第二阶段已解锁':'第二阶段仍锁定'}</strong><small>{executionStage?.ready?'门禁已全部通过。':`活动、利润、库存等还有 ${executionStage?.blockers.length||0} 项门禁待完成。`}</small></div></article>
+            <article><b>04</b><div><strong>混投 Campaign 先隔离零预算 Listing</strong><small>597350 保持 Active；仅 DMOM1025 / LFC-3W 产品行 Paused。L28 Retail ROAS {advertisingExecution?.correctedCampaign.last28RetailRoas.toFixed(2)||'25.30'}×。</small></div></article>
           </div>
+          <footer className="august-ad-pause-note"><b>继续暂停</b><span>{advertisingExecution?.pausedCampaignIds.join(' · ')||'661593 · 622734 · 622727'}</span></footer>
         </aside>
       </section>
 

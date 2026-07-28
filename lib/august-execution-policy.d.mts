@@ -30,8 +30,8 @@ export const AUGUST_EXECUTION_POLICY: Readonly<{
     attributionMaturityDays: number;
     restoredCapPaceMultiplier: number;
     pauseReviewersRequired: number;
-    mixedCampaignPolicy: string;
-    longTermSoftPauseAllowed: boolean;
+    mixedCampaignPolicy: "ISOLATE_ZERO_BUDGET_LISTINGS_FIRST";
+    longTermSoftPauseAllowed: false;
   }>;
   policy: string;
 }>;
@@ -51,6 +51,21 @@ export type AugustCampaignExecutionFact = {
     status: "PAUSED";
   }>;
 };
+
+export const AUGUST_AD_EXECUTION_STATUS: Readonly<{
+  asOf: string;
+  walletDailyCap: number;
+  activeCampaignDailyCap: number;
+  otherActiveCampaignDailyCap: number;
+  correctedCampaign: Readonly<{
+    campaignId: "597350";
+    status: "ACTIVE";
+    dailyCap: number;
+    last28RetailRoas: number;
+    pausedProductRows: readonly string[];
+  }>;
+  pausedCampaignIds: readonly string[];
+}>;
 
 export const AUGUST_CAMPAIGN_CONTROL_SNAPSHOT: Readonly<{
   asOf: string;
@@ -101,7 +116,10 @@ export function evaluateAugustCampaignPause(input?: {
   last28Orders?: number;
   contributionMarginRate?: number;
   minimumEvidenceMet?: boolean;
-  listings?: Array<{ listing?: string; plannedAdBudget?: number }>;
+  listings?: readonly {
+    listing?: string;
+    plannedAdBudget?: number;
+  }[];
 }): {
   allowed: boolean;
   reason: string;
