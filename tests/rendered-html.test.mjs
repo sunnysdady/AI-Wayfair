@@ -332,7 +332,7 @@ test("keeps AI campaign learning rules in analysis without rendering them in the
   assert.match(styles, /\.ai-diagnosis-card\{/);
 });
 
-test("tracks zombie campaign handling locally without treating manual work as API executable", async () => {
+test("tracks zombie campaign handling in the shared ledger without treating manual work as API executable", async () => {
   const [page, ads, queue] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
@@ -343,8 +343,9 @@ test("tracks zombie campaign handling locally without treating manual work as AP
   assert.match(ads, /zombieAudit/);
   assert.match(page, /Campaign \/ 资格诊断/);
   assert.match(page, /处理方式/);
-  assert.match(page, /是否完成/);
-  assert.match(page, /不加入 API 或人工执行清单/);
+  assert.match(page, /提交验收/);
+  assert.match(page, /统一任务账本/);
+  assert.match(page, /\/api\/ads\/zombie-resolutions/);
   assert.doesNotMatch(page, /加入手动执行清单/);
   assert.match(page, /硬僵尸/);
   assert.match(page, /准僵尸/);

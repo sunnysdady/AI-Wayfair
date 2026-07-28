@@ -16,7 +16,8 @@ test("keeps manual diagnostics out of the AI API execution workspace", async () 
   assert.match(page, /const apiQueuedActions=queuedActions\.filter/);
   assert.doesNotMatch(page, /const manualQueuedActions=queuedActions\.filter/);
   assert.match(manualWorkspace, /处理方式/);
-  assert.match(manualWorkspace, /是否完成/);
+  assert.match(manualWorkspace, /提交验收/);
+  assert.match(manualWorkspace, /执行证据/);
   assert.match(manualWorkspace, /zombieFindings\.map/);
   assert.match(aiWorkspace, /AI API 执行工作台/);
   assert.match(aiWorkspace, /apiQueuedActions/);

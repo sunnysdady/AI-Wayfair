@@ -1,5 +1,6 @@
 import { WAYFAIR_ADVERTISING_AUDIENCE, buildCampaignUpdates, executeCampaignUpdates } from "@/lib/ad-action-queue.mjs";
 import { validateAdActionFreshness } from "@/lib/ad-action-freshness.mjs";
+import { syncAdActionOperation } from "@/lib/ad-operation-link.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import { assertLiveOperation } from "@/lib/operating-safety.mjs";
 
@@ -141,6 +142,8 @@ async function record(db: D1Database, actionIds: string[], eventType: string, pa
       db.prepare("UPDATE ad_action_queue SET status=?,updated_at=? WHERE id=?").bind(status, now, actionId),
       db.prepare("INSERT INTO ad_action_events(id,action_id,event_type,payload,created_at) VALUES(?,?,?,?,?)").bind(crypto.randomUUID(), actionId, eventType, JSON.stringify(payload), now),
     ]);
+    const action = await db.prepare("SELECT id,run_key,listing,campaign_id,action_type,before_payload,proposed_payload FROM ad_action_queue WHERE id=?").bind(actionId).first<QueueRow>();
+    if (action) await syncAdActionOperation(db, action, eventType, payload as Record<string, unknown>);
   }
 }
 

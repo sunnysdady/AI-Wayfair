@@ -12,6 +12,7 @@ import { applyOperatorDebate } from "./ad-operator-debate.mjs";
 import { buildAdDecisionModel, normalizeAdAudience } from "./ad-decision-model.mjs";
 import { resolveContributionEconomics, type SkuCostEvidence } from "./ad-contribution-economics.mjs";
 import { fetchAdvertisingResponse } from "./wayfair-ad-retry.mjs";
+import { syncAdActionOperation } from "./ad-operation-link.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -847,6 +848,7 @@ async function syncWeeklyReviews(db: D1Database | undefined, analysis: ReturnTyp
     await db.prepare(`INSERT INTO ad_weekly_reviews(action_id,source_run_key,evaluation_run_key,listing,campaign_id,verdict,payload,evaluated_at)
       VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(action_id) DO UPDATE SET evaluation_run_key=excluded.evaluation_run_key,verdict=excluded.verdict,payload=excluded.payload,evaluated_at=excluded.evaluated_at`)
       .bind(action.id, action.run_key, analysis.runKey, action.listing, action.campaign_id, review.verdict, JSON.stringify(payload), now).run();
+    await syncAdActionOperation(db, action, "REVIEWED", payload);
   }
 }
 

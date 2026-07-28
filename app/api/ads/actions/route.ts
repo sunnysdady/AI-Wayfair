@@ -1,4 +1,5 @@
 import { buildCampaignUpdates } from "@/lib/ad-action-queue.mjs";
+import { syncAdActionOperation } from "@/lib/ad-operation-link.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import { buildOperatingReadiness } from "@/lib/operating-safety.mjs";
 
@@ -50,7 +51,7 @@ export async function PATCH(request: Request) {
     await ensureActionQueue(env.DB);
     const body = await request.json() as { id?: string; status?: string };
     if (!body.id || body.status !== "APPROVED") return Response.json({ error: "只能将待确认或执行失败的动作审批为 APPROVED" }, { status: 400 });
-    const existing = await env.DB.prepare("SELECT * FROM ad_action_queue WHERE id=?").bind(body.id).first<{id:string;campaign_id:string;listing:string;action_type:string;before_payload:string;proposed_payload:string;status:string}>();
+    const existing = await env.DB.prepare("SELECT * FROM ad_action_queue WHERE id=?").bind(body.id).first<{id:string;run_key:string;campaign_id:string;listing:string;action_type:string;before_payload:string;proposed_payload:string;status:string}>();
     if (!existing) return Response.json({ error: "执行项不存在" }, { status: 404 });
     if (!["PLANNED", "FAILED"].includes(existing.status)) return Response.json({ error: `当前状态 ${existing.status} 不能重新确认` }, { status: 409 });
     if (!API_ACTIONS.has(existing.action_type)) return Response.json({ error: "该动作不在 Advertising API 写入范围，需在 Partner Home 人工处理" }, { status: 409 });
@@ -62,6 +63,7 @@ export async function PATCH(request: Request) {
       env.DB.prepare("UPDATE ad_action_queue SET status='APPROVED',updated_at=? WHERE id=?").bind(now, body.id),
       env.DB.prepare("INSERT INTO ad_action_events(id,action_id,event_type,payload,created_at) VALUES(?,?,?,?,?)").bind(crypto.randomUUID(), body.id, retrying ? "RETRY_APPROVED" : "APPROVED", JSON.stringify({ previousStatus: existing.status }), now),
     ]);
+    await syncAdActionOperation(env.DB, existing, "APPROVED", { previousStatus: existing.status });
     return Response.json({ id: body.id, status: "APPROVED", message: retrying ? "失败项已恢复，请重新执行 API Dry-run 预检。" : "已确认进入 API 预检。" });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "执行项确认失败" }, { status: 500 });
@@ -126,6 +128,11 @@ export async function POST(request: Request) {
       env.DB.prepare("INSERT INTO ad_action_events(id,action_id,event_type,payload,created_at) VALUES(?,?,?,?,?)")
         .bind(crypto.randomUUID(), id, "OPERATOR_DEBATE_ACCEPTED", JSON.stringify(proposedBySystem.operatorReview), now),
     ]);
+    await syncAdActionOperation(env.DB, {
+      id, run_key: body.runKey, listing: body.listing, campaign_id: body.campaignId,
+      action_type: body.actionType, before_payload: JSON.stringify(body.before || {}),
+      proposed_payload: JSON.stringify(body.proposed || {}),
+    }, "PLANNED", proposedBySystem.operatorReview);
     return Response.json({ id, status: "PLANNED", message: "已加入本周执行单；生产写入仍需人工确认。" });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "执行单保存失败" }, { status: 500 });
@@ -140,11 +147,12 @@ export async function DELETE(request: Request) {
     await ensureActionQueue(env.DB);
     const id = new URL(request.url).searchParams.get("id");
     if (!id) return Response.json({ error: "缺少执行单 id" }, { status: 400 });
-    const existing = await env.DB.prepare("SELECT status FROM ad_action_queue WHERE id=?").bind(id).first<{status:string}>();
+    const existing = await env.DB.prepare("SELECT * FROM ad_action_queue WHERE id=?").bind(id).first<{id:string;run_key:string;campaign_id:string;listing:string;action_type:string;before_payload:string;proposed_payload:string;status:string}>();
     if (!existing) return Response.json({ error: "执行项不存在" }, { status: 404 });
     if (!["PLANNED", "FAILED"].includes(existing.status)) return Response.json({ error: `当前状态 ${existing.status} 不允许删除` }, { status: 409 });
     await env.DB.prepare("DELETE FROM ad_action_events WHERE action_id=?").bind(id).run();
     await env.DB.prepare("DELETE FROM ad_action_queue WHERE id=?").bind(id).run();
+    await syncAdActionOperation(env.DB, existing, "REMOVED", { reason: "操作员从执行清单移除" });
     return Response.json({ ok: true, id });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "执行单删除失败" }, { status: 500 });

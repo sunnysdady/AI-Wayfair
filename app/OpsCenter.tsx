@@ -9,7 +9,7 @@ import { financialDetailsForEmail } from "../lib/email-finance.mjs";
 import { manualCompletionPayload } from "../lib/manual-ad-completions.mjs";
 import legacyOperatingDataSource from "../data/dmom-operating-2026-06.json";
 
-type View = "dashboard" | "daily" | "ads" | "planning" | "products" | "sources" | "help";
+type View = "dashboard" | "tasks" | "daily" | "ads" | "planning" | "products" | "sources" | "help";
 type AdsTab = "manager" | "listings" | "ai" | "manual" | "review";
 type PlanningTab = "plan" | "review" | "history";
 type ProductTab = "inventory" | "catalog" | "launch" | "performance";
@@ -18,6 +18,7 @@ type SubView = AdsTab | PlanningTab | ProductTab;
 
 const PRIMARY_NAV: { id: View; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
+  { id: "tasks", label: "闭环任务" },
   { id: "daily", label: "日报" },
   { id: "ads", label: "广告" },
   { id: "planning", label: "计划与复盘" },
@@ -164,10 +165,10 @@ type SystemReadiness = {
   };
   metrics: { id: string; label: string; unit: string; grain: string; source: string; definition: string }[];
 };
-type ZombieResolution = { method: string; done: boolean };
-type ManualCompletionRecord = { taskKey:string;parentSku:string;taskId:string;campaignId:string;adGroup:string;title:string;status:"COMPLETED"|"OPEN";completedAt:string|null;updatedAt:string };
+type ZombieResolution = { resolutionKey:string;operationId:string;campaignId:string;listing:string;actionType:string;method:string;owner:string;status:"DISCOVERED"|"ASSIGNED"|"EXECUTING"|"PENDING_ACCEPTANCE"|"VERIFIED"|"FAILED"|"REOPENED";executionResult:string;evidence:string;acceptanceCriteria:string;acceptedBy:string;updatedAt?:string };
+type ManualCompletionRecord = { operationId:string;taskKey:string;parentSku:string;taskId:string;campaignId:string;adGroup:string;title:string;status:"OPEN"|"IN_PROGRESS"|"PENDING_ACCEPTANCE"|"VERIFIED"|"REOPENED"|"FAILED";owner:string;executionResult:string;evidence:string;acceptanceCriteria:string;acceptedBy:string;reviewDueAt:string;completedAt:string|null;updatedAt:string };
+type OperationRecord = { operationId:string;sourceType:string;sourceId:string;objectType:string;objectId:string;title:string;owner:string;status:string;proposedAction:string;executionResult?:string;terminalReceipt?:string;evidence:{type:string;value:string}[];acceptanceCriteria?:string;acceptedBy?:string;reviewDueAt?:string;reviewVerdict?:string;updatedAt:string };
 const API_AD_ACTION_TYPES=new Set(['SET_LISTING_BID','SET_LISTING_ACTIVE']);
-const ZOMBIE_RESOLUTION_STORAGE_KEY='zombie-resolutions:v1';
 const ZOMBIE_METHOD_OPTIONS:Record<ZombieCampaignFinding['actionType'],string[]>={
   PAUSE_CAMPAIGN:['暂停 Campaign','联系 Account Manager 核查后暂停'],
   CHECK_LISTING_ELIGIBILITY:['核查 Listing eligibility / 库存','修复链接后复测','确认不可投后暂停'],
@@ -321,15 +322,19 @@ const REPORTS: EvidenceReport[] = [
 ];
 
 function ShellHeader({ active, activeSub, onNavigate, onSubNavigate }: { active: View; activeSub: SubView | null; onNavigate: (view: View) => void; onSubNavigate: (view: SubView) => void }) {
-  useEffect(()=>{if(window.innerWidth>760)return;const frame=requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.sidebar button[aria-current="page"]')?.scrollIntoView({block:'nearest',inline:'center'}));return()=>cancelAnimationFrame(frame);},[active,activeSub]);
+  const [mobileOpen,setMobileOpen]=useState(false);
+  const navigate=(next:View)=>{onNavigate(next);setMobileOpen(false);};
   return <aside className="sidebar">
-    <button className="brand" onClick={() => onNavigate("dashboard")}><span>W</span><strong>Wayfair AI</strong><small>运营中台</small></button>
-    <nav className="nav" aria-label="主导航">
-      {PRIMARY_NAV.map((item) => <div className={`nav-group ${active === item.id ? "expanded" : ""}`} key={item.id}><button className={active === item.id ? "active" : ""} aria-current={active===item.id&&!SUB_NAV[item.id]?.length?'page':undefined} aria-expanded={SUB_NAV[item.id]?.length?active===item.id:undefined} onClick={() => onNavigate(item.id)}>{item.label}</button>{active === item.id && SUB_NAV[item.id]?.length ? <div className="nav-submenu" aria-label={`${item.label}子菜单`}>{SUB_NAV[item.id]?.map((child) => <button key={child.id} className={activeSub === child.id ? "active" : ""} aria-current={activeSub===child.id?'page':undefined} onClick={() => onSubNavigate(child.id)}>{child.label}</button>)}</div> : null}</div>)}
-    </nav>
-    <nav className="nav utility-nav" aria-label="系统导航">
-      {SYSTEM_NAV.map((item) => <button key={item.id} className={active === item.id ? "active" : ""} aria-current={active===item.id?'page':undefined} onClick={() => onNavigate(item.id)}>{item.label}</button>)}
-    </nav>
+    <button className="brand" onClick={() => navigate("dashboard")}><span>W</span><strong>Wayfair AI</strong><small>运营中台</small></button>
+    <button className="mobile-nav-toggle" aria-expanded={mobileOpen} aria-controls="app-navigation" onClick={()=>setMobileOpen(value=>!value)}><span>{mobileOpen?'关闭':'菜单'}</span><b>{PRIMARY_NAV.find(item=>item.id===active)?.label||SYSTEM_NAV.find(item=>item.id===active)?.label}</b></button>
+    <div className={`sidebar-navigation${mobileOpen?' open':''}`} id="app-navigation">
+      <nav className="nav" aria-label="主导航">
+        {PRIMARY_NAV.map((item) => <div className={`nav-group ${active === item.id ? "expanded" : ""}`} key={item.id}><button className={active === item.id ? "active" : ""} aria-current={active===item.id&&!SUB_NAV[item.id]?.length?'page':undefined} aria-expanded={SUB_NAV[item.id]?.length?active===item.id:undefined} onClick={() => navigate(item.id)}>{item.label}</button>{active === item.id && SUB_NAV[item.id]?.length ? <div className="nav-submenu" aria-label={`${item.label}子菜单`}>{SUB_NAV[item.id]?.map((child) => <button key={child.id} className={activeSub === child.id ? "active" : ""} aria-current={activeSub===child.id?'page':undefined} onClick={() => {onSubNavigate(child.id);setMobileOpen(false);}}>{child.label}</button>)}</div> : null}</div>)}
+      </nav>
+      <nav className="nav utility-nav" aria-label="系统导航">
+        {SYSTEM_NAV.map((item) => <button key={item.id} className={active === item.id ? "active" : ""} aria-current={active===item.id?'page':undefined} onClick={() => navigate(item.id)}>{item.label}</button>)}
+      </nav>
+    </div>
     <div className="system"><i></i><span><strong>生产数据已连接</strong><small>写操作需人工确认</small></span></div>
   </aside>;
 }
@@ -640,6 +645,7 @@ function Ads({ tab }: { tab: AdsTab }) {
   const [selectedRecommendations,setSelectedRecommendations]=useState<string[]>([]); const [selectedQueue,setSelectedQueue]=useState<string[]>([]);
   const [manualDone,setManualDone]=useState<string[]>([]);
   const [manualRecords,setManualRecords]=useState<Record<string,ManualCompletionRecord>>({});
+  const [manualDrafts,setManualDrafts]=useState<Record<string,Partial<ManualCompletionRecord>>>({});
   const [manualRecordMessage,setManualRecordMessage]=useState('');
   const [zombieResolutions,setZombieResolutions]=useState<Record<string,ZombieResolution>>({});
   useEffect(()=>{const cacheKey=`ads:v10:${requested.start}:${requested.end}`;const cached=!requested.refresh&&readClientCache<AdAnalysis>(cacheKey);const controller=new AbortController();if(cached){queueMicrotask(()=>{if(!controller.signal.aborted){setData(cached);setLoading(false);setError('');}});return()=>controller.abort();}fetch(`/api/ads/analysis?start=${requested.start}&end=${requested.end}${requested.refresh?'&refresh=1':''}`,{signal:controller.signal}).then(async r=>{const body=await r.json() as AdAnalysis;if(!r.ok)throw new Error(body.error||'广告分析失败');return body;}).then(body=>{setData(body);writeClientCache(cacheKey,body);}).catch(e=>{if(e.name!=='AbortError')setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();},[requested]);
@@ -659,8 +665,6 @@ function Ads({ tab }: { tab: AdsTab }) {
         localCompleted=[...new Set(expanded.filter(key=>manualCompletionPayload(key,MANUAL_AD_TASKS)!==null))];
         setManualDone(localCompleted);
       }
-      const resolutions=JSON.parse(window.localStorage.getItem(ZOMBIE_RESOLUTION_STORAGE_KEY)||'{}');
-      if(resolutions&&typeof resolutions==='object'&&!Array.isArray(resolutions))setZombieResolutions(resolutions);
     }catch{}
 
     async function syncManualRecords(){
@@ -687,14 +691,22 @@ function Ads({ tab }: { tab: AdsTab }) {
       if(controller.signal.aborted)return;
       const byKey=Object.fromEntries([...records,...migrated].map(record=>[record.taskKey,record]));
       const synchronized=Object.values(byKey);
-      const completed=synchronized.filter(record=>record.status==='COMPLETED').map(record=>record.taskKey);
+      const completed=synchronized.filter(record=>record.status==='VERIFIED').map(record=>record.taskKey);
       setManualRecords(byKey);
       setManualDone(completed);
       window.localStorage.setItem('manual-ad-todos:v1',JSON.stringify(completed));
-      setManualRecordMessage(migrated.length?`已将 ${migrated.length} 条本机完成记录迁移到服务器审计链`:'服务器审计记录已同步');
+      setManualRecordMessage(migrated.length?`已将 ${migrated.length} 条旧版勾选记录迁移为待验收任务；补充证据后才能关闭`:'服务器闭环记录已同步');
     }
 
-    void syncManualRecords().catch(reason=>{
+    async function syncZombieRecords(){
+      const response=await fetch('/api/ads/zombie-resolutions/',{signal:controller.signal});
+      const body=await response.json() as {records?:ZombieResolution[];error?:string};
+      if(!response.ok)throw new Error(body.error||'Zombie 处置记录读取失败');
+      if(controller.signal.aborted)return;
+      setZombieResolutions(Object.fromEntries((body.records||[]).map(record=>[record.resolutionKey,record])));
+    }
+
+    void Promise.all([syncManualRecords(),syncZombieRecords()]).catch(reason=>{
       if(reason.name!=='AbortError')setManualRecordMessage('服务器记录读取失败，当前显示本机缓存');
     });
     return()=>controller.abort();
@@ -707,8 +719,10 @@ function Ads({ tab }: { tab: AdsTab }) {
   async function queueSelected(){if(!data?.runKey)return;const rows=optimizationListings.filter(row=>API_AD_ACTION_TYPES.has(row.action.type)&&selectedRecommendations.includes(`${row.campaignId}:${row.listing}`));if(!rows.length)return;setBatchBusy(true);setBatchMessage('');try{const results=await Promise.all(rows.map(async row=>{const response=await fetch('/api/ads/actions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({runKey:data.runKey,listing:row.listing,campaignId:row.campaignId,actionType:row.action.type,before:row.action.before,proposed:row.action.proposed})});const body=await response.json() as {error?:string};if(!response.ok)throw new Error(`${row.listing}: ${body.error||'加入失败'}`);return row;}));await reloadQueue();setSelectedRecommendations([]);setBatchMessage(`已加入 ${results.length} 项到 API 执行批次。`);}catch(reason){setBatchMessage(reason instanceof Error?reason.message:'批量加入失败');}finally{setBatchBusy(false);}}
   async function prepareSelected(){const actions=apiQueuedActions.filter(action=>selectedQueue.includes(action.id)&&isBulkApprovable(action));if(!actions.length&&!approvedActions.length)return;setBatchBusy(true);setBatchMessage('');try{await Promise.all(actions.map(async action=>{const response=await fetch('/api/ads/actions',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id:action.id,status:'APPROVED'})});const body=await response.json() as {error?:string};if(!response.ok)throw new Error(`${action.listing}: ${body.error||'确认失败'}`);}));const body=await postExecution(true);setSelectedQueue([]);setBatchMessage(body.message||`已确认并预检 ${actions.length+approvedActions.length} 项。`);}catch(reason){setBatchMessage(reason instanceof Error?reason.message:'确认并预检失败');}finally{setBatchBusy(false);}}
   async function executeValidated(){if(!validatedActions.length||!window.confirm(`将正式修改 ${validatedActions.length} 项 Wayfair 广告。是否继续？`))return;setBatchBusy(true);setBatchMessage('');try{const body=await postExecution(false);setBatchMessage(body.message||'执行完成，逐项结果已更新。');}catch(reason){setBatchMessage(reason instanceof Error?reason.message:'广告执行失败');}finally{setBatchBusy(false);}}
-  async function toggleManualTask(id:string,parentSku:string,task:ManualAdTask){const completed=!manualDone.includes(id);const previous=manualDone;const next=completed?[...previous,id]:previous.filter(item=>item!==id);setManualDone(next);window.localStorage.setItem('manual-ad-todos:v1',JSON.stringify(next));setManualRecordMessage('正在保存服务器审计记录…');try{const response=await fetch('/api/ads/manual-completions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({taskKey:id,parentSku,taskId:task.id,campaignId:task.campaignId,adGroup:task.adGroup,title:task.title,completed})});const body=await response.json() as {record?:ManualCompletionRecord;error?:string};if(!response.ok||!body.record)throw new Error(body.error||'手动执行记录保存失败');setManualRecords(value=>({...value,[id]:body.record as ManualCompletionRecord}));setManualRecordMessage(completed?'已补录到服务器审计记录':'已重新打开并保留变更事件');}catch(reason){setManualDone(previous);window.localStorage.setItem('manual-ad-todos:v1',JSON.stringify(previous));setManualRecordMessage(reason instanceof Error?reason.message:'手动执行记录保存失败');}}
-  function updateZombieResolution(key:string,patch:Partial<ZombieResolution>){setZombieResolutions(value=>{const next={...value,[key]:{method:value[key]?.method||'',done:value[key]?.done||false,...patch}};window.localStorage.setItem(ZOMBIE_RESOLUTION_STORAGE_KEY,JSON.stringify(next));return next;});}
+  function patchManualDraft(id:string,patch:Partial<ManualCompletionRecord>){setManualDrafts(value=>({...value,[id]:{...value[id],...patch}}));}
+  async function saveManualTask(id:string,parentSku:string,task:ManualAdTask,status:ManualCompletionRecord['status']){const draft={...manualRecords[id],...manualDrafts[id]};setManualRecordMessage('正在写入统一任务账本…');try{const response=await fetch('/api/ads/manual-completions/',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({taskKey:id,parentSku,taskId:task.id,campaignId:task.campaignId,adGroup:task.adGroup,title:task.title,status,owner:draft.owner||'广告运营',executionResult:draft.executionResult||'',evidence:draft.evidence||'',acceptanceCriteria:draft.acceptanceCriteria||task.rule,acceptedBy:draft.acceptedBy||'',reviewDueAt:draft.reviewDueAt||''})});const body=await response.json() as {record?:ManualCompletionRecord;error?:string};if(!response.ok||!body.record)throw new Error(body.error||'手动任务保存失败');setManualRecords(value=>({...value,[id]:body.record as ManualCompletionRecord}));setManualDrafts(value=>{const next={...value};delete next[id];return next;});setManualDone(value=>status==='VERIFIED'?[...new Set([...value,id])]:value.filter(item=>item!==id));setManualRecordMessage(status==='VERIFIED'?'执行证据和验收已写入统一任务账本':status==='REOPENED'?'任务已重开，历史事件保留':'任务状态已更新');}catch(reason){setManualRecordMessage(reason instanceof Error?reason.message:'手动任务保存失败');}}
+  function patchZombieResolution(key:string,patch:Partial<ZombieResolution>){setZombieResolutions(value=>({...value,[key]:{...value[key],...patch} as ZombieResolution}));}
+  async function saveZombieResolution(item:ZombieCampaignFinding,status:ZombieResolution['status']){const key=zombieResolutionKey(item);const current=zombieResolutions[key];const methods=ZOMBIE_METHOD_OPTIONS[item.actionType];try{const response=await fetch('/api/ads/zombie-resolutions/',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({resolutionKey:key,campaignId:item.campaignId,listing:item.listing,actionType:item.actionType,method:current?.method||methods[0],owner:current?.owner||'广告运营',status,executionResult:current?.executionResult||'',evidence:current?.evidence||'',acceptanceCriteria:current?.acceptanceCriteria||`${current?.method||methods[0]} 已在 Wayfair 平台生效`,acceptedBy:current?.acceptedBy||''})});const body=await response.json() as {record?:ZombieResolution;error?:string};if(!response.ok||!body.record)throw new Error(body.error||'Zombie 处置保存失败');setZombieResolutions(value=>({...value,[key]:body.record as ZombieResolution}));setManualRecordMessage(status==='VERIFIED'?'Zombie 处置已提交证据并通过验收':'Zombie 处置进度已写入服务器');}catch(reason){setManualRecordMessage(reason instanceof Error?reason.message:'Zombie 处置保存失败');}}
   const visibleHistory=(data?.history||[]).filter(x=>x.date>=requested.start&&x.date<=requested.end);
   const dailySpendMax=Math.max(1,...visibleHistory.map(x=>x.spend));
   const liveSafetyKeys=new Set((data?.liveSafetyFindings||[]).map(row=>`${row.campaignId}:${row.listing}`));
@@ -727,7 +741,7 @@ function Ads({ tab }: { tab: AdsTab }) {
   const selectableQueueIds=selectableQueueActions.map(action=>action.id);
   const allSelectableActionsSelected=isBulkActionSelectionComplete({selectableRecommendationKeys,selectableQueueIds,selectedRecommendationKeys:selectedRecommendations,selectedQueueIds:selectedQueue});
   function toggleAllSelectableActions(){const next=nextBulkActionSelection({selectableRecommendationKeys,selectableQueueIds,selectedRecommendationKeys:selectedRecommendations,selectedQueueIds:selectedQueue});setSelectedRecommendations(next.recommendationKeys);setSelectedQueue(next.queueIds);}
-  const resolvedZombieCount=zombieFindings.filter(row=>zombieResolutions[zombieResolutionKey(row)]?.done).length;
+  const resolvedZombieCount=zombieFindings.filter(row=>zombieResolutions[zombieResolutionKey(row)]?.status==='VERIFIED').length;
   const keywordCampaigns=(data?.campaigns||[]).filter(row=>/keyword/i.test(row.targetingType)); const productCampaigns=(data?.campaigns||[]).filter(row=>/product/i.test(row.targetingType));
   const keywordSpend=keywordCampaigns.reduce((sum,row)=>sum+row.spend,0); const productSpend=productCampaigns.reduce((sum,row)=>sum+row.spend,0);
   const normalizedManagerQuery=managerQuery.trim().toLowerCase();
@@ -781,10 +795,15 @@ function Ads({ tab }: { tab: AdsTab }) {
       <section className="keyword-allocation-grid">{AD_BUDGET_ALLOCATION.map(item=>{const actual=item.id==='keyword'?keywordSpend:item.id==='product'?productSpend:null;return <article className={`card allocation-${item.id}`} key={item.id}><span>{item.share}</span><strong>${item.budget}</strong><h3>{item.label}</h3><p>{item.note}</p><small>{actual==null?'按计划释放':`所选周期已花 ${money2(actual)}`}</small></article>})}</section>
       <section className="card allocation-ledger"><div className="section-head"><div><span>LISTING × AD TYPE</span><h2>头部 Listing 分配</h2></div><b>Keyword $750 · Product $650 · B2B $150</b></div><div className="allocation-table"><div className="allocation-row head"><span>Listing</span><span>Keyword</span><span>Product</span><span>B2B</span><span>合计</span><span>分配理由</span></div>{KEYWORD_LISTING_ALLOCATION.map(item=><article className="allocation-row" key={item.listing}><strong>{item.listing}</strong><b>{money(item.keyword)}</b><b>{money(item.product)}</b><b>{money(item.b2b)}</b><strong>{money(item.total)}</strong><p>{item.reason}</p></article>)}</div><p className="allocation-note">其余容量：Canada $50，结构扩容 / 机动 $200；低效 Product 达到迁移 Gate 后，最多 $150 转给已过 Gate 的 Keyword。</p></section>
       <section className="card zombie-resolution-card"><div className="section-head"><div><span>MANUAL DIAGNOSIS</span><h2>Campaign / 资格诊断</h2></div><b>{resolvedZombieCount} / {zombieFindings.length} 已完成 · 硬僵尸 {zombieAudit.hard} · 准僵尸 {zombieAudit.near}</b></div>
-        <p className="allocation-note">这里只记录处理方式和完成状态，不加入 API 或人工执行清单。</p>
-        <div className="zombie-resolution-table"><div className="zombie-resolution-row head"><span>Campaign / Listing</span><span>成熟期证据</span><span>处理方式</span><span>是否完成</span></div>{zombieFindings.map(item=>{const key=zombieResolutionKey(item);const resolution=zombieResolutions[key];const methods=ZOMBIE_METHOD_OPTIONS[item.actionType];const method=resolution?.method||methods[0];const done=Boolean(resolution?.done);return <article className={`zombie-resolution-row ${done?'done':''}`} key={key}><div><span><em>{item.severity}</em><strong>{item.campaignName||`Campaign ${item.campaignId}`}</strong></span><small>ID {item.campaignId} · {item.listing} · {item.targetingType||'Targeting 未知'}</small></div><p><b>{item.metric.impressions} 曝光 · {money2(item.metric.spend)} · {item.metric.orders} 单</b><small>{item.linkStatus} · Bid {money2(item.bid)} · {item.label}</small></p><label>处理方式<select aria-label={`${item.listing} 处理方式`} value={method} onChange={event=>updateZombieResolution(key,{method:event.target.value})}>{methods.map(option=><option value={option} key={option}>{option}</option>)}</select></label><label className="zombie-done-toggle"><input type="checkbox" checked={done} onChange={event=>updateZombieResolution(key,{method,done:event.target.checked})}/><span>{done?'已完成':'待处理'}</span></label></article>})}{!loading&&!zombieFindings.length?<p className="empty-state">未发现满足规则的硬僵尸或准僵尸 Campaign。</p>:null}</div>
+        <p className="allocation-note">处置进入统一任务账本；只有提交执行结果、平台证据并由验收人确认后，才计为完成。</p>
+        <div className="zombie-resolution-table">{zombieFindings.map(item=>{const key=zombieResolutionKey(item);const resolution=zombieResolutions[key];const methods=ZOMBIE_METHOD_OPTIONS[item.actionType];const method=resolution?.method||methods[0];const done=resolution?.status==='VERIFIED';return <article className={`zombie-resolution-row ${done?'done':''}`} key={key}>
+          <div><span><em>{item.severity}</em><strong>{item.campaignName||`Campaign ${item.campaignId}`}</strong></span><small>ID {item.campaignId} · {item.listing} · {item.targetingType||'Targeting 未知'}</small></div>
+          <p><b>{item.metric.impressions} 曝光 · {money2(item.metric.spend)} · {item.metric.orders} 单</b><small>{item.linkStatus} · Bid {money2(item.bid)} · {item.label}</small></p>
+          <div className="zombie-method-fields"><label>处理方式<select aria-label={`${item.listing} 处理方式`} value={method} onChange={event=>patchZombieResolution(key,{method:event.target.value})}>{methods.map(option=><option value={option} key={option}>{option}</option>)}</select></label><label>负责人<input value={resolution?.owner||''} placeholder="广告运营" onChange={event=>patchZombieResolution(key,{owner:event.target.value})}/></label></div>
+          <div className="zombie-closure-form"><label>执行结果<input value={resolution?.executionResult||''} placeholder="平台实际状态或数值" onChange={event=>patchZombieResolution(key,{executionResult:event.target.value})}/></label><label>执行证据<input value={resolution?.evidence||''} placeholder="Partner Home 证据说明" onChange={event=>patchZombieResolution(key,{evidence:event.target.value})}/></label><label>验收人<input value={resolution?.acceptedBy||''} placeholder="负责人姓名" onChange={event=>patchZombieResolution(key,{acceptedBy:event.target.value})}/></label><div><button className="ghost" onClick={()=>saveZombieResolution(item,done?'REOPENED':'EXECUTING')}>{done?'重新打开':'保存进度'}</button><button className="primary" disabled={!resolution?.executionResult||!resolution?.evidence||!resolution?.acceptedBy} onClick={()=>saveZombieResolution(item,'VERIFIED')}>提交验收</button></div></div>
+        </article>})}{!loading&&!zombieFindings.length?<p className="empty-state">未发现满足规则的硬僵尸或准僵尸 Campaign。</p>:null}</div>
       </section>
-      <section className="card manual-todo-card"><div className="section-head"><div><span>OPERATOR CHECKLIST</span><h2>手动优化 To-Do List · 按父体 SKU</h2></div><b>服务器审计记录 · {manualDone.length} / {MANUAL_AD_TASK_COUNT} 已完成</b></div>{manualRecordMessage&&<p className="manual-record-message">{manualRecordMessage}</p>}<div className="manual-todo-list">{MANUAL_AD_TASK_GROUPS.map(group=>{const completed=group.tasks.filter(task=>manualDone.includes(manualTaskKey(group.sku,task.id))).length;return <details className={`manual-sku-group${completed===group.tasks.length?' done':''}`} open key={group.sku}><summary><span><small>PARENT SKU</small><strong>{group.sku}</strong></span><span><b>{completed} / {group.tasks.length} 完成</b><progress max={group.tasks.length} value={completed}/></span></summary><div className="manual-sku-actions">{group.tasks.map((task,index)=>{const taskId=manualTaskKey(group.sku,task.id);const done=manualDone.includes(taskId);const record=manualRecords[taskId];return <article className={`manual-todo-row${done?' done':''}`} key={taskId}><label className="manual-todo-check" title={done?'标记为未完成':'标记为已完成'}><input aria-label={`${group.sku} · ${task.adGroup}：${done?'标记为未完成':'标记为已完成'}`} type="checkbox" checked={done} onChange={()=>toggleManualTask(taskId,group.sku,task)}/></label><span className="manual-todo-priority"><i>{String(index+1).padStart(2,'0')}</i><em>{task.priority}</em><small>{task.group}</small><b>Campaign ID: {task.campaignId}</b></span><div className="manual-todo-content"><strong>{task.title}</strong><p>{task.detail}</p>{done&&record?.completedAt?<small className="manual-audit-time">服务器补录时间：{new Date(record.completedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})}</small>:null}<dl className="manual-task-details"><div><dt>广告组</dt><dd>{task.adGroup}</dd></div><div><dt>Campaign ID</dt><dd>{task.campaignId}</dd></div><div><dt>具体 SKU</dt><dd>{task.sku}</dd></div><div><dt>广告类型</dt><dd>{task.adType}</dd></div><div><dt>关键词</dt><dd>{task.keywords}</dd></div><div><dt>匹配</dt><dd>{task.match}</dd></div><div><dt>起始 Bid</dt><dd>{task.bid}</dd></div><div><dt>预算</dt><dd>{task.budget}</dd></div><div className="rule"><dt>执行 / 验收规则</dt><dd>{task.rule}</dd></div></dl></div></article>})}</div></details>})}</div></section>
+      <section className="card manual-todo-card"><div className="section-head"><div><span>OPERATOR CHECKLIST</span><h2>手动优化 To-Do List · 按父体 SKU</h2></div><b>统一任务账本 / 服务器审计记录 · {manualDone.length} / {MANUAL_AD_TASK_COUNT} 已验收</b></div>{manualRecordMessage&&<p className="manual-record-message">{manualRecordMessage}</p>}<div className="manual-todo-list">{MANUAL_AD_TASK_GROUPS.map(group=>{const completed=group.tasks.filter(task=>manualDone.includes(manualTaskKey(group.sku,task.id))).length;return <details className={`manual-sku-group${completed===group.tasks.length?' done':''}`} open key={group.sku}><summary><span><small>PARENT SKU</small><strong>{group.sku}</strong></span><span><b>{completed} / {group.tasks.length} 已验收</b><progress max={group.tasks.length} value={completed}/></span></summary><div className="manual-sku-actions">{group.tasks.map((task,index)=>{const taskId=manualTaskKey(group.sku,task.id);const record=manualRecords[taskId];const draft={...record,...manualDrafts[taskId]};const done=record?.status==='VERIFIED';const progressStatus:ManualCompletionRecord['status']=done||record?.status==='PENDING_ACCEPTANCE'?'REOPENED':'IN_PROGRESS';return <article className={`manual-todo-row${done?' done':''}`} key={taskId}><span className="manual-todo-priority"><i>{String(index+1).padStart(2,'0')}</i><em>{task.priority}</em><small>{task.group}</small><b>Campaign ID: {task.campaignId}</b><strong>{record?.status||'OPEN'}</strong></span><div className="manual-todo-content"><strong>{task.title}</strong><p>{task.detail}</p>{done&&record?.completedAt?<small className="manual-audit-time">验收时间：{new Date(record.completedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})}</small>:null}<dl className="manual-task-details"><div><dt>广告组</dt><dd>{task.adGroup}</dd></div><div><dt>Campaign ID</dt><dd>{task.campaignId}</dd></div><div><dt>具体 SKU</dt><dd>{task.sku}</dd></div><div><dt>广告类型</dt><dd>{task.adType}</dd></div><div><dt>关键词</dt><dd>{task.keywords}</dd></div><div><dt>匹配</dt><dd>{task.match}</dd></div><div><dt>起始 Bid</dt><dd>{task.bid}</dd></div><div><dt>预算</dt><dd>{task.budget}</dd></div><div className="rule"><dt>执行 / 验收规则</dt><dd>{task.rule}</dd></div></dl><div className="manual-task-closure"><label>负责人<input value={draft.owner||''} placeholder="广告运营" onChange={event=>patchManualDraft(taskId,{owner:event.target.value})}/></label><label>执行结果<input value={draft.executionResult||''} placeholder="填写平台实际数值或状态" onChange={event=>patchManualDraft(taskId,{executionResult:event.target.value})}/></label><label>执行证据<input value={draft.evidence||''} placeholder="填写 Partner Home 证据说明" onChange={event=>patchManualDraft(taskId,{evidence:event.target.value})}/></label><label>验收人<input value={draft.acceptedBy||''} placeholder="负责人姓名" onChange={event=>patchManualDraft(taskId,{acceptedBy:event.target.value})}/></label><label>成熟复盘日<input type="date" value={draft.reviewDueAt||''} onChange={event=>patchManualDraft(taskId,{reviewDueAt:event.target.value})}/></label><div><button className="ghost" onClick={()=>saveManualTask(taskId,group.sku,task,progressStatus)}>{done||record?.status==='PENDING_ACCEPTANCE'?'重新打开':'保存进度'}</button><button className="primary" disabled={!draft.executionResult||!draft.evidence||!draft.acceptedBy||record?.status==='REOPENED'} onClick={()=>saveManualTask(taskId,group.sku,task,'VERIFIED')}>提交验收</button></div></div></div></article>})}</div></details>})}</div></section>
     </div>}
     {tab==='ai'&&<>
     <div className="card model-shadow-card"><div className="section-head"><div><span>MODEL FIRST · READ ONLY</span><h2>广告决策模型 · Shadow</h2></div><b>{decisionModel?`${decisionModel.version} · ${decisionModel.summary.actionableInShadow} 个 Canary 候选 · ${decisionModel.summary.blocked} 个阻断`:'等待成熟数据'}</b></div>
@@ -982,6 +1001,42 @@ function ProductWorkspace({ tab }: { tab: ProductTab }) {
   </>;
 }
 
+const OPERATION_STATUS_LABELS:Record<string,string>={
+  DISCOVERED:'待分派',ASSIGNED:'已分派',PENDING_APPROVAL:'待审批',PREFLIGHTED:'已预检',
+  EXECUTING:'执行中',PENDING_ACCEPTANCE:'待验收',VERIFIED:'已验证',
+  PENDING_REVIEW:'待复盘',CLOSED:'已闭环',FAILED:'失败',ROLLED_BACK:'已回滚',REOPENED:'已重开',
+};
+
+function TaskCenter() {
+  const [records,setRecords]=useState<OperationRecord[]>([]);
+  const [status,setStatus]=useState('ACTIVE');
+  const [query,setQuery]=useState('');
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  useEffect(()=>{
+    const controller=new AbortController();
+    fetch('/api/operations/',{signal:controller.signal})
+      .then(async response=>{const body=await response.json() as {records?:OperationRecord[];error?:string};if(!response.ok)throw new Error(body.error||'闭环任务读取失败');return body.records||[];})
+      .then(setRecords)
+      .catch(reason=>{if(reason.name!=='AbortError')setError(reason.message||'闭环任务读取失败');})
+      .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    return()=>controller.abort();
+  },[]);
+  const needle=query.trim().toLowerCase();
+  const visible=records.filter(record=>(status==='ALL'||(status==='ACTIVE'?!['CLOSED','ROLLED_BACK'].includes(record.status):record.status===status))&&(!needle||[record.title,record.objectId,record.owner,record.sourceType].some(value=>String(value||'').toLowerCase().includes(needle))));
+  const pendingAcceptance=records.filter(record=>record.status==='PENDING_ACCEPTANCE').length;
+  const pendingReview=records.filter(record=>record.status==='PENDING_REVIEW').length;
+  const closed=records.filter(record=>record.status==='CLOSED').length;
+  return <><Hero eyebrow="" title="闭环任务" text="" />
+    <section className="card task-center-summary"><div><span>统一任务账本</span><h2>从发现到验收与复盘</h2><p>所有新动作都通过 operation ID 关联业务对象、负责人、证据、验收和复盘；复选框不再代表完成。</p></div><article><small>待验收</small><b>{pendingAcceptance}</b></article><article><small>待复盘</small><b>{pendingReview}</b></article><article><small>已闭环</small><b>{closed}</b></article></section>
+    <section className="card task-center-board">
+      <div className="task-center-tools"><label>搜索<input value={query} onChange={event=>setQuery(event.target.value)} placeholder="对象、负责人或任务"/></label><label>状态<select value={status} onChange={event=>setStatus(event.target.value)}><option value="ACTIVE">全部未闭环</option><option value="ALL">全部</option>{Object.entries(OPERATION_STATUS_LABELS).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label><b>{visible.length} 条</b></div>
+      {error?<p className="inventory-message bad">{error}</p>:null}
+      <div className="task-center-list">{visible.map(record=><article className="task-card" key={record.operationId}><header><span className={`operation-status status-${record.status.toLowerCase()}`}>{OPERATION_STATUS_LABELS[record.status]||record.status}</span><b>{record.title}</b><time>{new Date(record.updatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})}</time></header><div className="task-card-grid"><span><small>业务对象</small><b>{record.objectType} · {record.objectId}</b></span><span><small>负责人</small><b>{record.owner}</b></span><span><small>来源</small><b>{record.sourceType}</b></span><span><small>Operation ID</small><b>{record.operationId}</b></span></div><p><b>下一动作：</b>{record.proposedAction}</p>{record.executionResult?<p><b>执行结果：</b>{record.executionResult}</p>:null}<footer><span>证据 {record.evidence?.length||0} 项</span><span>验收人 {record.acceptedBy||'待补充'}</span><span>复盘 {record.reviewVerdict||record.reviewDueAt||'待安排'}</span></footer></article>)}{!loading&&!visible.length?<p className="empty-state">当前筛选没有任务。执行或记录第一项动作后会进入统一账本。</p>:null}{loading?<p className="empty-state">正在读取统一任务账本…</p>:null}</div>
+    </section>
+  </>;
+}
+
 function Sources() {
   const retained=readClientCache<SystemReadiness>('system:readiness',CLIENT_CACHE_RETENTION_MS);
   const [data,setData]=useState<SystemReadiness|null>(retained);
@@ -1014,6 +1069,6 @@ export default function OpsCenter() {
   useEffect(()=>{window.scrollTo(0,0);const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view]);
   const activeSub: SubView | null=view==='ads'?adsTab:view==='planning'?planningTab:view==='products'?productTab:null;
   function navigateSub(next:SubView){if(view==='ads'&&(next==='manager'||next==='listings'||next==='ai'||next==='manual'||next==='review'))setAdsTab(next);if(view==='planning'&&(next==='plan'||next==='review'||next==='history'))setPlanningTab(next);if(view==='products'&&(next==='inventory'||next==='catalog'||next==='launch'||next==='performance'))setProductTab(next);}
-  const page=useMemo(()=>({dashboard:<Dashboard/>,daily:<Daily/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={setPlanningTab}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view],[view,adsTab,planningTab,productTab]);
+  const page=useMemo(()=>({dashboard:<Dashboard/>,tasks:<TaskCenter/>,daily:<Daily/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={setPlanningTab}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view],[view,adsTab,planningTab,productTab]);
   return <div className="app app-shell"><ShellHeader active={view} activeSub={activeSub} onNavigate={setView} onSubNavigate={navigateSub}/><div className="content-shell"><main>{page}</main><footer><span>Wayfair AI 运营中台</span><span>个人测试阶段</span></footer></div></div>;
 }
