@@ -90,7 +90,8 @@ test("integrates Git-backed SKU economics and 13-month history", async () => {
   assert.equal(data.trend.months.length, 13);
   assert.match(page, /id: "performance", label: "SKU 经营"/);
   assert.match(page, /id: "history", label: "历史月度"/);
-  assert.match(page, /SKU 经营表现/);
+  assert.match(page, /当前运营角色与利润审计/);
+  assert.match(page, /历史 Part 经营表现/);
   assert.match(page, /13 个月账户全景/);
   assert.match(page, /广告依赖度 · 2026年1–6月/);
 });
