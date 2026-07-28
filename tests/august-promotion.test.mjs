@@ -60,6 +60,7 @@ test("maps all 21 current Parts to a completed submission or evidence-based hold
     held.map((item) => item.part),
     ["5T-1830-900"],
   );
+  assert.equal(held[0].inventoryOnHand, 37);
   assert.ok(held.every((item) => item.reason.length >= 12));
 });
 
