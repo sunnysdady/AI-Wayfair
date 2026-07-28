@@ -291,6 +291,28 @@ test("fails closed when verification fields are omitted", () => {
   assert.equal(result.decisions[0].suggestedAction, "HOLD");
 });
 
+test("blocks scale when the linked August listing budget is zero", () => {
+  const executionPlan = {
+    targetMetric: "ORDERS",
+    listingTargetOrders: 2,
+    listingBaseAdBudget: 0,
+    listingCanaryBudget: 0,
+    listingPlannedAdBudget: 0,
+    scaleEligible: false,
+    portfolioStageOneAdCap: 1861.1,
+    portfolioStageTwoAdCap: 2019.57,
+  };
+  const result = buildAdDecisionModel({
+    asOf: "2026-08-08",
+    units: [unit({ executionPlan })],
+  });
+
+  const decision = result.decisions[0];
+  assert.ok(decision.blockers.includes("AUGUST_PLAN_AD_BUDGET_ZERO"));
+  assert.equal(decision.suggestedAction, "HOLD");
+  assert.deepEqual(decision.executionPlan, executionPlan);
+});
+
 test("normalizes both Wayfair B2B field spellings without mixing audiences", () => {
   assert.deepEqual(normalizeAdAudience({ isB2B: "true" }), { known: true, isB2B: true, key: "B2B" });
   assert.deepEqual(normalizeAdAudience({ isB2b: "false" }), { known: true, isB2B: false, key: "B2C" });
