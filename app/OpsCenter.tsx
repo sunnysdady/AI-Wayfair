@@ -39,6 +39,10 @@ type LegacySku = { "Supplier Part Number":string;"Wayfair Sku":string;"Product N
 type LegacyOperatingData = { meta:{store:string;biz_month:string};skus:LegacySku[];trend:{months:string[];revenue:Array<number|null>;orders:Array<number|null>;sessions:Array<number|null>;cvr:Array<number|null>;sp_spend:Array<number|null>};acct_monthly:Array<{m:number;orders:number;ad_orders:number;spend:number;rev:number}> };
 const LEGACY_OPERATING_DATA=legacyOperatingDataSource as unknown as LegacyOperatingData;
 
+type ProductAuditAccount = { period:string;label:string;days:number;orders:number;units:number;revenue:number;procurementProfit:number;procurementMargin:number;campaignAdSpend:number;contributionProxy:number;contributionMargin:number;revenuePerDay:number;contributionPerDay:number };
+type ProductAuditRole = { listing:string;tier:string;role:string;confidence:string;actionGuardrail:string;platformStatus:string;lastExecutionResult:null;parts:string[];conflictParts:string[];mature56Units:number;julyVsJuneDaily:number|null;matureMargin:number|null;listingAdSpend:number;listingRoas:number|null;breakEvenRoas:number|null;knownContributionUpperBound:number;operatorNote:string };
+type ProductOperatingAudit = { auditId:string;version:string;asOfDate:string;performanceThrough:string;roleEvidenceStart:string;roleEvidenceThrough:string;costUpdatedAt:string;sourceSnapshotSha256:string;review:{owner:string;reviewedAt:string;verdict:string};matureWindow:{start:string;end:string;days:number};profitDefinition:string;executionRule:string;account:ProductAuditAccount[];roles:ProductAuditRole[];adCoverage:{campaignSpend:number;listingAllocatedSpend:number;unallocatedSpend:number;listingCoverageRate:number};quality:{soldSkuCostCoverage:number;costHistoryRows:number;matureUnallocatedAdSpend:number;inventoryDuplicateGroups:number;sharedSourceSkuCount:number;multiListingPartCount:number;missingNetProfitInputs:string[]} };
+
 type OrderMetric = { revenue: number; orders: number; units: number; aov: number; advertisingBeforeGrossProfit: number; contributionAfterAds: number | null; advertisingSpend: number | null; advertisingCoverage: string; profitMode: "estimated" | "cost-covered"; costCoverage: number; marginRate: number };
 type OrderSummary = {
   current: OrderMetric;
@@ -846,12 +850,73 @@ function NewProductSopWorkspace() {
 }
 
 function SkuOperatingPerformance() {
-  const [query,setQuery]=useState('');const [category,setCategory]=useState('ALL');const [sort,setSort]=useState<SortState>({key:'revenue',direction:'desc'});
+  const retained=readClientCache<ProductOperatingAudit>('product-operating-audit:2026-07-27.v2',CLIENT_CACHE_RETENTION_MS);
+  const [audit,setAudit]=useState<ProductOperatingAudit|null>(retained);
+  const [auditError,setAuditError]=useState('');
+  const [query,setQuery]=useState('');
+  const [tier,setTier]=useState('ALL');
+  const [category,setCategory]=useState('ALL');
+  const [sort,setSort]=useState<SortState>({key:'revenue',direction:'desc'});
+  useEffect(()=>{
+    const controller=new AbortController();
+    fetch('/api/products/operating-audit',{signal:controller.signal})
+      .then(async response=>{const body=await response.json() as ProductOperatingAudit&{error?:string};if(!response.ok)throw new Error(body.error||'产品运营审计读取失败');return body;})
+      .then(body=>{setAudit(body);writeClientCache('product-operating-audit:2026-07-27.v2',body);})
+      .catch(reason=>{if(reason.name!=='AbortError')setAuditError(reason.message||'产品运营审计读取失败');});
+    return()=>controller.abort();
+  },[]);
   const categories=Array.from(new Set(LEGACY_OPERATING_DATA.skus.map(item=>item["Class Name"]).filter(Boolean))).sort();
   const needle=query.trim().toLowerCase();
-  const rows=sortRows(LEGACY_OPERATING_DATA.skus.filter(item=>(category==='ALL'||item["Class Name"]===category)&&(!needle||[item["Wayfair Sku"],item["Supplier Part Number"],item["Product Name"],item.cn_name].some(value=>String(value||'').toLowerCase().includes(needle)))),sort,{sku:(item:LegacySku)=>item["Wayfair Sku"],name:(item:LegacySku)=>item.cn_name||item["Product Name"],category:(item:LegacySku)=>item["Class Name"],grade:(item:LegacySku)=>item.grade,revenue:(item:LegacySku)=>item["Total Revenue"],cvr:(item:LegacySku)=>item.CVR,sessions:(item:LegacySku)=>item.Sessions,rating:(item:LegacySku)=>item.rating,tag:(item:LegacySku)=>item.tag_pct,wsc:(item:LegacySku)=>item.wsc,cogs:(item:LegacySku)=>item.cogs,margin:(item:LegacySku)=>item.my_margin,space:(item:LegacySku)=>item.wf_space}) as LegacySku[];
+  const roleRows=(audit?.roles||[]).filter(row=>(tier==='ALL'||row.tier===tier)&&(!needle||[row.listing,row.tier,row.role,...row.parts,...row.conflictParts].some(value=>String(value||'').toLowerCase().includes(needle))));
+  const legacyRows=sortRows(LEGACY_OPERATING_DATA.skus.filter(item=>(category==='ALL'||item["Class Name"]===category)&&(!needle||[item["Wayfair Sku"],item["Supplier Part Number"],item["Product Name"],item.cn_name].some(value=>String(value||'').toLowerCase().includes(needle)))),sort,{sku:(item:LegacySku)=>item["Wayfair Sku"],name:(item:LegacySku)=>item.cn_name||item["Product Name"],category:(item:LegacySku)=>item["Class Name"],grade:(item:LegacySku)=>item.grade,revenue:(item:LegacySku)=>item["Total Revenue"],cvr:(item:LegacySku)=>item.CVR,sessions:(item:LegacySku)=>item.Sessions,rating:(item:LegacySku)=>item.rating,tag:(item:LegacySku)=>item.tag_pct,wsc:(item:LegacySku)=>item.wsc,cogs:(item:LegacySku)=>item.cogs,margin:(item:LegacySku)=>item.my_margin,space:(item:LegacySku)=>item.wf_space}) as LegacySku[];
   const onSort=(field:string)=>setSort(value=>nextSort(value,field) as SortState);
-  return <section className="card legacy-data-card"><div className="section-head"><div><span>2026-06 经营基线</span><h2>SKU 经营表现</h2></div><b>{rows.length} / {LEGACY_OPERATING_DATA.skus.length} 个 Part</b></div><div className="legacy-filters"><label>搜索<input value={query} onChange={event=>setQuery(event.target.value)} placeholder="SKU、Supplier Part 或名称"/></label><label>类目<select value={category} onChange={event=>setCategory(event.target.value)}><option value="ALL">全部类目</option>{categories.map(item=><option value={item} key={item}>{item}</option>)}</select></label></div><div className="legacy-table-scroll"><div className="legacy-table sku-economics-table"><div className="legacy-row head"><SortHeader label="产品 / Part" field="sku" sort={sort} onSort={onSort}/><SortHeader label="中文名" field="name" sort={sort} onSort={onSort}/><SortHeader label="类目" field="category" sort={sort} onSort={onSort}/><SortHeader label="级" field="grade" sort={sort} onSort={onSort}/><SortHeader label="营收" field="revenue" sort={sort} onSort={onSort}/><SortHeader label="CVR · 访问" field="cvr" sort={sort} onSort={onSort}/><SortHeader label="评分 · 评论" field="rating" sort={sort} onSort={onSort}/><SortHeader label="Tag%" field="tag" sort={sort} onSort={onSort}/><SortHeader label="WSC" field="wsc" sort={sort} onSort={onSort}/><SortHeader label="拿货" field="cogs" sort={sort} onSort={onSort}/><SortHeader label="毛利率" field="margin" sort={sort} onSort={onSort}/><SortHeader label="空间" field="space" sort={sort} onSort={onSort}/></div>{rows.map((item,index)=><article className="legacy-row" key={`${item["Supplier Part Number"]}:${index}`}><span><b>{item["Wayfair Sku"]}</b><small>{item["Supplier Part Number"]}</small></span><span><b>{item.cn_name||'—'}</b><small>{item["Product Name"]}</small></span><span>{item["Class Name"]}</span><em className={`grade grade-${String(item.grade||'c').toLowerCase()}`}>{item.grade||'—'}</em><b>{money(item["Total Revenue"])}</b><span><b>{(item.CVR*100).toFixed(2)}%</b><small>{item.Sessions} 访</small></span><span><b>{item.rating||'—'}</b><small>{item.review_count||0} 条</small></span><b>{item.tag_pct.toFixed(0)}%</b><b>{money2(item.wsc)}</b><b>{money2(item.cogs)}</b><span className={item.my_margin>=.2?'good':'bad'}><b>{(item.my_margin*100).toFixed(1)}%</b><small>{money2(item.my_profit)}</small></span><b className={item.wf_space>=.2?'good':'bad'}>{(item.wf_space*100).toFixed(0)}%</b></article>)}</div></div></section>;
+  const june=audit?.account.find(row=>row.period==='Jun');
+  const july=audit?.account.find(row=>row.period==='Jul26');
+  const dailyRevenueDelta=june&&july?july.revenuePerDay/june.revenuePerDay-1:null;
+  const dailyContributionDelta=june&&july?july.contributionPerDay/june.contributionPerDay-1:null;
+  return <div className="product-audit-workspace">
+    <section className="card product-audit-summary">
+      <div className="section-head"><div><span>父体 LISTING 运营角色 · 不授权动作</span><h2>当前运营角色与利润审计</h2></div><b>{audit?.version||'读取中'}</b></div>
+      {auditError?<p className="inventory-message bad">{auditError}</p>:null}
+      <div className="product-audit-meta">
+        <span><b>指标完整截止</b>{audit?.performanceThrough||'—'}</span>
+        <span><b>角色证据截止</b>{audit?.roleEvidenceThrough||'—'}</span>
+        <span><b>角色版本</b>{audit?.version||'—'}</span>
+        <span><b>成本更新时间</b>{audit?.costUpdatedAt?new Date(audit.costUpdatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'—'}</span>
+        <span><b>审核负责人</b>{audit?.review.owner||'—'}</span>
+      </div>
+      <div className="product-audit-account">
+        <article><small>采购价差毛利率</small><b>{july?`${(july.procurementMargin*100).toFixed(2)}%`:'—'}</b><span>6月 {june?`${(june.procurementMargin*100).toFixed(2)}%`:'—'}</span></article>
+        <article><small>日均收入</small><b>{july?money(july.revenuePerDay):'—'}</b><span>{dailyRevenueDelta==null?'—':`${(dailyRevenueDelta*100).toFixed(1)}% vs 6月`}</span></article>
+        <article><small>日均已知费用后贡献代理</small><b>{july?money(july.contributionPerDay):'—'}</b><span>{dailyContributionDelta==null?'—':`${(dailyContributionDelta*100).toFixed(1)}% vs 6月`}</span></article>
+        <article><small>成熟广告覆盖缺口</small><b>{audit?money(audit.adCoverage.unallocatedSpend):'—'}</b><span>{audit?`${(audit.adCoverage.listingCoverageRate*100).toFixed(1)}% 已分到 Listing`:'—'}</span></article>
+      </div>
+      <div className="product-audit-contract"><b>只读动作约束</b><p>{audit?.executionRule||'G4 默认 HOLD；审计视图不生成任何执行动作。'}</p><small>{audit?.profitDefinition||'采购价差毛利及已知费用后贡献上限不是净利润。'}</small></div>
+    </section>
+    <section className="card product-audit-card">
+      <div className="legacy-filters"><label>搜索<input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Listing、Part 或运营角色"/></label><label>角色层级<select value={tier} onChange={event=>setTier(event.target.value)}><option value="ALL">全部角色</option>{['G1','G2','G3','G4-D','G4-R','GX'].map(value=><option value={value} key={value}>{value}</option>)}</select></label></div>
+      <div className="product-audit-table"><div className="product-audit-row head"><span>Listing / Part</span><span>运营角色</span><span>动作约束</span><span>成熟证据</span><span>采购价差毛利</span><span>Listing广告</span><span>已知费用后贡献上限</span><span>运营说明</span></div>
+        {roleRows.map(row=><article className={`product-audit-row ${row.tier==='GX'?'isolated':''}`} key={row.listing}>
+          <span><b>{row.listing}</b><small>{row.parts.length?row.parts.join(' / '):'未绑定 Part（隔离）'}</small>{row.conflictParts.length?<em>冲突候选，不归属：{row.conflictParts.join(' / ')}</em>:null}</span>
+          <span><i className={`product-audit-tier tier-${row.tier.replace(/[^a-z0-9]/gi,'').toLowerCase()}`}>{row.tier}</i><b>{row.role}</b><small>置信度 {row.confidence}</small></span>
+          <span><strong className={row.actionGuardrail==='HARD_STOP_REQUIRED'?'bad':'neutral'}>{row.actionGuardrail}</strong><small>平台状态 {row.platformStatus}</small><small>最近执行结果 {row.lastExecutionResult||'无'}</small></span>
+          <span><b>{row.mature56Units} 件 / 56日</b><small>{row.julyVsJuneDaily==null?'动量 N/A':`7月日销 ${(row.julyVsJuneDaily*100).toFixed(1)}%`}</small><small>{audit?.matureWindow.start} → {audit?.matureWindow.end} · T-14成熟</small></span>
+          <span><b>{row.matureMargin==null?'N/A':`${(row.matureMargin*100).toFixed(1)}%`}</b><small>未扣退货/物流/扣款/活动费</small></span>
+          <span><b>{row.listingAdSpend>0&&row.listingRoas!=null?`${row.listingRoas.toFixed(2)}×`:'N/A'}</b><small>保本 {row.breakEvenRoas==null?'N/A':`${row.breakEvenRoas.toFixed(2)}×`}</small><em>广告覆盖缺口 {audit?money(audit.adCoverage.unallocatedSpend):'—'}</em></span>
+          <span className={row.knownContributionUpperBound<0?'bad':'good'}><b>{money(row.knownContributionUpperBound)}</b><small>非净利润 · 非广告增量利润</small></span>
+          <span><p>{row.operatorNote}</p><small>角色证据截止 {audit?.roleEvidenceThrough||'—'} · 成本 {audit?.costUpdatedAt?.slice(0,10)||'—'}</small></span>
+        </article>)}
+        {!audit&&!auditError?<p className="empty-state">正在读取产品运营审计…</p>:null}
+        {audit&&!roleRows.length?<p className="empty-state">没有符合筛选条件的父体 Listing。</p>:null}
+      </div>
+    </section>
+    <details className="card legacy-data-card">
+      <summary><span>历史基线 · 仅作证据</span><b>2026-06旧收入层级 · 旧 A/B/C/D 不用于当前动作</b><small>DRCI1007 曾为 A 级，但因平台合并仍属于永久剔除，证明旧收入层级不能作为动作授权。</small></summary>
+      <div className="section-head"><div><span>2026-06旧收入层级</span><h2>历史 Part 经营表现</h2></div><b>{legacyRows.length} / {LEGACY_OPERATING_DATA.skus.length} 个 Part</b></div>
+      <div className="legacy-filters"><label>类目<select value={category} onChange={event=>setCategory(event.target.value)}><option value="ALL">全部类目</option>{categories.map(item=><option value={item} key={item}>{item}</option>)}</select></label></div>
+      <div className="legacy-table-scroll"><div className="legacy-table sku-economics-table"><div className="legacy-row head"><SortHeader label="产品 / Part" field="sku" sort={sort} onSort={onSort}/><SortHeader label="中文名" field="name" sort={sort} onSort={onSort}/><SortHeader label="类目" field="category" sort={sort} onSort={onSort}/><SortHeader label="旧收入层级" field="grade" sort={sort} onSort={onSort}/><SortHeader label="营收" field="revenue" sort={sort} onSort={onSort}/><SortHeader label="CVR · 访问" field="cvr" sort={sort} onSort={onSort}/><SortHeader label="评分 · 评论" field="rating" sort={sort} onSort={onSort}/><SortHeader label="Tag%" field="tag" sort={sort} onSort={onSort}/><SortHeader label="WSC" field="wsc" sort={sort} onSort={onSort}/><SortHeader label="旧拿货成本" field="cogs" sort={sort} onSort={onSort}/><SortHeader label="旧毛利率" field="margin" sort={sort} onSort={onSort}/><SortHeader label="空间" field="space" sort={sort} onSort={onSort}/></div>{legacyRows.map((item,index)=><article className="legacy-row" key={`${item["Supplier Part Number"]}:${index}`}><span><b>{item["Wayfair Sku"]}</b><small>{item["Supplier Part Number"]}</small></span><span><b>{item.cn_name||'—'}</b><small>{item["Product Name"]}</small></span><span>{item["Class Name"]}</span><em>{item.grade||'—'}</em><b>{money(item["Total Revenue"])}</b><span><b>{(item.CVR*100).toFixed(2)}%</b><small>{item.Sessions} 访</small></span><span><b>{item.rating||'—'}</b><small>{item.review_count||0} 条</small></span><b>{item.tag_pct.toFixed(0)}%</b><b>{money2(item.wsc)}</b><b>{money2(item.cogs)}</b><span><b>{(item.my_margin*100).toFixed(1)}%</b><small>{money2(item.my_profit)}</small></span><b>{(item.wf_space*100).toFixed(0)}%</b></article>)}</div></div>
+    </details>
+  </div>;
 }
 
 function MonthlyOperatingHistory() {
