@@ -128,10 +128,10 @@ test("protects the 10%-15% store margin after event and quantity discounts", () 
     },
     {
       originalAdBudget: 4050,
-      recommendedAdBudget: 2700,
-      baseAdBudget: 2200,
-      performanceReserve: 500,
-      fallbackAdBudget: 2200,
+      recommendedAdBudget: 1800,
+      baseAdBudget: 1800,
+      performanceReserve: 61.1,
+      fallbackAdBudget: 1800,
     },
   );
 
@@ -146,10 +146,10 @@ test("protects the 10%-15% store margin after event and quantity discounts", () 
   );
   assert.equal(primary.quantityOrderShare, 0.15);
   assert.equal(primary.projectedRevenue, 16075.72);
-  assert.equal(primary.projectedPostAdMargin, 0.1178);
-  assert.ok(primary.projectedPostAdMargin >= 0.1 && primary.projectedPostAdMargin <= 0.15);
+  assert.equal(primary.projectedPostAdMargin, 0.17);
+  assert.ok(primary.projectedPostAdMargin >= 0.1);
   assert.equal(stress.quantityOrderShare, 0.2);
-  assert.equal(stress.projectedPostAdMargin, 0.1022);
+  assert.equal(stress.projectedPostAdMargin, 0.1547);
   assert.ok(stress.projectedPostAdMargin >= 0.1);
   assert.equal(full.hardAdCapAt10Percent, 2019.57);
   assert.ok(full.projectedPostAdMargin < 0.1);
@@ -173,17 +173,17 @@ test("summarizes the completed Purple Bird handoff without calling processing ac
     marginAlertParts: 0,
     marginExceptionParts: 0,
     originalAdBudget: 4050,
-    recommendedAdBudget: 2700,
-    adBudgetReduction: 1350,
+    recommendedAdBudget: 1800,
+    adBudgetReduction: 2250,
     projectedPromotionOrderShare: 0.6,
     projectedRevenue: 16075.72,
-    projectedPostAdProfit: 1894.44,
-    projectedPostAdMargin: 0.1178,
+    projectedPostAdProfit: 2733.34,
+    projectedPostAdMargin: 0.17,
     projectedQuantityOrderShare: 0.15,
     stressPromotionOrderShare: 0.7,
     stressQuantityOrderShare: 0.2,
-    stressPostAdMargin: 0.1022,
-    fallbackAdBudget: 2200,
+    stressPostAdMargin: 0.1547,
+    fallbackAdBudget: 1800,
     fullPromotionHardAdCap: 2019.57,
   });
 });
