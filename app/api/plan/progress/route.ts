@@ -9,6 +9,11 @@ import {
   MAKEACE_CPC_PLAN,
   WEEKLY_MILESTONES,
 } from "../../../../lib/operating-plan";
+import {
+  AUGUST_PROMOTION_EVENTS,
+  AUGUST_PROMOTION_PLAN,
+  promotionReviewSummary,
+} from "../../../../lib/august-promotion.mjs";
 import { cachedAdSpend } from "../../../../lib/wayfair-ads";
 import { eventCycleForDate } from "../../../../lib/event-cycle.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
@@ -120,6 +125,9 @@ export async function GET() {
         plan: AUGUST_PLAN,
         listings: AUGUST_PLAN_LISTINGS.filter((item) => Number(item.augustUnits || 0) > 0).map((item) => ({ ...item, actualUnits: 0 })),
         milestones: WEEKLY_MILESTONES,
+        promotionEvents: AUGUST_PROMOTION_EVENTS,
+        promotionPlan: AUGUST_PROMOTION_PLAN,
+        promotionSummary: promotionReviewSummary(AUGUST_PROMOTION_PLAN),
       },
     });
   } catch (error) {
