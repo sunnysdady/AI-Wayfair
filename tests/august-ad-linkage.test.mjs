@@ -6,6 +6,7 @@ import {
   AUGUST_SALES_PLAN_ROWS,
   augustSalesPlanForListing,
 } from "../lib/august-sales-plan.mjs";
+import { AUGUST_PLAN_LISTINGS } from "../lib/operating-plan.ts";
 
 test("exposes the same per-listing August budget to advertising optimization", () => {
   assert.deepEqual(augustSalesPlanForListing("DMOM1021"), {
@@ -28,10 +29,18 @@ test("exposes the same per-listing August budget to advertising optimization", (
     AUGUST_SALES_PLAN_ROWS.reduce((sum, row) => sum + row.plannedAdBudget, 0),
     1861.1,
   );
+  assert.equal(
+    AUGUST_PLAN_LISTINGS.reduce((sum, row) => sum + row.budget, 0),
+    1800,
+  );
+  for (const row of AUGUST_PLAN_LISTINGS) {
+    const linked = augustSalesPlanForListing(row.listing);
+    if (linked) assert.equal(row.budget, linked.baseAdBudget);
+  }
 });
 
 test("wires August targets and budget eligibility into model input, To-Do, and execution", async () => {
-  const [analysis, route, experimentPolicy] = await Promise.all([
+  const [analysis, route, experimentPolicy, page] = await Promise.all([
     readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
     readFile(
       new URL("../app/api/ads/actions/execute/route.ts", import.meta.url),
@@ -41,6 +50,7 @@ test("wires August targets and budget eligibility into model input, To-Do, and e
       new URL("../lib/ad-experiment-policy.mjs", import.meta.url),
       "utf8",
     ),
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(analysis, /augustSalesPlanForListing/);
@@ -49,8 +59,9 @@ test("wires August targets and budget eligibility into model input, To-Do, and e
   assert.match(analysis, /listingPlannedAdBudget/);
   assert.match(analysis, /AUGUST_EXECUTION_POLICY/);
   assert.match(route, /validateAugustAdActionsAgainstPlan/);
-  assert.match(route, /该Listing的8月授权广告预算为\\$0/);
+  assert.match(route, /该Listing的8月授权广告预算为\$0/);
   assert.match(experimentPolicy, /AUGUST_EXECUTION_POLICY/);
   assert.doesNotMatch(experimentPolicy, /const BASE_AD_PLAN = 1_800/);
   assert.doesNotMatch(experimentPolicy, /const PORTFOLIO_MAX_LOSS = 61\\.1/);
+  assert.match(page, /8月目标.*Orders.*授权广告池/);
 });

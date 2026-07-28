@@ -44,6 +44,9 @@ function unit(overrides = {}) {
       mode: "ORDER_ACTUAL",
       ...overrides.economics,
     },
+    ...(overrides.executionPlan
+      ? { executionPlan: { ...overrides.executionPlan } }
+      : {}),
     readiness: { ...ready, ...overrides.readiness },
   };
 }

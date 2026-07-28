@@ -149,10 +149,14 @@ test("protects the 10%-15% store margin after event and quantity discounts", () 
   assert.equal(primary.projectedPostAdMargin, 0.17);
   assert.ok(primary.projectedPostAdMargin >= 0.1);
   assert.equal(stress.quantityOrderShare, 0.2);
-  assert.equal(stress.projectedPostAdMargin, 0.1547);
+  assert.equal(stress.projectedPostAdMargin, 0.1553);
   assert.ok(stress.projectedPostAdMargin >= 0.1);
   assert.equal(full.hardAdCapAt10Percent, 2019.57);
-  assert.ok(full.projectedPostAdMargin < 0.1);
+  assert.ok(full.projectedPostAdMargin >= 0.1);
+  assert.equal(
+    AUGUST_PROMOTION_PORTFOLIO.stageTwoAdCap,
+    full.hardAdCapAt10Percent,
+  );
 });
 
 test("summarizes the completed Purple Bird handoff without calling processing active", () => {
@@ -182,7 +186,7 @@ test("summarizes the completed Purple Bird handoff without calling processing ac
     projectedQuantityOrderShare: 0.15,
     stressPromotionOrderShare: 0.7,
     stressQuantityOrderShare: 0.2,
-    stressPostAdMargin: 0.1547,
+    stressPostAdMargin: 0.1553,
     fallbackAdBudget: 1800,
     fullPromotionHardAdCap: 2019.57,
   });

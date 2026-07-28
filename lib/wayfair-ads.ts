@@ -15,6 +15,8 @@ import { fetchAdvertisingResponse } from "./wayfair-ad-retry.mjs";
 import { syncAdActionOperation } from "./ad-operation-link.mjs";
 import { catalogEvidenceKey, mergeCatalogPartEvidence, resolveCatalogOperationalEvidence, type CatalogPartEvidence } from "./catalog-operational-evidence.mjs";
 import { AD_CANARY_RISK_POLICY, canaryRiskForListing } from "./ad-experiment-policy.mjs";
+import { AUGUST_EXECUTION_POLICY } from "./august-execution-policy.mjs";
+import { augustSalesPlanForListing } from "./august-sales-plan.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -619,6 +621,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
         asOf,
         evaluatedAt: new Date().toISOString(),
       });
+      const augustListingPlan = augustSalesPlanForListing(listing);
       return {
         identity: {
           site,
@@ -639,6 +642,25 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
           marginKnown: economics.marginKnown,
           mode: economics.mode,
           coverage: economics.coverage,
+        },
+        executionPlan: augustListingPlan ? {
+          targetMetric: augustListingPlan.targetMetric,
+          listingTargetOrders: augustListingPlan.targetOrders,
+          listingBaseAdBudget: augustListingPlan.baseAdBudget,
+          listingCanaryBudget: augustListingPlan.canaryBudget,
+          listingPlannedAdBudget: augustListingPlan.plannedAdBudget,
+          scaleEligible: augustListingPlan.scaleEligible,
+          portfolioStageOneAdCap: AUGUST_EXECUTION_POLICY.stageOneAdCap,
+          portfolioStageTwoAdCap: AUGUST_EXECUTION_POLICY.stageTwoAdCap,
+        } : {
+          targetMetric: AUGUST_EXECUTION_POLICY.targetMetric,
+          listingTargetOrders: 0,
+          listingBaseAdBudget: 0,
+          listingCanaryBudget: 0,
+          listingPlannedAdBudget: 0,
+          scaleEligible: false,
+          portfolioStageOneAdCap: AUGUST_EXECUTION_POLICY.stageOneAdCap,
+          portfolioStageTwoAdCap: AUGUST_EXECUTION_POLICY.stageTwoAdCap,
         },
         readiness: {
           identityComplete: Boolean(site && audience.known && campaignId && targetingType && listing),
@@ -682,6 +704,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
           ? "当前因果置信度为 C0；先完成预注册、对照选择、功效分析和最大损失审批，不得直接扩量。"
           : `模型保持 HOLD；阻断项：${decision.blockers.join("、") || "当前动作未显著优于 HOLD"}`,
         suggestedAction: decision.suggestedAction,
+        executionPlan: decision.executionPlan,
         blockers: decision.blockers,
         confidence: decision.confidence,
         attributedScenarioDelta: candidate ? {

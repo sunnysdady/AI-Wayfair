@@ -85,12 +85,17 @@ test("freezes July decision batches instead of carrying them into the August pla
 });
 
 test("enforces the August cutover inside the live advertising route", async () => {
-  const route = await readFile(
-    new URL("../app/api/ads/actions/execute/route.ts", import.meta.url),
-    "utf8",
-  );
+  const [route, page] = await Promise.all([
+    readFile(
+      new URL("../app/api/ads/actions/execute/route.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+  ]);
 
   assert.match(route, /validateAugustRunForExecution/);
   assert.match(route, /SUPERSEDED_BY_AUTHORIZED_AUGUST_PLAN/);
   assert.match(route, /八月执行口径已冻结该跨月旧批次/);
+  assert.match(page, /首阶段广告总上限/);
+  assert.match(page, /原销售预算.*已废止/);
 });

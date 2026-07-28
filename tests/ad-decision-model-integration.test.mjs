@@ -29,7 +29,7 @@ test("wires the shadow model into advertising analysis and model-generated To Do
   assert.match(analysis, /resolveCatalogOperationalEvidence/);
   assert.match(analysis, /catalogEvidence\.verified/);
   assert.match(catalog, /CATALOG_EVIDENCE_MAX_AGE_HOURS/);
-  assert.match(experimentPolicy, /PORTFOLIO_MAX_LOSS\s*=\s*61\.1/);
+  assert.match(experimentPolicy, /AUGUST_EXECUTION_POLICY\.canaryLossCap/);
   assert.match(experimentPolicy, /portfolioMaxLoss:\s*PORTFOLIO_MAX_LOSS/);
   assert.match(analysis, /canaryRiskForListing/);
   assert.match(analysis, /monthlyContributionFloor\.toFixed\(2\)/);

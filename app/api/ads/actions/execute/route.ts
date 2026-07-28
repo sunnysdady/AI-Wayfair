@@ -3,6 +3,8 @@ import { validateAdActionFreshness } from "@/lib/ad-action-freshness.mjs";
 import { syncAdActionOperation } from "@/lib/ad-operation-link.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import { assertLiveOperation } from "@/lib/operating-safety.mjs";
+import { validateAugustRunForExecution } from "@/lib/august-execution-policy.mjs";
+import { validateAugustAdActionsAgainstPlan } from "@/lib/august-sales-plan.mjs";
 
 type QueueRow = {
   id: string; run_key: string; listing: string; campaign_id: string; action_type: string;
@@ -156,9 +158,26 @@ export async function POST(request: Request) {
     await env.DB.prepare("UPDATE ad_action_queue SET status='FAILED',updated_at=? WHERE status='EXECUTING' AND updated_at<?").bind(new Date().toISOString(), staleExecution).run();
     const body = await request.json() as { runKey?: string; dryRun?: boolean; confirmation?: string };
     if (!body.runKey || !/^weekly:\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/.test(body.runKey)) return Response.json({ error: "周执行批次格式无效" }, { status: 400 });
+    const augustCutover = validateAugustRunForExecution({
+      runKey: body.runKey,
+      asOf: todayShanghai(),
+    });
+    if (!augustCutover.allowed && augustCutover.reason === "SUPERSEDED_BY_AUTHORIZED_AUGUST_PLAN") {
+      return Response.json(
+        { error: "八月执行口径已冻结该跨月旧批次，请使用8月新批次重新预检。" },
+        { status: 409 },
+      );
+    }
     const requiredStatus = body.dryRun === false ? "VALIDATED" : "APPROVED";
     const result = await env.DB.prepare("SELECT * FROM ad_action_queue WHERE run_key=? AND status=? AND action_type IN ('SET_LISTING_BID','SET_LISTING_ACTIVE') ORDER BY campaign_id,listing").bind(body.runKey, requiredStatus).all<QueueRow>();
     const actions = result.results || [];
+    const augustPlanGate = validateAugustAdActionsAgainstPlan(actions);
+    if (!augustPlanGate.ok) {
+      return Response.json(
+        { error: `${augustPlanGate.listing} 该Listing的8月授权广告预算为$0，禁止启用或提高Bid。` },
+        { status: 409 },
+      );
+    }
     const operatorError = await validateOperatorGate(env.DB, body.runKey, actions);
     if (operatorError) return Response.json({ error: `运营辩论预检未通过：${operatorError}` }, { status: 409 });
     const freshnessError = await validateLatestReportState(env.DB, actions);

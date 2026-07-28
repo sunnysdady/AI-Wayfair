@@ -26,6 +26,10 @@ import {
 import { cachedAdSpend } from "../../../../lib/wayfair-ads";
 import { eventCycleForDate } from "../../../../lib/event-cycle.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+import {
+  AUGUST_EXECUTION_POLICY,
+  evaluateAugustStageTwo,
+} from "@/lib/august-execution-policy.mjs";
 
 const DEFAULT_MARGIN_RATE = .2826;
 
@@ -131,6 +135,15 @@ export async function GET() {
       activity: { ...BFIJ_PLAN, activePhase },
       cpcPlan: MAKEACE_CPC_PLAN,
       nextPlan: {
+        executionPolicy: AUGUST_EXECUTION_POLICY,
+        executionStage: evaluateAugustStageTwo({
+          promotionEvents: AUGUST_PROMOTION_EVENTS,
+          projectedPostAdMargin: promotionReviewSummary(AUGUST_PROMOTION_PLAN).projectedPostAdMargin,
+          fillRate: 0,
+          minimumInventoryCoverDays: 0,
+          listingOperationalEvidenceVerified: false,
+          mappingScopeVerified: false,
+        }),
         plan: AUGUST_PLAN,
         listings: AUGUST_PLAN_LISTINGS.filter((item) => Number(item.augustUnits || 0) > 0).map((item) => ({ ...item, actualUnits: 0 })),
         milestones: WEEKLY_MILESTONES,
