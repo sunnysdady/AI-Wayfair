@@ -11,9 +11,15 @@ test("wires the shadow model into advertising analysis and model-generated To Do
   assert.match(analysis, /buildAdDecisionModel/);
   assert.match(analysis, /decisionModel/);
   assert.match(analysis, /modelTodo/);
+  assert.match(analysis, /const modelUnitKey/);
+  assert.match(analysis, /row\.store_url/);
+  assert.match(analysis, /normalizeAdAudience/);
+  assert.match(analysis, /row\.targeting_type/);
+  assert.match(analysis, /modelCurrentByUnit/);
+  assert.doesNotMatch(analysis, /targetId:\s*`listing:/);
   assert.match(page, /广告决策模型/);
   assert.match(page, /Shadow/);
   assert.match(page, /modelTodo/);
   assert.match(analysis, /liveWritesEnabled:\s*false/);
+  assert.match(page, /真实增量为正概率：不可估计/);
 });
-

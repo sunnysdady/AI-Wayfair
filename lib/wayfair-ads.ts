@@ -9,6 +9,7 @@ import { summarizeAdSpendCoverage } from "./ad-spend-coverage.mjs";
 import { eventCycleForDate } from "./event-cycle.mjs";
 import { applyLiveSafety } from "./ad-live-safety.mjs";
 import { applyOperatorDebate } from "./ad-operator-debate.mjs";
+import { buildAdDecisionModel, normalizeAdAudience } from "./ad-decision-model.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -355,12 +356,23 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
   const liveSafetyStart = addDays(liveSafetyEnd, -3);
   const liveTrailingStart = addDays(liveSafetyEnd, -6);
   const campaignListingKey = (row: CsvRow) => `${row.listing || "UNKNOWN"}::${row.campaign_id || "UNKNOWN"}`;
+  const modelUnitKey = (row: CsvRow) => {
+    const audience = normalizeAdAudience(row);
+    return JSON.stringify([
+      row.store_url || "",
+      audience.key,
+      row.campaign_id || "",
+      row.targeting_type || "",
+      row.listing || "",
+    ]);
+  };
   const liveRecentByCampaignListing = aggregate(listingRows, campaignListingKey, liveSafetyStart, liveSafetyEnd);
   const liveTrailingByCampaignListing = aggregate(listingRows, campaignListingKey, liveTrailingStart, liveSafetyEnd);
   const settingChanges = latestSettingChangeDates(listingRows, addDays(asOf, -35), asOf);
   const portfolioChangeDate = knownPortfolioChangeDate(asOf);
   const parentCurrentByListing = aggregate(listingRows, "listing", decisionStart, decisionEnd);
   const currentByListing = aggregate(listingRows, campaignListingKey, decisionStart, decisionEnd);
+  const modelCurrentByUnit = aggregate(listingRows, modelUnitKey, decisionStart, decisionEnd);
   const previousByListing = aggregate(listingRows, campaignListingKey, decisionPreviousStart, decisionPreviousEnd);
   const rolling28Start = addDays(decisionEnd, -27);
   const rollingByListing = aggregate(listingRows, campaignListingKey, rolling28Start, decisionEnd);
@@ -448,6 +460,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     const confidence = plan && (goal.marginKnown || plan.marginRate) && qualityKnown && safeStrategy.benchmark.cpc !== null ? "HIGH" : plan ? "MEDIUM" : "LOW";
     return {
       listing, campaignId: latestState.campaign_id, campaignName: latestState.campaign_name, site: latestState.store_url,
+      targetingType: latestState.targeting_type, strategy: latestState.bidding_strategy,
       productName: latestState.product_name, className: latestState.class_name,
       isB2b: latestState.isB2b, campaignStatus: latestState.campaign_status,
       parts: String(latestState.first_10_part_numbers || current.latest.first_10_part_numbers || "").split(",").map((item) => item.trim()).filter(Boolean),
@@ -470,6 +483,104 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       },
     };
   }).sort((a, b) => (a.action.recommendation === "READY" ? 0 : 1) - (b.action.recommendation === "READY" ? 0 : 1) || b.current.spend - a.current.spend);
+  const decisionModel = buildAdDecisionModel({
+    asOf,
+    units: [...modelCurrentByUnit].map(([, metric]) => {
+      const latest = metric.latest;
+      const listing = String(latest.listing || "");
+      const campaignId = String(latest.campaign_id || "");
+      const site = String(latest.store_url || "");
+      const audience = normalizeAdAudience(latest);
+      const targetingType = String(latest.targeting_type || "");
+      const parts = String(latest.first_10_part_numbers || "").split(",").map((item) => item.trim()).filter(Boolean);
+      const inventoryRows = parts.map((part) => inventory.get(part));
+      const inventoryKnown = parts.length > 0 && inventoryRows.every(Boolean);
+      const knownInventory = inventoryRows.filter(Boolean) as InventoryEvidence[];
+      const base = listings.find((row) => row.listing === listing && String(row.campaignId) === campaignId);
+      return {
+        identity: {
+          site,
+          currency: site ? (/canada|\.ca/i.test(site) ? "CAD" : "USD") : "",
+          isB2B: audience.isB2B,
+          campaignId,
+          targetingType,
+          listing,
+        },
+        metrics: {
+          clicks: metric.clicks,
+          spend: metric.spend,
+          orders: metric.orders,
+          wsc: metric.wsc,
+        },
+        economics: {
+          marginRate: null,
+          marginKnown: false,
+          mode: "SITE_CONTRIBUTION_SCOPE_UNVERIFIED",
+        },
+        readiness: {
+          identityComplete: Boolean(site && audience.known && campaignId && targetingType && listing),
+          attributionMature: decisionEnd <= matureThrough,
+          mappingComplete: parts.length > 0,
+          mappingVerified: false,
+          inventoryKnown,
+          inventoryCoverDays: inventoryKnown ? Math.min(...knownInventory.map((item) => item.coverDays)) : null,
+          inventoryFresh: inventoryKnown && knownInventory.every((item) => item.snapshotAt.slice(0, 10) >= addDays(asOf, -3)),
+          linkPass: Boolean(base?.linkQuality.pass),
+          linkEvidenceVerified: false,
+          cooldownUntil: base?.operatorReview?.cooldownUntil || null,
+          platformStrategy: String(latest.bidding_strategy || ""),
+        },
+      };
+    }),
+  });
+  const modelTodo = decisionModel.decisions
+    .flatMap((decision) => {
+      const candidate = decision.candidates.find((item) => item.action === decision.suggestedAction);
+      const listing = String(decision.identity.listing || "UNKNOWN");
+      const campaignId = String(decision.identity.campaignId || "UNKNOWN");
+      const isCanary = decision.suggestedAction === "CANARY_BUDGET_10";
+      if (!isCanary && !decision.blockers.length) return [];
+      const waitForEvidence = decision.blockers.some((item) => ["ATTRIBUTION_IMMATURE", "MINIMUM_EVIDENCE", "COOLDOWN_ACTIVE"].includes(item));
+      const manualAiReview = decision.blockers.includes("AI_TROAS_LISTING_ACTION_UNSUPPORTED");
+      const taskType = isCanary ? "DESIGN_CANARY" : manualAiReview ? "MANUAL_AI_REVIEW" : waitForEvidence ? "WAIT_FOR_EVIDENCE" : "FIX_MODEL_INPUT";
+      const suffix = `${decisionStart}-${decision.unitKey}`.replace(/[^A-Za-z0-9._-]/g, "-").slice(0, 104);
+      return [{
+        id: `model-${suffix}`,
+        unitKey: decision.unitKey,
+        listing,
+        campaignId,
+        priority: isCanary || manualAiReview ? "P1" : "P2",
+        type: taskType,
+        title: isCanary ? "设计 10% 小额 Canary 对照" : manualAiReview ? "转 Campaign 级 AI 人工评审" : waitForEvidence ? "等待证据成熟后重新评分" : "修复模型证据后重新评分",
+        detail: isCanary
+          ? "当前因果置信度为 C0；先完成预注册、对照选择、功效分析和最大损失审批，不得直接扩量。"
+          : `模型保持 HOLD；阻断项：${decision.blockers.join("、") || "当前动作未显著优于 HOLD"}`,
+        suggestedAction: decision.suggestedAction,
+        blockers: decision.blockers,
+        confidence: decision.confidence,
+        attributedScenarioDelta: candidate ? {
+          orders: candidate.attributedScenarioDelta.orders,
+          spend: candidate.attributedScenarioDelta.spend,
+          wsc: candidate.attributedScenarioDelta.wsc,
+          contributionProxy: candidate.attributedScenarioDelta.contributionProxy,
+        } : null,
+        incrementalContributionProbability: null,
+        experimentContract: isCanary ? {
+          status: "DRAFT_REQUIRES_APPROVAL",
+          treatment: "单一变量 10% 预算 Canary",
+          control: "同期匹配对照或预注册 switchback",
+          primaryMetric: "成熟总订单增量与广告后贡献代理",
+          attributionWaitDays: ATTRIBUTION_DAYS,
+          minimumSampleSize: null,
+          requiresPowerAnalysis: true,
+          stopRule: "达到预先批准的最大损失立即停止；归因成熟前不判胜负。",
+          contaminationControls: ["价格", "Promotion", "Offer", "素材", "库存", "Catalog"],
+        } : null,
+        mode: "SHADOW",
+        eligibleForExecution: false,
+      }];
+    })
+    .sort((left: { priority: string; listing: string }, right: { priority: string; listing: string }) => left.priority.localeCompare(right.priority) || left.listing.localeCompare(right.listing));
   const parentListings = [...parentCurrentByListing].flatMap(([listing, metric]) => {
     const base = listings.find((row) => row.listing === listing);
     if (!base) return [];
@@ -627,7 +738,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     range: { start, end, previousStart, previousEnd, asOf, matureThrough, mature: end <= matureThrough },
     decisionRange: { start: decisionStart, end: decisionEnd, previousStart: decisionPreviousStart, previousEnd: decisionPreviousEnd, cadence: "WEEKLY", rule: "T-14成熟周用于效果评估；最近4个完整日只生成预警，最近7日持续异常需经过运营辩论。活动期与调整后21天冷却期禁止绩效调参。" },
     liveSafetyRange: { start: liveSafetyStart, end: liveSafetyEnd, trailingStart: liveTrailingStart, days: 4, rule: "4日花费≥$20、点击≥30且0单只触发预警；持续7日且达到Campaign成熟CVR的95%异常样本门槛才进入运营辩论，未成熟数据禁止直接调参。" },
-    current: total(campaignRows, start, end), previous: total(campaignRows, previousStart, previousEnd), decision: { current: total(campaignRows, decisionStart, decisionEnd), previous: total(campaignRows, decisionPreviousStart, decisionPreviousEnd) }, history, campaigns, listings, parentListings, liveSafetyFindings, aiCampaignDiagnostics, aiAdEligibility, zombieFindings, zombieAudit,
+    current: total(campaignRows, start, end), previous: total(campaignRows, previousStart, previousEnd), decision: { current: total(campaignRows, decisionStart, decisionEnd), previous: total(campaignRows, decisionPreviousStart, decisionPreviousEnd) }, history, campaigns, listings, parentListings, liveSafetyFindings, aiCampaignDiagnostics, aiAdEligibility, zombieFindings, zombieAudit, decisionModel, modelTodo,
     plan: { month: JULY_PLAN.month, plannedListings: JULY_PLAN_LISTINGS.filter((item) => item.eligible).length, plannedBudget: JULY_PLAN.adBudget, cpcAnchor: MAKEACE_CPC_PLAN, goalGuardrail: { julyPaceGap: goals.julyPaceGap, eventPhase: goals.eventPhase, reliable: goals.reliable } },
     safety: {
       liveWritesEnabled: false,
@@ -695,7 +806,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const listingFetchEnd = today;
   const fetchEnd = [campaignFetchEnd, listingFetchEnd].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v17:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v18:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
     const cached = await env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>();
     if (cached && Date.now() - Date.parse(cached.updated_at) < ANALYSIS_CACHE_MS) return { ...JSON.parse(cached.value), cache: { hit: true, layer: "POSTGRESQL_ANALYSIS", updatedAt: cached.updated_at } };
@@ -718,7 +829,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   if (env.DB) {
     const now = new Date().toISOString();
     await env.DB.prepare("INSERT INTO sync_state(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(cacheKey, JSON.stringify(analysis), now).run();
-    await env.DB.prepare("INSERT INTO ad_decision_runs(run_key,decision_start,decision_end,payload,created_at) VALUES(?,?,?,?,?) ON CONFLICT(run_key) DO UPDATE SET payload=excluded.payload,created_at=excluded.created_at").bind(analysis.runKey, decisionStart, decisionEnd, JSON.stringify({ listings: analysis.listings, liveSafetyFindings: analysis.liveSafetyFindings, liveSafetyRange: analysis.liveSafetyRange, zombieFindings: analysis.zombieFindings, zombieAudit: analysis.zombieAudit, plan: analysis.plan, decisionRange: analysis.decisionRange }), now).run();
+    await env.DB.prepare("INSERT INTO ad_decision_runs(run_key,decision_start,decision_end,payload,created_at) VALUES(?,?,?,?,?) ON CONFLICT(run_key) DO UPDATE SET payload=excluded.payload,created_at=excluded.created_at").bind(analysis.runKey, decisionStart, decisionEnd, JSON.stringify({ listings: analysis.listings, liveSafetyFindings: analysis.liveSafetyFindings, liveSafetyRange: analysis.liveSafetyRange, zombieFindings: analysis.zombieFindings, zombieAudit: analysis.zombieAudit, decisionModel: analysis.decisionModel, modelTodo: analysis.modelTodo, plan: analysis.plan, decisionRange: analysis.decisionRange }), now).run();
   }
   return analysis;
 }

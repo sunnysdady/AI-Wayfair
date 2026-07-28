@@ -1,11 +1,12 @@
 [
   {
-    "id": "mature-profitable-scale",
-    "description": "Mature profitable evidence may produce a shadow scale candidate.",
-    "expectedAction": "SCALE_BUDGET_10",
+    "id": "mature-profitable-canary",
+    "description": "Mature profitable evidence may produce only a shadow canary while causal confidence is C0.",
+    "expectedAction": "CANARY_BUDGET_10",
     "input": {
       "identity": {
         "site": "wayfair.com",
+        "currency": "USD",
         "isB2B": false,
         "campaignId": "MATURE-1",
         "targetingType": "PRODUCT",
@@ -26,9 +27,12 @@
       "readiness": {
         "attributionMature": true,
         "mappingComplete": true,
+        "mappingVerified": true,
         "inventoryKnown": true,
         "inventoryCoverDays": 90,
+        "inventoryFresh": true,
         "linkPass": true,
+        "linkEvidenceVerified": true,
         "cooldownUntil": null
       }
     }
@@ -41,6 +45,7 @@
     "input": {
       "identity": {
         "site": "wayfair.com",
+        "currency": "USD",
         "isB2B": false,
         "campaignId": "TINY-1",
         "targetingType": "PRODUCT",
@@ -61,9 +66,12 @@
       "readiness": {
         "attributionMature": true,
         "mappingComplete": true,
+        "mappingVerified": true,
         "inventoryKnown": true,
         "inventoryCoverDays": 90,
+        "inventoryFresh": true,
         "linkPass": true,
+        "linkEvidenceVerified": true,
         "cooldownUntil": null
       }
     }
@@ -76,6 +84,7 @@
     "input": {
       "identity": {
         "site": "wayfair.com",
+        "currency": "USD",
         "isB2B": false,
         "campaignId": "NO-COST-1",
         "targetingType": "KEYWORD",
@@ -96,12 +105,14 @@
       "readiness": {
         "attributionMature": true,
         "mappingComplete": false,
+        "mappingVerified": false,
         "inventoryKnown": false,
         "inventoryCoverDays": null,
+        "inventoryFresh": false,
         "linkPass": false,
+        "linkEvidenceVerified": false,
         "cooldownUntil": null
       }
     }
   }
 ]
-

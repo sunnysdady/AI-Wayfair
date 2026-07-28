@@ -86,7 +86,7 @@ type ZombieCampaignFinding = {
   label: string; reasons: string[]; before: Record<string, unknown>; proposed: Record<string, unknown>;
 };
 type AdListing = {
-  listing: string; campaignId: string; campaignName: string; site: string; productName: string; className: string; isB2b: string; campaignStatus: string; parts: string[]; bid: number; status: string;
+  listing: string; campaignId: string; campaignName: string; site: string; targetingType?: string; strategy?: string; productName: string; className: string; isB2b: string; campaignStatus: string; parts: string[]; bid: number; status: string;
   current: AdMetric; previous: AdMetric;
   plan: null | { budget: number; augustUnits?: number; julyTargetOrders?: number; role: string; gate: string; eligible: boolean; adRole: string; rating?: number; reviews?: number };
   nextPlan: null | { budget: number; augustUnits?: number; role: string; gate: string; eligible: boolean; adRole: string };
@@ -99,12 +99,36 @@ type AdListing = {
   operatorReview?: { owner: string; verdict: string; stage: string; thesis: string; counterpoint: string; controls: string[]; requiresHumanApproval: boolean; proposalOwner: string; decisionOwner: string; decisionStatus: string; hypothesis: string; singleVariable: boolean; cooldownUntil: string | null; reviewDue: string | null; rollbackPlan: string };
   action: { type: string; label: string; recommendation: string; execution: string; confidence: string; reasons: string[]; blockers: string[]; warnings: string[]; repairPlan?: null | { focus?: string; diagnosis: string; steps: string[]; acceptance: string[]; retest: string }; before: Record<string, unknown>; proposed: Record<string, unknown> };
 };
+type AdModelDecision = {
+  unitKey:string;
+  identity:{site:string;currency?:string;isB2B:boolean;campaignId:string;targetingType:string;listing:string};
+  mode:"SHADOW";
+  eligibleForExecution:false;
+  suggestedAction:string;
+  blockers:string[];
+  confidenceScore:number;
+  confidence:{data:string;predictive:string;causal:string;explanation:string};
+  posterior:{ordersPerDollar:number;ordersPer100Spend:number;ordersPer100SpendInterval80:[number,number];wscPerOrder:number;priorOrdersPer100Spend:number;priorStrengthSpend:number};
+  metrics:{wscRoas:number|null;ordersPer100Spend:number|null;contributionProfit:number|null;incrementalMarketingRoi:number|null};
+  candidates:Array<{action:string;attributedScenario:{orders:number|null;wsc:number|null;spend:number|null;contributionProxy:number|null;wscRoas:number|null};attributedScenarioDelta:{orders:number|null;wsc:number|null;spend:number|null;contributionProxy:number|null};expected:{orders:null;wsc:null;spend:null;contributionProfit:null;wscRoas:null;incrementalMarketingRoi:null};expectedDelta:{orders:null;wsc:null;spend:null;contributionProfit:null};probabilityIncrementalContributionPositive:null;causalStatus:"NOT_ESTIMABLE_C0"}>;
+};
+type AdDecisionModel = {
+  version:string;mode:"SHADOW";objective:string;grain:string;
+  optimalBudget:{status:string;amount:number|null;reason:string};
+  summary:{units:number;actionableInShadow:number;blocked:number};
+  decisions:AdModelDecision[];
+};
+type AdModelTodo = {
+  id:string;unitKey:string;listing:string;campaignId:string;priority:"P1"|"P2";type:"DESIGN_CANARY"|"FIX_MODEL_INPUT"|"WAIT_FOR_EVIDENCE"|"MANUAL_AI_REVIEW";title:string;detail:string;suggestedAction:string;blockers:string[];
+  confidence:{data:string;predictive:string;causal:string};attributedScenarioDelta:{orders:number|null;spend:number|null;wsc:number|null;contributionProxy:number|null}|null;incrementalContributionProbability:null;experimentContract:null|{status:string;treatment:string;control:string;primaryMetric:string;attributionWaitDays:number;minimumSampleSize:null;requiresPowerAnalysis:boolean;stopRule:string;contaminationControls:string[]};mode:"SHADOW";eligibleForExecution:false;
+};
 type AdAnalysis = {
   current: AdMetric; previous: AdMetric; decision: { current: AdMetric; previous: AdMetric }; history: ({ date: string } & AdMetric)[]; campaigns: AdCampaign[]; listings: AdListing[]; parentListings?: AdListing[]; liveSafetyFindings?: AdListing[]; zombieFindings: ZombieCampaignFinding[];
   zombieAudit: { matureDays: number; total: number; hard: number; near: number };
   range: { start: string; end: string; previousStart: string; previousEnd: string; asOf: string; matureThrough: string; mature: boolean };
   decisionRange: { start: string; end: string; previousStart: string; previousEnd: string; cadence: string; rule: string };
   liveSafetyRange?: { start: string; end: string; trailingStart: string; days: number; rule: string };
+  decisionModel?: AdDecisionModel; modelTodo?: AdModelTodo[];
   runKey: string; generatedAt: string; attributionWindowDays: number; cache?: { hit?: boolean; layer?: string; updatedAt?: string }; safety: { reason: string }; error?: string;
 };
 type SortState = { key: string; direction: "asc" | "desc" };
@@ -588,7 +612,7 @@ function AdReviewDashboard() {
 
 function Ads({ tab }: { tab: AdsTab }) {
   const initial=adRangeFor('7d');
-  const initialAnalysis=readClientCache<AdAnalysis>(`ads:v8:${initial.start}:${initial.end}`,CLIENT_CACHE_RETENTION_MS);
+  const initialAnalysis=readClientCache<AdAnalysis>(`ads:v9:${initial.start}:${initial.end}`,CLIENT_CACHE_RETENTION_MS);
   const initialQueue=initialAnalysis?.runKey?readClientCache<AdQueueCache>(`ad-queue:${initialAnalysis.runKey}`,CLIENT_CACHE_RETENTION_MS):null;
   const [preset,setPreset]=useState('7d');
   const [start,setStart]=useState(initial.start); const [end,setEnd]=useState(initial.end); const [requested,setRequested]=useState({start:initial.start,end:initial.end,refresh:false});
@@ -606,7 +630,7 @@ function Ads({ tab }: { tab: AdsTab }) {
   const [manualRecords,setManualRecords]=useState<Record<string,ManualCompletionRecord>>({});
   const [manualRecordMessage,setManualRecordMessage]=useState('');
   const [zombieResolutions,setZombieResolutions]=useState<Record<string,ZombieResolution>>({});
-  useEffect(()=>{const cacheKey=`ads:v8:${requested.start}:${requested.end}`;const cached=!requested.refresh&&readClientCache<AdAnalysis>(cacheKey);const controller=new AbortController();if(cached){queueMicrotask(()=>{if(!controller.signal.aborted){setData(cached);setLoading(false);setError('');}});return()=>controller.abort();}fetch(`/api/ads/analysis?start=${requested.start}&end=${requested.end}${requested.refresh?'&refresh=1':''}`,{signal:controller.signal}).then(async r=>{const body=await r.json() as AdAnalysis;if(!r.ok)throw new Error(body.error||'广告分析失败');return body;}).then(body=>{setData(body);writeClientCache(cacheKey,body);}).catch(e=>{if(e.name!=='AbortError')setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();},[requested]);
+  useEffect(()=>{const cacheKey=`ads:v9:${requested.start}:${requested.end}`;const cached=!requested.refresh&&readClientCache<AdAnalysis>(cacheKey);const controller=new AbortController();if(cached){queueMicrotask(()=>{if(!controller.signal.aborted){setData(cached);setLoading(false);setError('');}});return()=>controller.abort();}fetch(`/api/ads/analysis?start=${requested.start}&end=${requested.end}${requested.refresh?'&refresh=1':''}`,{signal:controller.signal}).then(async r=>{const body=await r.json() as AdAnalysis;if(!r.ok)throw new Error(body.error||'广告分析失败');return body;}).then(body=>{setData(body);writeClientCache(cacheKey,body);}).catch(e=>{if(e.name!=='AbortError')setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();},[requested]);
   useEffect(()=>{if(!data?.runKey)return;const cacheKey=`ad-queue:${data.runKey}`;const cached=readClientCache<AdQueueCache>(cacheKey);const controller=new AbortController();setQueueError('');if(cached){queueMicrotask(()=>{if(!controller.signal.aborted){setQueuedActions(cached.actions);setQueueState(queuedActionState(cached.actions));setLiveEnabled(cached.liveEnabled);setQueueLoading(false);}});return()=>controller.abort();}setQueueLoading(true);fetch(`/api/ads/actions?runKey=${encodeURIComponent(data.runKey)}`,{signal:controller.signal}).then(async response=>{const body=await response.json() as {actions?:QueuedAdAction[];liveEnabled?:boolean;error?:string};if(!response.ok)throw new Error(body.error||'执行批次读取失败');return body;}).then(body=>{const actions=body.actions||[];const next={actions,liveEnabled:Boolean(body.liveEnabled)};setQueuedActions(actions);setQueueState(queuedActionState(actions));setLiveEnabled(next.liveEnabled);writeClientCache(cacheKey,next);}).catch(reason=>{if(reason.name!=='AbortError')setQueueError(reason.message||'执行批次读取失败');}).finally(()=>{if(!controller.signal.aborted)setQueueLoading(false);});return()=>controller.abort();},[data?.runKey]);
   useEffect(()=>{
     if(tab!=='manual')return;
@@ -715,6 +739,8 @@ function Ads({ tab }: { tab: AdsTab }) {
   const sortCampaign=(field:string)=>setCampaignSort(value=>nextSort(value,field) as SortState); const sortListing=(field:string)=>setListingSort(value=>nextSort(value,field) as SortState);
   const aiDecisionCurrent=data?.decision.current;
   const aiDecisionPrevious=data?.decision.previous;
+  const decisionModel=data?.decisionModel;
+  const modelTodo=data?.modelTodo||[];
   const headerRange=tab==='review'?null:tab==='ai'?data?.decisionRange:requested;
   const pageTitle=tab==='manager'?'广告管理器':tab==='listings'?'父体 SKU 广告表现':tab==='manual'?'手动优化 To-Do':tab==='review'?'优化记录与复盘':'AI 优化';
   const pageCount=tab==='manager'?`${data?.campaigns.length||0} 个 Campaign`:tab==='listings'?`${data?.listings.length||0} 个父体 SKU`:tab==='manual'?`${resolvedZombieCount} / ${zombieFindings.length} 诊断已完成 · ${manualDone.length} / ${MANUAL_AD_TASK_COUNT} To-Do`:tab==='review'?'完整审计链':`${ready} 项建议 · ${validatedActions.length} 项待执行`;
@@ -749,6 +775,12 @@ function Ads({ tab }: { tab: AdsTab }) {
       <section className="card manual-todo-card"><div className="section-head"><div><span>OPERATOR CHECKLIST</span><h2>手动优化 To-Do List · 按父体 SKU</h2></div><b>服务器审计记录 · {manualDone.length} / {MANUAL_AD_TASK_COUNT} 已完成</b></div>{manualRecordMessage&&<p className="manual-record-message">{manualRecordMessage}</p>}<div className="manual-todo-list">{MANUAL_AD_TASK_GROUPS.map(group=>{const completed=group.tasks.filter(task=>manualDone.includes(manualTaskKey(group.sku,task.id))).length;return <details className={`manual-sku-group${completed===group.tasks.length?' done':''}`} open key={group.sku}><summary><span><small>PARENT SKU</small><strong>{group.sku}</strong></span><span><b>{completed} / {group.tasks.length} 完成</b><progress max={group.tasks.length} value={completed}/></span></summary><div className="manual-sku-actions">{group.tasks.map((task,index)=>{const taskId=manualTaskKey(group.sku,task.id);const done=manualDone.includes(taskId);const record=manualRecords[taskId];return <article className={`manual-todo-row${done?' done':''}`} key={taskId}><label className="manual-todo-check" title={done?'标记为未完成':'标记为已完成'}><input aria-label={`${group.sku} · ${task.adGroup}：${done?'标记为未完成':'标记为已完成'}`} type="checkbox" checked={done} onChange={()=>toggleManualTask(taskId,group.sku,task)}/></label><span className="manual-todo-priority"><i>{String(index+1).padStart(2,'0')}</i><em>{task.priority}</em><small>{task.group}</small><b>Campaign ID: {task.campaignId}</b></span><div className="manual-todo-content"><strong>{task.title}</strong><p>{task.detail}</p>{done&&record?.completedAt?<small className="manual-audit-time">服务器补录时间：{new Date(record.completedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})}</small>:null}<dl className="manual-task-details"><div><dt>广告组</dt><dd>{task.adGroup}</dd></div><div><dt>Campaign ID</dt><dd>{task.campaignId}</dd></div><div><dt>具体 SKU</dt><dd>{task.sku}</dd></div><div><dt>广告类型</dt><dd>{task.adType}</dd></div><div><dt>关键词</dt><dd>{task.keywords}</dd></div><div><dt>匹配</dt><dd>{task.match}</dd></div><div><dt>起始 Bid</dt><dd>{task.bid}</dd></div><div><dt>预算</dt><dd>{task.budget}</dd></div><div className="rule"><dt>执行 / 验收规则</dt><dd>{task.rule}</dd></div></dl></div></article>})}</div></details>})}</div></section>
     </div>}
     {tab==='ai'&&<>
+    <div className="card model-shadow-card"><div className="section-head"><div><span>MODEL FIRST · READ ONLY</span><h2>广告决策模型 · Shadow</h2></div><b>{decisionModel?`${decisionModel.version} · ${decisionModel.summary.actionableInShadow} 个 Canary 候选 · ${decisionModel.summary.blocked} 个阻断`:'等待成熟数据'}</b></div>
+      <div className="ai-decision-context"><span>长期目标</span><b>最大化预期增量广告后贡献</b><em>当前阶段先学习增量响应。模型只读取成熟数据；因果置信度为 C0，所以只展示归因场景假设，不计算真实增量 ROI 或成功概率，也不会进入广告 API 执行队列。</em></div>
+      <div className="ai-workbench-metrics"><span><small>模型单元</small><b>{decisionModel?.summary.units||0}</b><em>Campaign × Listing</em></span><span><small>Shadow Canary</small><b>{decisionModel?.summary.actionableInShadow||0}</b><em>仅生成实验设计</em></span><span><small>输入阻断</small><b>{decisionModel?.summary.blocked||0}</b><em>成本 / 映射 / 库存 / 链接</em></span><span><small>模型最优预算</small><b>{decisionModel?.optimalBudget.status==='UNKNOWN'?'尚不可估计':money(decisionModel?.optimalBudget.amount||0)}</b><em>等待真实干预响应曲线</em></span></div>
+      <p className="ai-workbench-note">指标口径分开：成熟 WSC ROAS 衡量平台归因销售效率；每 $100 广告花费订单数衡量获单效率；增量营销 ROI 只有在可识别的新增投入与增量贡献同时存在时才计算。贡献利润仍是经营贡献代理，不是店铺净利润。</p>
+      <div className="action-list rich model-shadow-list"><div className="action-head"><span>Listing / Campaign</span><span>模型任务</span><span>置信度</span><span>归因场景假设</span><span>边界</span></div>{modelTodo.map(item=>{const delta=item.attributedScenarioDelta;return <article key={item.id}><div><strong>{item.listing}</strong><small>Campaign {item.campaignId}</small></div><div><b>{item.title}</b><small>{item.detail}</small></div><p><b>{item.confidence.data} / {item.confidence.predictive} / {item.confidence.causal}</b><br/>真实增量为正概率：不可估计</p><p>{delta&&delta.orders!=null&&delta.spend!=null&&delta.wsc!=null?<><b>归因订单 {delta.orders>=0?'+':''}{delta.orders.toFixed(2)}</b><br/>花费场景 {delta.spend>=0?'+':''}{money2(delta.spend)}<br/>归因 WSC {delta.wsc>=0?'+':''}{money2(delta.wsc)}<br/>贡献场景 {delta.contributionProxy==null?'不可估计':`${delta.contributionProxy>=0?'+':''}${money2(delta.contributionProxy)}`}</>:<b>等待输入</b>}</p><div className="recommendation-execution"><em className="neutral">Shadow only</em><small>{item.blockers.length?item.blockers.join(' · '):'需先完成预注册、功效分析和人工审批'}</small></div></article>})}{!loading&&!modelTodo.length?<p className="empty-state">当前没有可生成的模型任务。</p>:null}</div>
+    </div>
     <section className="card action-ledger ai-api-workbench"><div className="section-head"><div><span>ADVERTISING API</span><h2>AI API 执行工作台</h2></div><b>{queueLoading?'读取中':`${ready} 项建议 · ${apiQueuedActions.length} 项已入批次 · 成功 ${executedActions.length} · 失败 ${failedActions.length}`}</b></div>
       <div className="ai-decision-context"><span>建议与动作依据</span><b>成熟周 {data?.decisionRange.start||'-'} → {data?.decisionRange.end||'-'}</b><em>成熟数据负责评估；Campaign × Listing 分开计算，不用父体汇总混淆多个 Campaign。</em></div>
       <div className="ai-decision-context live-safety-context"><span>实时安全窗</span><b>{data?.liveSafetyRange?.start||'-'} → {data?.liveSafetyRange?.end||'-'}</b><em>4日异常只报警；持续7日达到真实成熟CVR样本门槛才进入辩论，未成熟数据绝不直接调参。</em></div>
