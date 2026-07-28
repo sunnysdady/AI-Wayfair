@@ -7,11 +7,12 @@ import { isBulkActionSelectionComplete, nextBulkActionSelection } from "../lib/a
 import { nextSort, sortRows } from "../lib/table-sort.mjs";
 import { financialDetailsForEmail } from "../lib/email-finance.mjs";
 import { manualCompletionPayload } from "../lib/manual-ad-completions.mjs";
+import { navigationSearch, navigationStateFromSearch } from "../lib/app-navigation.mjs";
 import legacyOperatingDataSource from "../data/dmom-operating-2026-06.json";
 
 type View = "dashboard" | "tasks" | "daily" | "ads" | "planning" | "products" | "sources" | "help";
 type AdsTab = "manager" | "listings" | "ai" | "manual" | "review";
-type PlanningTab = "plan" | "review" | "history";
+type PlanningTab = "plan" | "august" | "review" | "history";
 type ProductTab = "inventory" | "catalog" | "launch" | "performance";
 type PlanSection = "july" | "bfij" | "august";
 type SubView = AdsTab | PlanningTab | ProductTab;
@@ -32,7 +33,7 @@ const SYSTEM_NAV: { id: View; label: string }[] = [
 
 const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
   ads: [{ id: "manager", label: "广告管理器" }, { id: "listings", label: "父体 SKU 广告表现" }, { id: "ai", label: "AI 优化" }, { id: "manual", label: "手动优化 To-Do" }, { id: "review", label: "优化记录与复盘" }],
-  planning: [{ id: "plan", label: "运营计划" }, { id: "review", label: "复盘资料" }, { id: "history", label: "历史月度" }],
+  planning: [{ id: "plan", label: "运营计划" }, { id: "august", label: "8月活动审核" }, { id: "review", label: "复盘资料" }, { id: "history", label: "历史月度" }],
   products: [{ id: "inventory", label: "库存更新" }, { id: "catalog", label: "商品数据" }, { id: "launch", label: "推新 SOP" }, { id: "performance", label: "SKU 经营" }],
 };
 
@@ -1002,8 +1003,9 @@ function MonthlyOperatingHistory() {
 
 function PlanningWorkspace({ tab, onTabChange }: { tab: PlanningTab; onTabChange: (tab: PlanningTab) => void }) {
   const [planSection,setPlanSection]=useState<PlanSection>('july');
-  return <><Hero eyebrow="" title={tab==='plan'?'运营计划':tab==='history'?'历史月度':'复盘资料'} text="" />
-    {tab==='plan'?<Plan embedded tab={planSection} onTabChange={setPlanSection} onOpenReview={()=>onTabChange('review')}/>:tab==='history'?<MonthlyOperatingHistory/>:<Review embedded onOpenPlan={section=>{setPlanSection(section);onTabChange('plan');}}/>}
+  function openPlanSection(section:PlanSection){setPlanSection(section);onTabChange(section==='august'?'august':'plan');}
+  return <><Hero eyebrow="" title={tab==='august'?'8月活动审核':tab==='plan'?'运营计划':tab==='history'?'历史月度':'复盘资料'} text="" />
+    {tab==='august'?<Plan embedded tab="august" onTabChange={openPlanSection} onOpenReview={()=>onTabChange('review')}/>:tab==='plan'?<Plan embedded tab={planSection} onTabChange={openPlanSection} onOpenReview={()=>onTabChange('review')}/>:tab==='history'?<MonthlyOperatingHistory/>:<Review embedded onOpenPlan={openPlanSection}/>}
   </>;
 }
 
@@ -1078,9 +1080,28 @@ export default function OpsCenter() {
   const [adsTab,setAdsTab]=useState<AdsTab>('manager');
   const [planningTab,setPlanningTab]=useState<PlanningTab>('plan');
   const [productTab,setProductTab]=useState<ProductTab>('inventory');
+  useEffect(()=>{
+    function restoreNavigation(){
+      const state=navigationStateFromSearch(window.location.search);
+      setView(state.view as View);
+      if(state.view==='planning'&&state.tab)setPlanningTab(state.tab as PlanningTab);
+      if(state.view==='ads'&&state.tab)setAdsTab(state.tab as AdsTab);
+      if(state.view==='products'&&state.tab)setProductTab(state.tab as ProductTab);
+    }
+    restoreNavigation();
+    window.addEventListener('popstate',restoreNavigation);
+    return()=>window.removeEventListener('popstate',restoreNavigation);
+  },[]);
   useEffect(()=>{window.scrollTo(0,0);const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view]);
   const activeSub: SubView | null=view==='ads'?adsTab:view==='planning'?planningTab:view==='products'?productTab:null;
-  function navigateSub(next:SubView){if(view==='ads'&&(next==='manager'||next==='listings'||next==='ai'||next==='manual'||next==='review'))setAdsTab(next);if(view==='planning'&&(next==='plan'||next==='review'||next==='history'))setPlanningTab(next);if(view==='products'&&(next==='inventory'||next==='catalog'||next==='launch'||next==='performance'))setProductTab(next);}
-  const page=useMemo(()=>({dashboard:<Dashboard/>,tasks:<TaskCenter/>,daily:<Daily/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={setPlanningTab}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view],[view,adsTab,planningTab,productTab]);
-  return <div className="app app-shell"><ShellHeader active={view} activeSub={activeSub} onNavigate={setView} onSubNavigate={navigateSub}/><div className="content-shell"><main>{page}</main><footer><span>Wayfair AI 运营中台</span><span>个人测试阶段</span></footer></div></div>;
+  function updateLocation(nextView:View,nextTab:SubView|null=null){window.history.pushState({},'',navigationSearch({view:nextView,tab:nextTab}));}
+  function navigateView(next:View){setView(next);const nextTab=next==='ads'?adsTab:next==='planning'?planningTab:next==='products'?productTab:null;updateLocation(next,nextTab);}
+  function navigateSub(next:SubView){
+    if(view==='ads'&&(next==='manager'||next==='listings'||next==='ai'||next==='manual'||next==='review'))setAdsTab(next);
+    if(view==='planning'&&(next==='plan'||next==='august'||next==='review'||next==='history'))setPlanningTab(next);
+    if(view==='products'&&(next==='inventory'||next==='catalog'||next==='launch'||next==='performance'))setProductTab(next);
+    updateLocation(view,next);
+  }
+  const page=({dashboard:<Dashboard/>,tasks:<TaskCenter/>,daily:<Daily/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={navigateSub}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view];
+  return <div className="app app-shell"><ShellHeader active={view} activeSub={activeSub} onNavigate={navigateView} onSubNavigate={navigateSub}/><div className="content-shell"><main>{page}</main><footer><span>Wayfair AI 运营中台</span><span>个人测试阶段</span></footer></div></div>;
 }
