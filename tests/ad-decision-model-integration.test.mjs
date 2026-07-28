@@ -16,6 +16,10 @@ test("wires the shadow model into advertising analysis and model-generated To Do
   assert.match(analysis, /normalizeAdAudience/);
   assert.match(analysis, /row\.targeting_type/);
   assert.match(analysis, /modelCurrentByUnit/);
+  assert.match(analysis, /loadPartEconomicsEvidence/);
+  assert.match(analysis, /resolveContributionEconomics/);
+  assert.match(analysis, /ORDER_ACTUAL_180D/);
+  assert.doesNotMatch(analysis, /mode:\s*"SITE_CONTRIBUTION_SCOPE_UNVERIFIED"/);
   assert.doesNotMatch(analysis, /targetId:\s*`listing:/);
   assert.match(page, /广告决策模型/);
   assert.match(page, /Shadow/);
