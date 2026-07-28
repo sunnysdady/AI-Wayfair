@@ -11,6 +11,7 @@ import { applyLiveSafety } from "./ad-live-safety.mjs";
 import { applyOperatorDebate } from "./ad-operator-debate.mjs";
 import { buildAdDecisionModel, normalizeAdAudience } from "./ad-decision-model.mjs";
 import { resolveContributionEconomics, type SkuCostEvidence } from "./ad-contribution-economics.mjs";
+import { fetchAdvertisingResponse } from "./wayfair-ad-retry.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -249,11 +250,14 @@ async function getToken(env: AdvertisingEnv) {
 }
 
 async function api(path: string, token: string, init?: RequestInit) {
-  let response = await fetch(`${API_BASE}${path}`, { ...init, headers: { authorization: `Bearer ${token}`, accept: "application/json", ...(init?.headers || {}) } });
-  if (response.status === 401) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    response = await fetch(`${API_BASE}${path}`, { ...init, headers: { authorization: `Bearer ${token}`, accept: "application/json", ...(init?.headers || {}) } });
-  }
+  const response = await fetchAdvertisingResponse(`${API_BASE}${path}`, {
+    ...init,
+    headers: {
+      authorization: `Bearer ${token}`,
+      accept: "application/json",
+      ...(init?.headers || {}),
+    },
+  });
   const text = await response.text();
   if (!response.ok) throw new Error(`Advertising API 请求失败（HTTP ${response.status}）：${text.slice(0, 160)}`);
   return JSON.parse(text) as Record<string, unknown>;
