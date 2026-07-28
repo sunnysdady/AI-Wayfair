@@ -135,7 +135,7 @@ export async function GET() {
         salesPlanRows: AUGUST_SALES_PLAN_ROWS,
         salesPlanSummary: summarizeAugustSalesPlan(AUGUST_SALES_PLAN_ROWS),
         salesMilestones: AUGUST_SALES_MILESTONES,
-        promotionPlanStatus: "PAUSED_FOR_SALES_PLAN_REVIEW",
+        promotionPlanStatus: "READY_FOR_PROMOTION_REBUILD",
         promotionEvents: AUGUST_PROMOTION_EVENTS,
         promotionPlan: AUGUST_PROMOTION_PLAN,
         promotionSummary: promotionReviewSummary(AUGUST_PROMOTION_PLAN),

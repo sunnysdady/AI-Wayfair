@@ -203,7 +203,7 @@ test("does not render dead button affordances in operating workspaces", async ()
   }
   assert.match(page, /aria-label="打开6月复盘资料"/);
   assert.match(page, /aria-label="查看7月执行计划"/);
-  assert.match(page, /aria-label="查看8月准备计划"/);
+  assert.match(page, /aria-label="查看8月推广计划"/);
   assert.match(page, /aria-label="查看6月月度复盘"/);
   assert.match(page, /aria-label="返回7月执行计划"/);
   assert.doesNotMatch(page, /<button className="text-link">/);
