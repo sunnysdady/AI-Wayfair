@@ -147,15 +147,16 @@ test("uses Wayfair's real dry run and requires its completed receipt before live
   assert.doesNotMatch(page, /if\(dryRun\)\{setState\('Dry-run 已通过'\)/);
 });
 
-test("uses differential inventory feeds for partial batches and avoids false applied claims", async () => {
+test("uses one complete TRUE_UP inventory feed and avoids false applied claims", async () => {
   const [route, page] = await Promise.all([
     readFile(new URL("../app/api/inventory/push/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(route, /INVENTORY_FEED_KIND\s*=\s*"DIFFERENTIAL"/);
+  assert.match(route, /INVENTORY_FEED_KIND\s*=\s*"TRUE_UP"/);
+  assert.match(route, /const batches=\[items\]/);
+  assert.doesNotMatch(route, /index\+=100/);
   assert.match(route, /feedKind:INVENTORY_FEED_KIND/);
-  assert.doesNotMatch(route, /feedKind:"TRUE_UP"/);
   assert.match(page, /Wayfair feed 完成 · 待库存回读/);
   assert.doesNotMatch(page, /Wayfair 已完成处理/);
 });
