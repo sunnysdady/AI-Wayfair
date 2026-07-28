@@ -68,6 +68,10 @@ test("runs mature advertising and all reported catalog pages at 06:00 Shanghai",
   assert.ok(requests.includes(
     "https://worker.internal/api/catalog/items?page=12&pageSize=30&refresh=1",
   ));
+  assert.ok(
+    requests.findIndex((url) => url.includes("/api/catalog/items?page=1"))
+      < requests.findIndex((url) => url.includes("/api/ads/analysis")),
+  );
   assert.equal(checkpoints.at(-1).status, "complete");
   assert.equal(checkpoints.at(-1).expectedTotalCount, 12);
   assert.equal(checkpoints.at(-1).fetchedCount, 12);

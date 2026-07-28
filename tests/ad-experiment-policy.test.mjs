@@ -5,10 +5,10 @@ import { AD_CANARY_RISK_POLICY, canaryRiskForListing } from "../lib/ad-experimen
 
 test("protects the monthly contribution target with a bounded portfolio loss budget", () => {
   assert.equal(AD_CANARY_RISK_POLICY.monthlyRevenueTarget, 16_800);
-  assert.equal(AD_CANARY_RISK_POLICY.monthlyContributionTarget, 3_394);
+  assert.equal(AD_CANARY_RISK_POLICY.monthlyContributionFloor, 3_859.37);
   assert.equal(AD_CANARY_RISK_POLICY.baseAdPlan, 1_800);
   assert.equal(AD_CANARY_RISK_POLICY.projectedContribution, 3_920.47);
-  assert.equal(AD_CANARY_RISK_POLICY.targetBuffer, 526.47);
+  assert.equal(AD_CANARY_RISK_POLICY.targetBuffer, 61.1);
   assert.equal(AD_CANARY_RISK_POLICY.portfolioMaxLoss, 61.1);
   assert.equal(AD_CANARY_RISK_POLICY.earliestStart, "2026-08-08");
   assert.equal(AD_CANARY_RISK_POLICY.earliestMatureReview, "2026-08-29");
@@ -31,4 +31,3 @@ test("authorizes only the two prequalified Listing loss envelopes", () => {
     maxDailyIncrementalLoss: 0,
   });
 });
-
