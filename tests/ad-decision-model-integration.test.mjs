@@ -31,6 +31,7 @@ test("wires the shadow model into advertising analysis and model-generated To Do
   assert.match(catalog, /CATALOG_EVIDENCE_MAX_AGE_HOURS/);
   assert.match(experimentPolicy, /portfolioMaxLoss:\s*61\.1/);
   assert.match(analysis, /canaryRiskForListing/);
+  assert.match(analysis, /ads-analysis:v20/);
   assert.match(page, /最大损失/);
   assert.match(economics, /CURRENT_USD_COST_CONSERVATIVE_ATTRIBUTED_UNIT_PROXY/);
   assert.match(analysis, /currency:\s*"USD"/);
