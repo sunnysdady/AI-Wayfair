@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("turns zombie diagnostics into a local completion tracker and keeps one linked AI workbench", async () => {
+test("turns zombie diagnostics into a server-audited tracker and keeps one linked AI workbench", async () => {
   const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
   const manualStart = page.indexOf("{tab==='manual'&&");
   const aiStart = page.indexOf("{tab==='ai'&&", manualStart);
@@ -12,11 +12,13 @@ test("turns zombie diagnostics into a local completion tracker and keeps one lin
   const manualWorkspace = page.slice(manualStart, aiStart);
   const aiWorkspace = page.slice(aiStart, aiEnd);
 
-  assert.match(page, /const ZOMBIE_RESOLUTION_STORAGE_KEY='zombie-resolutions:v1'/);
-  assert.match(page, /function updateZombieResolution/);
+  assert.match(page, /\/api\/ads\/zombie-resolutions/);
+  assert.doesNotMatch(page, /ZOMBIE_RESOLUTION_STORAGE_KEY/);
+  assert.doesNotMatch(page, /zombie-resolutions:v1/);
+  assert.match(page, /function saveZombieResolution/);
   assert.doesNotMatch(page, /function queueZombieAction/);
   assert.match(manualWorkspace, /处理方式/);
-  assert.match(manualWorkspace, /是否完成/);
+  assert.match(manualWorkspace, /提交验收/);
   assert.match(manualWorkspace, /zombieResolutions/);
   assert.doesNotMatch(manualWorkspace, /加入手动执行清单|人工执行清单（不调用 API）|manualQueuedActions/);
 

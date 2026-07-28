@@ -2,18 +2,21 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("limits completion interaction and hover feedback to the checkbox column", async () => {
+test("requires execution evidence and acceptance instead of a completion checkbox", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /className=\{`manual-todo-row/);
-  assert.match(page, /className="manual-todo-check"/);
+  assert.match(page, /className="manual-task-closure"/);
   assert.match(page, /className="manual-todo-content"/);
-  assert.doesNotMatch(page, /<label className=\{done\?'done':''\} key=\{task\.id\}>/);
-  assert.match(styles, /\.manual-todo-check:hover/);
-  assert.doesNotMatch(styles, /\.manual-todo-list label:hover/);
+  assert.match(page, /执行结果/);
+  assert.match(page, /执行证据/);
+  assert.match(page, /验收人/);
+  assert.match(page, /提交验收/);
+  assert.doesNotMatch(page, /className="manual-todo-check"/);
+  assert.doesNotMatch(styles, /\.manual-todo-check:hover/);
   assert.match(styles, /\.manual-todo-content\{[^}]*user-select:text/);
 });
 

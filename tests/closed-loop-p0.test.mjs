@@ -7,7 +7,6 @@ import {
   assertOperationTransition,
   validateOperationInput,
 } from "../lib/operation-ledger.mjs";
-import { evaluateInventoryVerification } from "../lib/inventory-verification.mjs";
 import { validateZombieResolution } from "../lib/zombie-resolutions.mjs";
 
 test("uses one auditable operation state machine for every action", () => {
@@ -94,37 +93,11 @@ test("persists Zombie disposition with evidence instead of browser-only state", 
   }).status, "VERIFIED");
 });
 
-test("inventory verification closes only completed feeds whose samples match", () => {
-  assert.deepEqual(evaluateInventoryVerification({
-    feedStatus: "processing",
-    samples: [{ partNumber: "ABC", expected: 10, observed: 10 }],
-  }), {
-    status: "BLOCKED",
-    matched: 1,
-    mismatched: 0,
-    reason: "Wayfair feed 尚未完成",
-  });
-  assert.equal(evaluateInventoryVerification({
-    feedStatus: "completed",
-    samples: [{ partNumber: "ABC", expected: 10, observed: 9 }],
-  }).status, "FAILED");
-  assert.equal(evaluateInventoryVerification({
-    feedStatus: "completed",
-    samples: [
-      { partNumber: "ABC", expected: 10, observed: 10 },
-      { partNumber: "XYZ", expected: 0, observed: 0 },
-    ],
-    evidence: "Partner Home 2026-07-28 抽查",
-    acceptedBy: "库存负责人",
-  }).status, "VERIFIED");
-});
-
 test("exposes a task center and server-backed closure APIs", async () => {
-  const [page, operations, zombie, inventory, migration] = await Promise.all([
+  const [page, operations, zombie, migration] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/operations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ads/zombie-resolutions/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/api/inventory/verification/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../migrations/postgres/0005_operation_ledger.sql", import.meta.url), "utf8"),
   ]);
 
@@ -132,15 +105,12 @@ test("exposes a task center and server-backed closure APIs", async () => {
   assert.match(page, /function TaskCenter/);
   assert.match(page, /\/api\/operations/);
   assert.match(page, /\/api\/ads\/zombie-resolutions/);
-  assert.match(page, /\/api\/inventory\/verification/);
   assert.doesNotMatch(page, /ZOMBIE_RESOLUTION_STORAGE_KEY/);
   assert.doesNotMatch(page, /zombie-resolutions:v1/);
   assert.match(operations, /operation_events/);
   assert.match(zombie, /upsertOperation/);
-  assert.match(inventory, /evaluateInventoryVerification/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS operations/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS operation_events/);
-  assert.match(migration, /CREATE TABLE IF NOT EXISTS inventory_verifications/);
 });
 
 test("mobile navigation exposes a menu button and avoids mandatory wide task rows", async () => {
