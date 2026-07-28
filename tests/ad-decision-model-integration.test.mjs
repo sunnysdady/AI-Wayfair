@@ -3,10 +3,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("wires the shadow model into advertising analysis and model-generated To Do", async () => {
-  const [analysis, page, economics] = await Promise.all([
+  const [analysis, page, economics, catalog, experimentPolicy] = await Promise.all([
     readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/ad-contribution-economics.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../lib/catalog-operational-evidence.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ad-experiment-policy.mjs", import.meta.url), "utf8"),
   ]);
 
   assert.match(analysis, /buildAdDecisionModel/);
@@ -23,6 +25,13 @@ test("wires the shadow model into advertising analysis and model-generated To Do
   assert.match(analysis, /resolveContributionEconomics/);
   assert.match(analysis, /modelPartSets/);
   assert.match(analysis, /mappingStable/);
+  assert.match(analysis, /loadCatalogOperationalEvidence/);
+  assert.match(analysis, /resolveCatalogOperationalEvidence/);
+  assert.match(analysis, /catalogEvidence\.verified/);
+  assert.match(catalog, /CATALOG_EVIDENCE_MAX_AGE_HOURS/);
+  assert.match(experimentPolicy, /portfolioMaxLoss:\s*61\.1/);
+  assert.match(analysis, /canaryRiskForListing/);
+  assert.match(page, /最大损失/);
   assert.match(economics, /CURRENT_USD_COST_CONSERVATIVE_ATTRIBUTED_UNIT_PROXY/);
   assert.match(analysis, /currency:\s*"USD"/);
   assert.doesNotMatch(analysis, /canada\|\\\.ca/);
