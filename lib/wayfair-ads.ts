@@ -382,13 +382,17 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
   const liveSafetyStart = addDays(liveSafetyEnd, -3);
   const liveTrailingStart = addDays(liveSafetyEnd, -6);
   const campaignListingKey = (row: CsvRow) => `${row.listing || "UNKNOWN"}::${row.campaign_id || "UNKNOWN"}`;
+  const campaignTargetingById = new Map(
+    [...aggregate(campaignRows, "campaign_id", decisionStart, decisionEnd)]
+      .map(([campaignId, metric]) => [campaignId, String(metric.latest.targeting_type || "")]),
+  );
   const modelUnitKey = (row: CsvRow) => {
     const audience = normalizeAdAudience(row);
     return JSON.stringify([
       row.store_url || "",
       audience.key,
       row.campaign_id || "",
-      row.targeting_type || "",
+      row.targeting_type || campaignTargetingById.get(row.campaign_id || "") || "",
       row.listing || "",
     ]);
   };
@@ -528,7 +532,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       const campaignId = String(latest.campaign_id || "");
       const site = String(latest.store_url || "");
       const audience = normalizeAdAudience(latest);
-      const targetingType = String(latest.targeting_type || "");
+      const targetingType = String(latest.targeting_type || campaignTargetingById.get(campaignId) || "");
       const parts = String(latest.first_10_part_numbers || "").split(",").map((item) => item.trim()).filter(Boolean);
       const inventoryRows = parts.map((part) => inventory.get(part));
       const inventoryKnown = parts.length > 0 && inventoryRows.every(Boolean);
