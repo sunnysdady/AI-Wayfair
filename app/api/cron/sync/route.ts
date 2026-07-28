@@ -39,6 +39,13 @@ async function ensureSyncTables(db: D1Database) {
   ).run();
 }
 
+function boundedInteger(value: string | undefined, fallback: number, maximum: number) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 && parsed <= maximum
+    ? parsed
+    : fallback;
+}
+
 export async function GET(request: Request) {
   const env = await getRuntimeBindings();
   if (!authorized(request, env.CRON_SECRET)) {
@@ -81,6 +88,37 @@ export async function GET(request: Request) {
       syncOutlook: outlookConfigured
         ? () => syncOutlookDaily({ env, db, now })
         : undefined,
+      catalogPageBudget: boundedInteger(
+        env.CATALOG_SYNC_PAGE_BUDGET,
+        10,
+        100,
+      ),
+      catalogPageDelayMs: boundedInteger(
+        env.CATALOG_SYNC_PAGE_DELAY_MS,
+        250,
+        10_000,
+      ),
+      loadCatalogCheckpoint: async () => {
+        const row = await db.prepare(
+          "SELECT value FROM sync_state WHERE key=?",
+        ).bind("server:catalog:crawl").first<{ value: string }>();
+        if (!row?.value) return null;
+        try {
+          return JSON.parse(row.value);
+        } catch {
+          return null;
+        }
+      },
+      saveCatalogCheckpoint: async (checkpoint: unknown) => {
+        const updatedAt = new Date().toISOString();
+        await db.prepare(
+          "INSERT INTO sync_state(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",
+        ).bind(
+          "server:catalog:crawl",
+          JSON.stringify(checkpoint),
+          updatedAt,
+        ).run();
+      },
       record: async (entry: unknown) => {
         const updatedAt = new Date().toISOString();
         await db.prepare(
