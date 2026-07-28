@@ -67,10 +67,8 @@ test("holds the store profit pool between 10% and 15% after the full advertising
   assert.ok(summary.projectedPostAdProfit > 0);
 });
 
-test("keeps execution locked and gives every SKU a measurable release or stop gate", () => {
-  assert.equal(AUGUST_SALES_PLAN.reviewStatus, "PENDING_REVIEW");
+test("keeps ad execution locked and gives every SKU a measurable release or stop gate", () => {
   assert.equal(AUGUST_SALES_PLAN.canExecuteAds, false);
-  assert.equal(AUGUST_SALES_PLAN.canBuildPromotionPlan, false);
   assert.ok(AUGUST_SALES_PLAN_ROWS.every((row) => row.gate.length >= 20));
   assert.ok(AUGUST_SALES_PLAN_ROWS.every((row) => row.stopRule.length >= 20));
 
@@ -95,7 +93,14 @@ test("sets weekly order milestones that add up to the 150-order goal", () => {
   );
 });
 
-test("exposes the reviewed sales plan before the paused promotion plan in the operating center", async () => {
+test("marks the confirmed sales plan ready for promotion rebuilding without unlocking execution", async () => {
+  assert.equal(AUGUST_SALES_PLAN.reviewStatus, "APPROVED");
+  assert.equal(AUGUST_SALES_PLAN.reviewedAt, "2026-07-28");
+  assert.equal(AUGUST_SALES_PLAN.canBuildPromotionPlan, true);
+  assert.equal(AUGUST_SALES_PLAN.canExecuteAds, false);
+});
+
+test("presents a focused August promotion workspace after sales-plan approval", async () => {
   const [route, page, styles] = await Promise.all([
     readFile(new URL("../app/api/plan/progress/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
@@ -104,9 +109,17 @@ test("exposes the reviewed sales plan before the paused promotion plan in the op
 
   assert.match(route, /AUGUST_SALES_PLAN_ROWS/);
   assert.match(route, /summarizeAugustSalesPlan/);
+  assert.match(route, /READY_FOR_PROMOTION_REBUILD/);
+  assert.match(page, /8月推广计划/);
   assert.match(page, /150 Orders/);
   assert.match(page, /利润款.*跑量款/);
-  assert.match(page, /销售计划审核后再重算促销/);
+  assert.match(page, /销售计划已确认/);
+  assert.match(page, /促销方案重算/);
+  assert.match(page, /tab!=='august'&&<>/);
+  assert.doesNotMatch(page, /8月活动审核/);
+  assert.doesNotMatch(page, /PAUSED · SALES PLAN FIRST/);
+  assert.doesNotMatch(page, /销售计划审核后再重算促销/);
+  assert.doesNotMatch(page, /className="card listing-policy-card"/);
   assert.match(styles, /\.august-sales-summary/);
   assert.match(styles, /\.sales-plan-row/);
 });

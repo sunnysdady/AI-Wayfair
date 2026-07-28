@@ -112,8 +112,8 @@ test("exposes the August event list and SKU review plan in the operating-center 
   assert.match(route, /AUGUST_PROMOTION_PLAN/);
   assert.match(route, /promotionReviewSummary/);
   assert.match(page, /8月活动清单/);
-  assert.match(page, /SKU 促销审核方案/);
-  assert.match(page, /审核前不可提报紫鸟/);
+  assert.match(page, /逐Part促销重算/);
+  assert.match(page, /促销审核通过前不可提报紫鸟/);
   assert.match(page, /OPEN_FOR_SUBMISSION/);
   assert.match(styles, /\.promotion-event-grid/);
   assert.match(styles, /\.promotion-review-table/);
