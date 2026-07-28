@@ -6,10 +6,13 @@ import {
   AUGUST_PROMOTION_EVENTS,
   AUGUST_PROMOTION_PLAN,
   AUGUST_PROMOTION_PORTFOLIO,
+  AUGUST_QUANTITY_PROMOTION,
   promotionReviewSummary,
+  syncPromotionsToSalesPlan,
 } from "../lib/august-promotion.mjs";
+import { AUGUST_SALES_PLAN_ROWS } from "../lib/august-sales-plan.mjs";
 
-test("syncs six August events and separates usable windows from passed deadlines", () => {
+test("syncs all six August event receipts and separates active from submitted", () => {
   assert.equal(AUGUST_PROMOTION_EVENTS.length, 6);
   assert.deepEqual(
     AUGUST_PROMOTION_EVENTS.map((event) => event.id),
@@ -23,33 +26,32 @@ test("syncs six August events and separates usable windows from passed deadlines
     ],
   );
   assert.ok(AUGUST_PROMOTION_EVENTS.every((event) => event.sourceAsOf === "2026-07-28"));
-
-  const missed = AUGUST_PROMOTION_EVENTS.filter(
-    (event) => event.planningStatus === "MISSED_DEADLINE_RECHECK",
-  );
   assert.deepEqual(
-    missed.map((event) => event.id),
-    ["q3-priority-product-discounts-2026", "clearout-august-2026"],
+    AUGUST_PROMOTION_EVENTS.map((event) => event.projectId),
+    ["23766503", "23673214", "23685504", "23697903", "23723498", "23766473"],
   );
-  assert.ok(missed.every((event) => event.canRelyOnForPlan === false));
-
-  const upcoming = AUGUST_PROMOTION_EVENTS.filter(
-    (event) => event.planningStatus === "UPCOMING_SUBMISSION",
+  assert.equal(AUGUST_PROMOTION_EVENTS.filter((event) => event.status === "ACTIVE").length, 1);
+  assert.equal(AUGUST_PROMOTION_EVENTS.filter((event) => event.status === "SUBMITTED").length, 5);
+  assert.equal(AUGUST_PROMOTION_EVENTS.find((event) => event.status === "ACTIVE").submittedProducts, 15);
+  assert.equal(
+    AUGUST_PROMOTION_EVENTS.find((event) => event.id === "member-pop-up-august-2026")
+      .submittedProducts,
+    7,
   );
-  assert.equal(upcoming.length, 4);
-  assert.ok(upcoming.every((event) => event.canRelyOnForPlan === true));
 });
 
-test("maps all 21 current Parts to a review proposal or evidence-based hold", () => {
+test("maps all 21 current Parts to a completed submission or evidence-based hold", () => {
   assert.equal(AUGUST_PROMOTION_PLAN.length, 21);
   assert.equal(new Set(AUGUST_PROMOTION_PLAN.map((item) => item.part)).size, 21);
-  assert.ok(AUGUST_PROMOTION_PLAN.every((item) => item.reviewStatus === "PENDING_REVIEW"));
   assert.ok(AUGUST_PROMOTION_PLAN.every((item) => item.canSubmitToZiniao === false));
 
-  const proposed = AUGUST_PROMOTION_PLAN.filter((item) => item.action === "PROPOSE");
+  const submitted = AUGUST_PROMOTION_PLAN.filter((item) => item.action === "SUBMITTED");
   const held = AUGUST_PROMOTION_PLAN.filter((item) => item.action === "HOLD");
-  assert.equal(proposed.length, 15);
+  assert.equal(submitted.length, 15);
   assert.equal(held.length, 6);
+  assert.ok(submitted.every((item) => item.reviewStatus === "APPROVED"));
+  assert.ok(submitted.every((item) => item.submittedToZiniao === true));
+  assert.ok(held.every((item) => item.reviewStatus === "APPROVED_HOLD"));
   assert.deepEqual(
     held.map((item) => item.part),
     ["3T-B", "5T-1600-800", "5T-1830-1200", "5T-1830-900", "LFC-2W", "5T-wangge"],
@@ -58,20 +60,15 @@ test("maps all 21 current Parts to a review proposal or evidence-based hold", ()
 });
 
 test("uses role-specific margin floors and complete economics for every proposed Part", () => {
-  const proposed = AUGUST_PROMOTION_PLAN.filter((item) => item.action === "PROPOSE");
-  const roleFloors = new Set(proposed.map((item) => item.roleMarginFloor));
+  const submitted = AUGUST_PROMOTION_PLAN.filter((item) => item.action === "SUBMITTED");
+  const roleFloors = new Set(submitted.map((item) => item.roleMarginFloor));
 
   assert.deepEqual(roleFloors, new Set([0.12, 0.2]));
-  assert.ok(proposed.every((item) => Number.isFinite(item.priceBasisCents)));
-  assert.ok(proposed.every((item) => Number.isFinite(item.costCents)));
-  assert.ok(proposed.every((item) => item.inventoryOnHand > 0));
-  assert.ok(proposed.every((item) => item.catalogLiveCount === 1));
-  assert.ok(
-    proposed.every(
-      (item) => item.estimatedWorstMargin + 1e-9 >= item.roleMarginFloor,
-    ),
-  );
-  assert.ok(proposed.every((item) => item.requiredGates.includes("EXPLICIT_USER_APPROVAL")));
+  assert.ok(submitted.every((item) => Number.isFinite(item.priceBasisCents)));
+  assert.ok(submitted.every((item) => Number.isFinite(item.costCents)));
+  assert.ok(submitted.every((item) => item.inventoryOnHand > 0));
+  assert.ok(submitted.every((item) => item.catalogLiveCount === 1));
+  assert.ok(submitted.every((item) => item.requiredGates.includes("EXPLICIT_USER_APPROVAL")));
 
   const thinVolume = AUGUST_PROMOTION_PLAN.find((item) => item.part === "MFC-D3-B");
   assert.equal(thinVolume.b2cDiscount, 0.08);
@@ -83,9 +80,29 @@ test("uses role-specific margin floors and complete economics for every proposed
   assert.equal(thinRepair.b2bTotalDiscount, 0.08);
   assert.ok(thinRepair.estimatedWorstMargin >= 0.2);
   assert.match(thinRepair.reason, /8%/);
+
+  assert.deepEqual(
+    submitted.filter((item) => item.marginAlert).map((item) => item.part),
+    ["VFC-3B", "VFC-3W"],
+  );
 });
 
-test("protects the 10%-15% store margin with a promotion-compatible advertising pool", () => {
+test("syncs the submitted 11-SKU B2B quantity offer and its stacking rule", () => {
+  assert.equal(AUGUST_QUANTITY_PROMOTION.projectId, "16685396");
+  assert.equal(AUGUST_QUANTITY_PROMOTION.status, "PROCESSING");
+  assert.equal(AUGUST_QUANTITY_PROMOTION.minimumQuantity, 2);
+  assert.equal(AUGUST_QUANTITY_PROMOTION.additionalDiscount, 0.05);
+  assert.equal(AUGUST_QUANTITY_PROMOTION.parts.length, 11);
+  assert.match(AUGUST_QUANTITY_PROMOTION.stackingRule, /叠加/);
+  assert.deepEqual(
+    AUGUST_PROMOTION_PLAN.filter((item) => item.quantityOffer === 0.05).map(
+      (item) => item.part,
+    ).sort(),
+    [...AUGUST_QUANTITY_PROMOTION.parts].sort(),
+  );
+});
+
+test("protects the 10%-15% store margin after event and quantity discounts", () => {
   assert.deepEqual(
     {
       originalAdBudget: AUGUST_PROMOTION_PORTFOLIO.originalAdBudget,
@@ -112,57 +129,92 @@ test("protects the 10%-15% store margin with a promotion-compatible advertising 
   const full = AUGUST_PROMOTION_PORTFOLIO.scenarios.find(
     (item) => item.promotionOrderShare === 1,
   );
-  assert.equal(primary.projectedRevenue, 16197.2);
-  assert.equal(primary.projectedPostAdMargin, 0.1245);
+  assert.equal(primary.quantityOrderShare, 0.15);
+  assert.equal(primary.projectedRevenue, 16075.72);
+  assert.equal(primary.projectedPostAdMargin, 0.1178);
   assert.ok(primary.projectedPostAdMargin >= 0.1 && primary.projectedPostAdMargin <= 0.15);
-  assert.equal(stress.projectedPostAdMargin, 0.1112);
+  assert.equal(stress.quantityOrderShare, 0.2);
+  assert.equal(stress.projectedPostAdMargin, 0.1022);
   assert.ok(stress.projectedPostAdMargin >= 0.1);
-  assert.equal(full.hardAdCapAt10Percent, 2225.16);
+  assert.equal(full.hardAdCapAt10Percent, 2019.57);
   assert.ok(full.projectedPostAdMargin < 0.1);
 });
 
-test("keeps the Ziniao handoff locked until the user approves the Part-level plan", () => {
+test("summarizes the completed Purple Bird handoff without calling processing active", () => {
   const summary = promotionReviewSummary(AUGUST_PROMOTION_PLAN);
 
   assert.deepEqual(summary, {
     totalListings: 10,
     totalParts: 21,
-    proposedListings: 9,
-    proposedParts: 15,
+    submittedListings: 9,
+    submittedParts: 15,
     heldParts: 6,
-    pendingReviewParts: 21,
-    ziniaoReadyParts: 0,
-    submissionLocked: true,
+    approvedParts: 15,
+    ziniaoSubmittedParts: 15,
+    activeEvents: 1,
+    submittedEvents: 5,
+    quantityPromotionParts: 11,
+    quantityPromotionStatus: "PROCESSING",
+    marginAlertParts: 2,
     originalAdBudget: 4050,
     recommendedAdBudget: 2700,
     adBudgetReduction: 1350,
     projectedPromotionOrderShare: 0.6,
-    projectedRevenue: 16197.2,
-    projectedPostAdProfit: 2015.92,
-    projectedPostAdMargin: 0.1245,
+    projectedRevenue: 16075.72,
+    projectedPostAdProfit: 1894.44,
+    projectedPostAdMargin: 0.1178,
+    projectedQuantityOrderShare: 0.15,
     stressPromotionOrderShare: 0.7,
-    stressPostAdMargin: 0.1112,
+    stressQuantityOrderShare: 0.2,
+    stressPostAdMargin: 0.1022,
     fallbackAdBudget: 2200,
-    fullPromotionHardAdCap: 2225.16,
+    fullPromotionHardAdCap: 2019.57,
   });
 });
 
-test("exposes the Part review table and budget conflict in the operating-center UI", async () => {
+test("joins promotion status into every August sales-plan row", () => {
+  const synced = syncPromotionsToSalesPlan(AUGUST_SALES_PLAN_ROWS);
+  assert.equal(synced.length, 10);
+  assert.ok(synced.every((row) => row.promotion.syncedAt === "2026-07-28"));
+  assert.equal(
+    synced.find((row) => row.listing === "DMOM1021").promotion.status,
+    "SUBMITTED",
+  );
+  assert.equal(
+    synced.find((row) => row.listing === "DMOM1000").promotion.status,
+    "PARTIALLY_SUBMITTED",
+  );
+  assert.equal(
+    synced.find((row) => row.listing === "DMOM1016").promotion.status,
+    "ON_HOLD",
+  );
+  assert.deepEqual(
+    synced.find((row) => row.listing === "DMOM1019").promotion.discountTiers,
+    ["10%/15%"],
+  );
+});
+
+test("exposes synced event, quantity and Part status in the operating-center UI", async () => {
   const [route, page, styles] = await Promise.all([
     readFile(new URL("../app/api/plan/progress/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(route, /PENDING_PROMOTION_REVIEW/);
+  assert.match(route, /SYNCED_AFTER_SUBMISSION/);
+  assert.match(route, /AUGUST_QUANTITY_PROMOTION/);
+  assert.match(route, /syncPromotionsToSalesPlan/);
   assert.match(route, /AUGUST_PROMOTION_PORTFOLIO/);
-  assert.match(page, /逐Part促销审核方案/);
-  assert.match(page, /建议提报/);
+  assert.match(page, /SKU销量、利润与促销责任/);
+  assert.match(page, /逐Part促销执行情况/);
+  assert.match(page, /活动已提报/);
   assert.match(page, /暂缓/);
+  assert.match(page, /B2B买2额外5%/);
   assert.match(page, /促销兼容广告预算/);
   assert.match(page, /原销售预算/);
-  assert.match(page, /紫鸟可提报/);
-  assert.match(page, /MISSED_DEADLINE_RECHECK/);
+  assert.match(page, /已审核并提报/);
+  assert.match(page, /项目号/);
   assert.match(styles, /\.promotion-review-table/);
+  assert.match(styles, /\.promotion-sync/);
   assert.match(styles, /\.promotion-budget-warning/);
 });

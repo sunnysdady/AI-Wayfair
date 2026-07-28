@@ -109,12 +109,12 @@ test("presents a focused August promotion workspace after sales-plan approval", 
 
   assert.match(route, /AUGUST_SALES_PLAN_ROWS/);
   assert.match(route, /summarizeAugustSalesPlan/);
-  assert.match(route, /PENDING_PROMOTION_REVIEW/);
+  assert.match(route, /SYNCED_AFTER_SUBMISSION/);
   assert.match(page, /8月推广计划/);
   assert.match(page, /150 Orders/);
   assert.match(page, /利润款.*跑量款/);
   assert.match(page, /销售计划已确认/);
-  assert.match(page, /逐Part促销审核方案/);
+  assert.match(page, /逐Part促销执行情况/);
   assert.match(page, /tab!=='august'&&<>/);
   assert.doesNotMatch(page, /8月活动审核/);
   assert.doesNotMatch(page, /PAUSED · SALES PLAN FIRST/);
