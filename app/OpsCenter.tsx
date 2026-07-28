@@ -82,6 +82,16 @@ type CatalogResponse = { items?: CatalogItem[]; paginationInfo?: { page: number;
 
 type AdMetric = { impressions: number; clicks: number; spend: number; orders: number; units: number; retail: number; wsc: number; ctr: number; cvr: number; cpa: number; retailRoas: number; wscRoas: number };
 type AdCampaign = AdMetric & { campaignId: string; name: string; targetingType: string; site: string; status: string; isActive: string; isB2b: string; dailyCap: string; lifetimeBudget: string; startDate: string; endDate: string; strategy: string; targetRoas: string };
+type CampaignControlFact = {
+  campaignId:string;status:"ACTIVE"|"PAUSED";dailyCap:number|null;protectedFromWholeCampaignPause:boolean;
+  controlMode:"LISTING_ISOLATION"|"CAMPAIGN_PAUSED"|"CAMPAIGN_ACTIVE";
+  isolatedProducts:Array<{listing:string;part:string;status:"PAUSED"}>;
+};
+type CampaignControlSnapshot = {
+  asOf:string;source:string;walletDailyCap:number;activeCampaignDailyCap:number;walletHeadroom:number;
+  activeCampaignDailyCaps:Record<string,number>;pausedCampaignIds:string[];
+  correctedCampaign:{campaignId:"597350";status:"ACTIVE";dailyCap:number;last28Spend:number;last28Revenue:number;last28RetailRoas:number;protectedFromWholeCampaignPause:true;controlMode:"LISTING_ISOLATION";isolatedProducts:Array<{listing:"DMOM1025";part:"LFC-3W";status:"PAUSED"}>};
+};
 type ZombieCampaignFinding = {
   campaignId: string; campaignName: string; targetingType: string; site: string; listing: string; productName: string; linkStatus: string; bid: number; parts: string[];
   metric: { impressions: number; clicks: number; spend: number; orders: number };
@@ -106,6 +116,7 @@ type AdModelDecision = {
   unitKey:string;
   identity:{site:string;currency?:string;isB2B:boolean;campaignId:string;targetingType:string;listing:string};
   executionPlan:null|{targetMetric:"ORDERS";listingTargetOrders:number;listingBaseAdBudget:number;listingCanaryBudget:number;listingPlannedAdBudget:number;scaleEligible:boolean;portfolioStageOneAdCap:number;portfolioStageTwoAdCap:number};
+  campaignControl:CampaignControlFact|null;
   mode:"SHADOW";
   eligibleForExecution:false;
   suggestedAction:string;
@@ -126,6 +137,7 @@ type AdDecisionModel = {
 type AdModelTodo = {
   id:string;unitKey:string;listing:string;campaignId:string;priority:"P1"|"P2";type:"DESIGN_CANARY"|"FIX_MODEL_INPUT"|"WAIT_FOR_EVIDENCE"|"MANUAL_AI_REVIEW";title:string;detail:string;suggestedAction:string;blockers:string[];
   executionPlan:null|{targetMetric:"ORDERS";listingTargetOrders:number;listingBaseAdBudget:number;listingCanaryBudget:number;listingPlannedAdBudget:number;scaleEligible:boolean;portfolioStageOneAdCap:number;portfolioStageTwoAdCap:number};
+  campaignControl:CampaignControlFact|null;
   confidence:{data:string;predictive:string;causal:string};attributedScenarioDelta:{orders:number|null;spend:number|null;wsc:number|null;contributionProxy:number|null}|null;incrementalContributionProbability:null;experimentContract:null|{status:string;treatment:string;control:string;primaryMetric:string;attributionWaitDays:number;minimumSampleSize:null;requiresPowerAnalysis:boolean;stopRule:string;contaminationControls:string[];maxIncrementalLoss:number;maxDailyIncrementalLoss:number;portfolioMaxIncrementalLoss:number;portfolioMaxDailyIncrementalLoss:number;earliestStart:string;earliestMatureReview:string};mode:"SHADOW";eligibleForExecution:false;
 };
 type AdAnalysis = {
@@ -134,7 +146,7 @@ type AdAnalysis = {
   range: { start: string; end: string; previousStart: string; previousEnd: string; asOf: string; matureThrough: string; mature: boolean };
   decisionRange: { start: string; end: string; previousStart: string; previousEnd: string; cadence: string; rule: string };
   liveSafetyRange?: { start: string; end: string; trailingStart: string; days: number; rule: string };
-  decisionModel?: AdDecisionModel; modelTodo?: AdModelTodo[];
+  decisionModel?: AdDecisionModel; modelTodo?: AdModelTodo[]; campaignControl?: CampaignControlSnapshot;
   runKey: string; generatedAt: string; attributionWindowDays: number; cache?: { hit?: boolean; layer?: string; updatedAt?: string }; safety: { reason: string }; error?: string;
 };
 type SortState = { key: string; direction: "asc" | "desc" };
@@ -850,6 +862,7 @@ function Ads({ tab }: { tab: AdsTab }) {
   const aiDecisionPrevious=data?.decision.previous;
   const decisionModel=data?.decisionModel;
   const modelTodo=data?.modelTodo||[];
+  const campaignControl=data?.campaignControl;
   const headerRange=tab==='review'?null:tab==='ai'?data?.decisionRange:requested;
   const pageTitle=tab==='manager'?'广告管理器':tab==='listings'?'父体 SKU 广告表现':tab==='manual'?'手动优化 To-Do':tab==='review'?'优化记录与复盘':'AI 优化';
   const pageCount=tab==='manager'?`${data?.campaigns.length||0} 个 Campaign`:tab==='listings'?`${data?.listings.length||0} 个父体 SKU`:tab==='manual'?`${resolvedZombieCount} / ${zombieFindings.length} 诊断已完成 · ${manualDone.length} / ${MANUAL_AD_TASK_COUNT} To-Do`:tab==='review'?'完整审计链':`${ready} 项建议 · ${validatedActions.length} 项待执行`;
@@ -890,6 +903,8 @@ function Ads({ tab }: { tab: AdsTab }) {
     </div>}
     {tab==='ai'&&<>
     <div className="card model-shadow-card"><div className="section-head"><div><span>MODEL FIRST · READ ONLY</span><h2>广告决策模型 · Shadow</h2></div><b>{decisionModel?`${decisionModel.version} · ${decisionModel.summary.actionableInShadow} 个 Canary 候选 · ${decisionModel.summary.blocked} 个阻断`:'等待成熟数据'}</b></div>
+      {campaignControl&&<><div className="ai-decision-context live-safety-context"><span>已回读执行口径</span><b>Wallet Daily Cap {money2(campaignControl.walletDailyCap)}</b><em>活跃 Campaign Cap 合计 {money2(campaignControl.activeCampaignDailyCap)} · 安全余量 {money2(campaignControl.walletHeadroom)}。Campaign 级暂停必须先检查混投关系，不得因单个零预算 Listing 误伤整组。</em></div>
+      <div className="ai-workbench-metrics"><span><small>Campaign 597350</small><b>Active · {money2(campaignControl.correctedCampaign.dailyCap)}/day</b><em>纠偏后保持活跃</em></span><span><small>商品隔离</small><b>DMOM1025 / LFC-3W</b><em>产品行 Paused，不暂停整组</em></span><span><small>L28 Retail ROAS</small><b>{campaignControl.correctedCampaign.last28RetailRoas.toFixed(2)}×</b><em>{money2(campaignControl.correctedCampaign.last28Spend)} 花费 · {money2(campaignControl.correctedCampaign.last28Revenue)} Revenue</em></span><span><small>继续 Paused</small><b>{campaignControl.pausedCampaignIds.join(' · ')}</b><em>已执行状态，不再生成重复暂停任务</em></span></div></>}
       <div className="ai-decision-context"><span>长期目标</span><b>最大化预期增量广告后贡献</b><em>当前阶段先学习增量响应。模型只读取成熟数据；因果置信度为 C0，所以只展示归因场景假设，不计算真实增量 ROI 或成功概率，也不会进入广告 API 执行队列。</em></div>
       <div className="ai-workbench-metrics"><span><small>模型单元</small><b>{decisionModel?.summary.units||0}</b><em>Campaign × Listing</em></span><span><small>Shadow Canary</small><b>{decisionModel?.summary.actionableInShadow||0}</b><em>仅生成实验设计</em></span><span><small>输入阻断</small><b>{decisionModel?.summary.blocked||0}</b><em>成本 / 映射 / 库存 / 链接</em></span><span><small>模型最优预算</small><b>{decisionModel?.optimalBudget.status==='UNKNOWN'?'尚不可估计':money(decisionModel?.optimalBudget.amount||0)}</b><em>等待真实干预响应曲线</em></span></div>
       <p className="ai-workbench-note">实验最大损失：组合 {money2(decisionModel?.riskPolicy?.portfolioMaxLoss||0)}，单日增量 {money2(decisionModel?.riskPolicy?.portfolioMaxDailyIncrementalLoss||0)}；守住 8 月贡献代理下限 {money2(decisionModel?.riskPolicy?.monthlyContributionFloor||0)}。最早 {decisionModel?.riskPolicy?.earliestStart||'-'} 启动，{decisionModel?.riskPolicy?.earliestMatureReview||'-'} 首评。该下限基于收入目标、当前采购毛利率与基础广告计划，不等同于含退货、物流及扣款后的净利润。</p>

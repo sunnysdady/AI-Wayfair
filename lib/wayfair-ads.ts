@@ -15,7 +15,12 @@ import { fetchAdvertisingResponse } from "./wayfair-ad-retry.mjs";
 import { syncAdActionOperation } from "./ad-operation-link.mjs";
 import { catalogEvidenceKey, mergeCatalogPartEvidence, resolveCatalogOperationalEvidence, type CatalogPartEvidence } from "./catalog-operational-evidence.mjs";
 import { AD_CANARY_RISK_POLICY, canaryRiskForListing } from "./ad-experiment-policy.mjs";
-import { AUGUST_EXECUTION_POLICY } from "./august-execution-policy.mjs";
+import {
+  AUGUST_CAMPAIGN_CONTROL_SNAPSHOT,
+  AUGUST_EXECUTION_POLICY,
+  campaignExecutionFact,
+  reconcileAugustCampaignFindings,
+} from "./august-execution-policy.mjs";
 import { augustSalesPlanForListing } from "./august-sales-plan.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
@@ -662,6 +667,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
           portfolioStageOneAdCap: AUGUST_EXECUTION_POLICY.stageOneAdCap,
           portfolioStageTwoAdCap: AUGUST_EXECUTION_POLICY.stageTwoAdCap,
         },
+        campaignControl: campaignExecutionFact(campaignId),
         readiness: {
           identityComplete: Boolean(site && audience.known && campaignId && targetingType && listing),
           attributionMature: decisionEnd <= matureThrough,
@@ -705,6 +711,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
           : `模型保持 HOLD；阻断项：${decision.blockers.join("、") || "当前动作未显著优于 HOLD"}`,
         suggestedAction: decision.suggestedAction,
         executionPlan: decision.executionPlan,
+        campaignControl: decision.campaignControl,
         blockers: decision.blockers,
         confidence: decision.confidence,
         attributedScenarioDelta: candidate ? {
@@ -882,7 +889,14 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       ...evaluateAiAdCandidate({ listing: listing.listing, orders14d: metric.orders, spend14d: metric.spend, wsc14d: metric.wsc, inventoryKnown: listing.inventory.known, coverDays: listing.inventory.coverDays, linkPass: listing.linkQuality.pass, marginRate: listing.economics.marginRate, breakEvenRoas: listing.economics.breakEvenRoas }),
     };
   }).filter(Boolean).sort((a, b) => Number(Boolean(b?.canLaunch)) - Number(Boolean(a?.canLaunch)) || Number(a?.orderGap || 0) - Number(b?.orderGap || 0));
-  const zombieFindings = detectZombieCampaigns({ campaignRows, listingRows, decisionEnd });
+  const rawZombieFindings = detectZombieCampaigns({
+    campaignRows,
+    listingRows,
+    decisionEnd,
+  });
+  const zombieReconciliation =
+    reconcileAugustCampaignFindings(rawZombieFindings);
+  const zombieFindings = zombieReconciliation.findings;
   const zombieAudit = {
     matureDays: ZOMBIE_MATURE_DAYS,
     total: zombieFindings.length,
@@ -896,6 +910,8 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
     decisionRange: { start: decisionStart, end: decisionEnd, previousStart: decisionPreviousStart, previousEnd: decisionPreviousEnd, cadence: "WEEKLY", rule: "T-14成熟周用于效果评估；最近4个完整日只生成预警，最近7日持续异常需经过运营辩论。活动期与调整后21天冷却期禁止绩效调参。" },
     liveSafetyRange: { start: liveSafetyStart, end: liveSafetyEnd, trailingStart: liveTrailingStart, days: 4, rule: "4日花费≥$20、点击≥30且0单只触发预警；持续7日且达到Campaign成熟CVR的95%异常样本门槛才进入运营辩论，未成熟数据禁止直接调参。" },
     current: total(campaignRows, start, end), previous: total(campaignRows, previousStart, previousEnd), decision: { current: total(campaignRows, decisionStart, decisionEnd), previous: total(campaignRows, decisionPreviousStart, decisionPreviousEnd) }, history, campaigns, listings, parentListings, liveSafetyFindings, aiCampaignDiagnostics, aiAdEligibility, zombieFindings, zombieAudit, decisionModel, modelTodo,
+    campaignControl: AUGUST_CAMPAIGN_CONTROL_SNAPSHOT,
+    suppressedCampaignFindings: zombieReconciliation.suppressed,
     plan: { month: JULY_PLAN.month, plannedListings: JULY_PLAN_LISTINGS.filter((item) => item.eligible).length, plannedBudget: JULY_PLAN.adBudget, cpcAnchor: MAKEACE_CPC_PLAN, goalGuardrail: { julyPaceGap: goals.julyPaceGap, eventPhase: goals.eventPhase, reliable: goals.reliable } },
     safety: {
       liveWritesEnabled: false,
@@ -964,7 +980,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const listingFetchEnd = today;
   const fetchEnd = [campaignFetchEnd, listingFetchEnd].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v22:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v23:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
     const [cached, catalogVersion] = await Promise.all([
       env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>(),
@@ -996,7 +1012,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   if (env.DB) {
     const now = new Date().toISOString();
     await env.DB.prepare("INSERT INTO sync_state(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(cacheKey, JSON.stringify(analysis), now).run();
-    await env.DB.prepare("INSERT INTO ad_decision_runs(run_key,decision_start,decision_end,payload,created_at) VALUES(?,?,?,?,?) ON CONFLICT(run_key) DO UPDATE SET payload=excluded.payload,created_at=excluded.created_at").bind(analysis.runKey, decisionStart, decisionEnd, JSON.stringify({ listings: analysis.listings, liveSafetyFindings: analysis.liveSafetyFindings, liveSafetyRange: analysis.liveSafetyRange, zombieFindings: analysis.zombieFindings, zombieAudit: analysis.zombieAudit, decisionModel: analysis.decisionModel, modelTodo: analysis.modelTodo, plan: analysis.plan, decisionRange: analysis.decisionRange }), now).run();
+    await env.DB.prepare("INSERT INTO ad_decision_runs(run_key,decision_start,decision_end,payload,created_at) VALUES(?,?,?,?,?) ON CONFLICT(run_key) DO UPDATE SET payload=excluded.payload,created_at=excluded.created_at").bind(analysis.runKey, decisionStart, decisionEnd, JSON.stringify({ listings: analysis.listings, liveSafetyFindings: analysis.liveSafetyFindings, liveSafetyRange: analysis.liveSafetyRange, zombieFindings: analysis.zombieFindings, zombieAudit: analysis.zombieAudit, campaignControl: analysis.campaignControl, decisionModel: analysis.decisionModel, modelTodo: analysis.modelTodo, plan: analysis.plan, decisionRange: analysis.decisionRange }), now).run();
   }
   return analysis;
 }
