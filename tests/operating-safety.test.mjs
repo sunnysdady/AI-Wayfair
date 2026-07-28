@@ -91,6 +91,27 @@ test("only treats fully reconciled Wayfair inventory feeds as completed", () => 
   assert.equal(summarizeInventoryFeeds([completed, failed]).status, "failed");
 });
 
+test("fails inventory feeds that remain in Wayfair processing beyond the acceptance window", () => {
+  const stalled = classifyInventoryFeed(
+    {
+      id: "feed-stalled",
+      status: "PROCESSING",
+      submittedAt: "2026-07-23T15:30:00Z",
+      itemCount: 5,
+      completedCount: 0,
+      processingCount: 5,
+      errorCount: 0,
+      errors: [],
+    },
+    {
+      now: new Date("2026-07-23T16:01:00Z"),
+      maxProcessingMs: 30 * 60 * 1000,
+    },
+  );
+  assert.equal(stalled.state, "failed");
+  assert.match(stalled.reason, /超过 30 分钟/);
+});
+
 test("inventory UI and route do not equate HTTP success with completed processing", async () => {
   const [route, inventory, page] = await Promise.all([
     readFile(new URL("../app/api/inventory/push/route.ts", import.meta.url), "utf8"),
@@ -99,7 +120,8 @@ test("inventory UI and route do not equate HTTP success with completed processin
   ]);
   assert.match(route, /classifyInventoryFeed/);
   assert.match(route, /saveInventoryPushRun/);
-  assert.match(route, /transactions\(filters:\[\{field:id,equals:\$id\}\]/);
+  assert.match(route, /transactions\(filters:\[\{field:handle,equals:\$handle\}\]/);
+  assert.doesNotMatch(route, /transactions\(filters:\[\{field:id,equals:\$id\}\]/);
   assert.match(route, /resumePushId/);
   assert.match(inventory, /inventory_push_batches/);
   assert.match(route, /status:202/);
@@ -107,6 +129,22 @@ test("inventory UI and route do not equate HTTP success with completed processin
   assert.match(page, /Wayfair 处理中/);
   assert.match(page, /Wayfair feed 已处理/);
   assert.doesNotMatch(page, /正式库存已提交，共/);
+});
+
+test("uses Wayfair's real dry run and requires its completed receipt before live inventory", async () => {
+  const [route, inventory, page] = await Promise.all([
+    readFile(new URL("../app/api/inventory/push/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/inventory.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(route, /\$dryRun:Boolean!/);
+  assert.match(route, /dryRun:\$dryRun/);
+  assert.doesNotMatch(route, /if\(body\.dryRun!==false\) return Response\.json\(\{mode:"dry-run"/);
+  assert.match(route, /loadCompletedInventoryDryRun/);
+  assert.match(inventory, /id LIKE 'dryrun-%'/);
+  assert.match(page, /Wayfair API Dry-run 已通过/);
+  assert.doesNotMatch(page, /if\(dryRun\)\{setState\('Dry-run 已通过'\)/);
 });
 
 test("uses differential inventory feeds for partial batches and avoids false applied claims", async () => {
