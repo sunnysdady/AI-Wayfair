@@ -127,7 +127,7 @@ test("inventory UI and route do not equate HTTP success with completed processin
   assert.match(route, /status:202/);
   assert.match(page, /waitForPush/);
   assert.match(page, /Wayfair 处理中/);
-  assert.match(page, /Wayfair feed 已处理/);
+  assert.match(page, /Wayfair feed 完成 · 待库存回读/);
   assert.doesNotMatch(page, /正式库存已提交，共/);
 });
 
@@ -156,6 +156,6 @@ test("uses differential inventory feeds for partial batches and avoids false app
   assert.match(route, /INVENTORY_FEED_KIND\s*=\s*"DIFFERENTIAL"/);
   assert.match(route, /feedKind:INVENTORY_FEED_KIND/);
   assert.doesNotMatch(route, /feedKind:"TRUE_UP"/);
-  assert.match(page, /Wayfair feed 已处理/);
+  assert.match(page, /Wayfair feed 完成 · 待库存回读/);
   assert.doesNotMatch(page, /Wayfair 已完成处理/);
 });

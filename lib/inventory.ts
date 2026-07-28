@@ -118,13 +118,17 @@ type InventoryPushBatchReceipt = {
   reason:string;
 };
 
-export async function saveInventoryPushRun(db:D1Database,input:{pushId:string;snapshotId:string;status:string;itemCount:number;batchCount:number;completedBatches:number;failedBatches:number;batches:InventoryPushBatchReceipt[];createdAt?:string}) {
+async function ensureInventoryPushTables(db:D1Database) {
   await db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS inventory_push_runs (id TEXT PRIMARY KEY NOT NULL, snapshot_id TEXT NOT NULL, status TEXT NOT NULL, item_count INTEGER NOT NULL, batch_count INTEGER NOT NULL, completed_batches INTEGER NOT NULL DEFAULT 0, failed_batches INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"),
     db.prepare("CREATE INDEX IF NOT EXISTS inventory_push_runs_snapshot_idx ON inventory_push_runs(snapshot_id)"),
     db.prepare("CREATE TABLE IF NOT EXISTS inventory_push_batches (push_id TEXT NOT NULL, batch_index INTEGER NOT NULL, feed_id TEXT, handle TEXT, status TEXT NOT NULL, state TEXT NOT NULL, expected_item_count INTEGER NOT NULL, item_count INTEGER, error_count INTEGER NOT NULL DEFAULT 0, completed_count INTEGER, processing_count INTEGER, errors TEXT NOT NULL DEFAULT '[]', submitted_at TEXT, completed_at TEXT, reason TEXT, PRIMARY KEY(push_id,batch_index))"),
     db.prepare("CREATE INDEX IF NOT EXISTS inventory_push_batches_push_idx ON inventory_push_batches(push_id)"),
   ]);
+}
+
+export async function saveInventoryPushRun(db:D1Database,input:{pushId:string;snapshotId:string;status:string;itemCount:number;batchCount:number;completedBatches:number;failedBatches:number;batches:InventoryPushBatchReceipt[];createdAt?:string}) {
+  await ensureInventoryPushTables(db);
   const now=new Date().toISOString();
   await db.prepare("INSERT INTO inventory_push_runs(id,snapshot_id,status,item_count,batch_count,completed_batches,failed_batches,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET snapshot_id=excluded.snapshot_id,status=excluded.status,item_count=excluded.item_count,batch_count=excluded.batch_count,completed_batches=excluded.completed_batches,failed_batches=excluded.failed_batches,updated_at=excluded.updated_at").bind(input.pushId,input.snapshotId,input.status,input.itemCount,input.batchCount,input.completedBatches,input.failedBatches,input.createdAt||now,now).run();
   for(const batch of input.batches){
@@ -134,10 +138,16 @@ export async function saveInventoryPushRun(db:D1Database,input:{pushId:string;sn
 }
 
 export async function loadInventoryPushRun(db:D1Database,pushId:string) {
+  await ensureInventoryPushTables(db);
   const run=await db.prepare("SELECT id,snapshot_id,status,item_count,batch_count,completed_batches,failed_batches,created_at FROM inventory_push_runs WHERE id=?").bind(pushId).first<{id:string;snapshot_id:string;status:string;item_count:number;batch_count:number;completed_batches:number;failed_batches:number;created_at:string}>();
   if(!run)return null;
   const rows=await db.prepare("SELECT batch_index,feed_id,handle,status,state,expected_item_count,item_count,error_count,completed_count,processing_count,errors,submitted_at,completed_at,reason FROM inventory_push_batches WHERE push_id=? ORDER BY batch_index").bind(pushId).all<{batch_index:number;feed_id:string|null;handle:string|null;status:string;state:string;expected_item_count:number;item_count:number|null;error_count:number;completed_count:number|null;processing_count:number|null;errors:string;submitted_at:string|null;completed_at:string|null;reason:string|null}>();
   return {pushId:run.id,snapshotId:run.snapshot_id,status:run.status,itemCount:Number(run.item_count),batchCount:Number(run.batch_count),completedBatches:Number(run.completed_batches),failedBatches:Number(run.failed_batches),createdAt:run.created_at,batches:(rows.results||[]).map(row=>({index:Number(row.batch_index),expectedItemCount:Number(row.expected_item_count),state:row.state,reason:row.reason||"",feed:{id:row.feed_id||undefined,handle:row.handle||undefined,status:row.status,submittedAt:row.submitted_at||undefined,completedAt:row.completed_at||undefined,itemCount:row.item_count==null?undefined:Number(row.item_count),errorCount:Number(row.error_count),completedCount:row.completed_count==null?undefined:Number(row.completed_count),processingCount:row.processing_count==null?undefined:Number(row.processing_count),errors:JSON.parse(row.errors||"[]")}}))};
+}
+
+export async function loadCompletedInventoryDryRun(db:D1Database,snapshotId:string) {
+  await ensureInventoryPushTables(db);
+  return db.prepare("SELECT id,updated_at FROM inventory_push_runs WHERE snapshot_id=? AND id LIKE 'dryrun-%' AND status='completed' ORDER BY updated_at DESC LIMIT 1").bind(snapshotId).first<{id:string;updated_at:string}>();
 }
 
 export async function loadInventoryValueRisk(db: D1Database, snapshotId: string) {
