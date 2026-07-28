@@ -12,6 +12,7 @@ import {
 import {
   AUGUST_PROMOTION_EVENTS,
   AUGUST_PROMOTION_PLAN,
+  AUGUST_PROMOTION_PORTFOLIO,
   promotionReviewSummary,
 } from "../../../../lib/august-promotion.mjs";
 import {
@@ -135,9 +136,10 @@ export async function GET() {
         salesPlanRows: AUGUST_SALES_PLAN_ROWS,
         salesPlanSummary: summarizeAugustSalesPlan(AUGUST_SALES_PLAN_ROWS),
         salesMilestones: AUGUST_SALES_MILESTONES,
-        promotionPlanStatus: "READY_FOR_PROMOTION_REBUILD",
+        promotionPlanStatus: "PENDING_PROMOTION_REVIEW",
         promotionEvents: AUGUST_PROMOTION_EVENTS,
         promotionPlan: AUGUST_PROMOTION_PLAN,
+        promotionPortfolio: AUGUST_PROMOTION_PORTFOLIO,
         promotionSummary: promotionReviewSummary(AUGUST_PROMOTION_PLAN),
       },
     });
