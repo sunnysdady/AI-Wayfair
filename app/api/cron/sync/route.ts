@@ -69,6 +69,24 @@ async function responseJson(
   return body;
 }
 
+async function responseJsonWithFallback(
+  requestInternal: (target: URL | Request) => Promise<Response>,
+  primaryPath: string,
+  fallbackPath: string,
+) {
+  try {
+    return await responseJson(requestInternal, primaryPath);
+  } catch (error) {
+    const cached = await responseJson(requestInternal, fallbackPath);
+    return {
+      ...cached,
+      refreshFallback: error instanceof Error
+        ? error.message
+        : "Advertising API 实时刷新失败；已使用服务器广告快照",
+    };
+  }
+}
+
 async function generateDailyOperatingReport({
   db,
   now,
@@ -112,7 +130,11 @@ async function generateDailyOperatingReport({
     ] = await Promise.all([
       responseJson(requestInternal, `/api/orders/summary?start=${reportDate}&end=${reportDate}`),
       responseJson(requestInternal, `/api/orders/summary?start=${monthStart}&end=${reportDate}`),
-      responseJson(requestInternal, `/api/ads/analysis?start=${reportDate}&end=${reportDate}&refresh=1`),
+      responseJsonWithFallback(
+        requestInternal,
+        `/api/ads/analysis?start=${reportDate}&end=${reportDate}&refresh=1`,
+        `/api/ads/analysis?start=${reportDate}&end=${reportDate}`,
+      ),
       responseJson(requestInternal, "/api/ads/manual-completions"),
       responseJson(requestInternal, "/api/operations?limit=500"),
       responseJson(requestInternal, "/api/plan/progress"),

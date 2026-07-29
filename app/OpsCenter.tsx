@@ -171,6 +171,7 @@ type DailyOperatingReport = {
   todo?:{totalManual:number;verifiedManual:number;remainingManual:number;activeOperations:number;failedToday:number};
   target?:{metric:"ORDERS";targetMonth:string;orderTarget:number;monthOrders:number;ordersToTarget:number;completionRate:number;monthlyContributionFloor:number|null;monthContributionAfterAds:number|null;contributionGap:number|null};
   risks?:string[];approvals?:string[];tomorrow?:string[];
+  dataQuality?:{adsFresh:boolean;adsLayer:string;adsRefreshFallback:string|null;orderSyncStale:boolean};
   system?:{execution:"SERVER_SILENT";environmentVerified:boolean;healthyScopes:number;failedScopes:number;browserDependency:false;codexDependency:false};
 };
 type QueuedAdAction = {
