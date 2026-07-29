@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import * as outlookSync from "../lib/outlook-daily-sync.mjs";
 import {
   buildDailyReports,
   selectTargetMailFolders,
@@ -86,4 +87,60 @@ test("bounds Graph pagination with a server-side received date filter", async ()
   );
   assert.match(source, /searchParams\.set\("\$filter", `receivedDateTime ge/);
   assert.match(source, /"\$orderby", "receivedDateTime desc"/);
+});
+
+test("parses Wayfair remittance CSV into verified finance fields", () => {
+  const csv = [
+    "Wayfair Remittance #: 10002005965230",
+    "For Supplier: Example Supplier",
+    "Date: 2026-07-31",
+    "",
+    "Total (USD):,565.88,To be sent via Bank transfer",
+    'EPD Amount (USD):,-12.04,"Early pay discount"',
+    "",
+    "Invoice #,PO #,Invoice Date,Product Amount,Wayfair Allowance for Damages/ Defects [4.00%],Shipping,Other,Tax/VAT,Payment Amount,Business,Order Type",
+    '"CS665252351","CS665252351",2026-07-02,108.00,-4.32,0.00,0.00,0.00,103.68,Wayfair,Dropship',
+    '"CS665201357","CS665201357",2026-07-01,108.00,-4.32,0.00,0.00,0.00,103.68,Wayfair,Dropship',
+    "",
+    ",,Sub-total:,216.00,-8.64,0.00,0.00,0.00,207.36",
+  ].join("\r\n");
+
+  assert.deepEqual(outlookSync.parseWayfairRemittanceCsv(csv), {
+    remittanceId: "10002005965230",
+    amount: 565.88,
+    currency: "USD",
+    paymentDate: "2026-07-31",
+    paymentMethod: "Bank transfer",
+    invoiceIds: ["CS665252351", "CS665201357"],
+    grossAmount: 216,
+    allowanceAmount: -8.64,
+    epdAmount: -12.04,
+    serviceFeeAmount: 0,
+  });
+});
+
+test("keeps parsed remittance details in the daily finance item", () => {
+  const financial = {
+    remittanceId: "10002005965230",
+    amount: 565.88,
+    currency: "USD",
+    paymentDate: "2026-07-31",
+    paymentMethod: "Bank transfer",
+    invoiceIds: ["CS665252351"],
+    grossAmount: 108,
+    allowanceAmount: -4.32,
+    epdAmount: -2.4,
+    serviceFeeAmount: 0,
+  };
+  const reports = buildDailyReports([{
+    id: "finance-csv",
+    subject: "Payment Remittance - #10002005965230",
+    from: { emailAddress: { address: "noreply@wayfair.com" } },
+    receivedDateTime: "2026-07-28T17:33:46Z",
+    isRead: true,
+    bodyPreview: "Payment remittance attached",
+    financial,
+  }], "2026-07-29");
+
+  assert.deepEqual(reports[0].items[0].financial, financial);
 });
