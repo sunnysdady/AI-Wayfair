@@ -1,11 +1,7 @@
 import { validateManualCompletion } from "@/lib/manual-ad-completions.mjs";
 import { upsertOperation } from "@/lib/operation-ledger.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
-
-function sameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  return !origin || origin === new URL(request.url).origin;
-}
+import { sameOrigin } from "@/lib/http-origin.mjs";
 
 async function ensureTables(db: D1Database) {
   await db.prepare(`CREATE TABLE IF NOT EXISTS ad_manual_completions (

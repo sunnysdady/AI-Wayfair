@@ -1,12 +1,8 @@
 import { listOperations, upsertOperation } from "@/lib/operation-ledger.mjs";
+import { sameOrigin } from "@/lib/http-origin.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
 // upsertOperation appends every state change to operation_events.
-function sameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  return !origin || origin === new URL(request.url).origin;
-}
-
 export async function GET(request: Request) {
   try {
     const env = await getRuntimeBindings();

@@ -1,5 +1,6 @@
 import { buildCampaignUpdates } from "@/lib/ad-action-queue.mjs";
 import { syncAdActionOperation } from "@/lib/ad-operation-link.mjs";
+import { sameOrigin } from "@/lib/http-origin.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import { buildOperatingReadiness } from "@/lib/operating-safety.mjs";
 
@@ -7,11 +8,6 @@ const ALLOWED_ACTIONS = new Set(["SET_LISTING_BID", "SET_LISTING_ACTIVE", "INCRE
 const API_ACTIONS = new Set(["SET_LISTING_BID", "SET_LISTING_ACTIVE"]);
 
 const bindings = getRuntimeBindings;
-
-function sameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  return !origin || origin === new URL(request.url).origin;
-}
 
 async function ensureActionQueue(db: D1Database) {
   await db.prepare("CREATE TABLE IF NOT EXISTS ad_action_queue (id TEXT PRIMARY KEY NOT NULL, run_key TEXT NOT NULL, listing TEXT NOT NULL, campaign_id TEXT NOT NULL, action_type TEXT NOT NULL, before_payload TEXT NOT NULL, proposed_payload TEXT NOT NULL, status TEXT DEFAULT 'PLANNED' NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)").run();

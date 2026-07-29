@@ -1,11 +1,7 @@
 import { upsertOperation } from "@/lib/operation-ledger.mjs";
+import { sameOrigin } from "@/lib/http-origin.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import { validateZombieResolution } from "@/lib/zombie-resolutions.mjs";
-
-function sameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  return !origin || origin === new URL(request.url).origin;
-}
 
 async function ensureTable(db: D1Database) {
   await db.prepare(`CREATE TABLE IF NOT EXISTS ad_zombie_resolutions (
