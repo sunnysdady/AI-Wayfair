@@ -22,6 +22,14 @@ test("validates a server-persisted manual advertising completion", () => {
     campaignId: "622725",
     adGroup: "Product US · DMOM1021",
     title: "下调 Product Bid",
+    owner: "运营负责人",
+    assignee: "广告 Agent",
+    executionChannel: "Wayfair Partner Home",
+    executionResult: "",
+    wayfairEvidence: "",
+    receiver: "",
+    reviewDate: "",
+    closedLoopStatus: "CLOSED_LOOP_RECORDED",
     status: "COMPLETED",
   });
 });
@@ -56,6 +64,12 @@ test("turns only known legacy browser completions into server migration payloads
       adGroup: "Product US",
       title: "下调 Product Bid",
       completed: true,
+      owner: "运营负责人",
+      assignee: "广告 Agent",
+      executionChannel: "Wayfair Partner Home",
+      executionResult: "",
+      receiver: "",
+      reviewDate: "",
     },
   );
   assert.equal(manualCompletionPayload("DMOM9999::unknown", tasks), null);
@@ -70,11 +84,17 @@ test("persists manual completions outside the AI API execution queue", async () 
 
   assert.match(route, /CREATE TABLE IF NOT EXISTS ad_manual_completions/);
   assert.match(route, /ON CONFLICT\(task_key\)/);
+  assert.match(route, /closed_loop_status/);
+  assert.match(route, /execution_result/);
+  assert.match(route, /wayfair_evidence/);
   assert.match(route, /sameOrigin/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS ad_manual_completions/);
+  assert.match(migration, /closed_loop_status/);
   assert.match(page, /\/api\/ads\/manual-completions/);
   assert.match(page, /manualCompletionPayload/);
-  assert.match(page, /服务器审计记录/);
+  assert.match(page, /提交验收/);
+  assert.match(page, /批量提交验收/);
+  assert.match(page, /计入闭环任务/);
   assert.doesNotMatch(route, /ad_action_queue/);
 });
 

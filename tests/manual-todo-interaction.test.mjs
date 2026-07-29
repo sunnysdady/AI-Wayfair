@@ -15,6 +15,10 @@ test("limits completion interaction and hover feedback to the checkbox column", 
   assert.match(styles, /\.manual-todo-check:hover/);
   assert.doesNotMatch(styles, /\.manual-todo-list label:hover/);
   assert.match(styles, /\.manual-todo-content\{[^}]*user-select:text/);
+  assert.match(page, /submitManualAcceptance/);
+  assert.match(page, /submitSelectedManualAcceptances/);
+  assert.match(page, /<option value="READY">可验收<\/option>/);
+  assert.match(styles, /\.manual-acceptance-form/);
 });
 
 test("renders every manual action at advertising-group grain with its Campaign ID", async () => {
