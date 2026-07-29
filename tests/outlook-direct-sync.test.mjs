@@ -6,6 +6,7 @@ import * as outlookSync from "../lib/outlook-daily-sync.mjs";
 import {
   buildDailyReports,
   selectTargetMailFolders,
+  syncOutlookDaily,
 } from "../lib/outlook-daily-sync.mjs";
 
 test("selects Inbox and every custom Wayfair folder", () => {
@@ -143,4 +144,96 @@ test("keeps parsed remittance details in the daily finance item", () => {
   }], "2026-07-29");
 
   assert.deepEqual(reports[0].items[0].financial, financial);
+});
+
+test("direct Outlook sync reads remittance attachment content before persisting", async () => {
+  const csv = [
+    "Wayfair Remittance #: 10002005965230",
+    "Date: 2026-07-31",
+    "Total (USD):,565.88,To be sent via Bank transfer",
+    "EPD Amount (USD):,-12.04",
+    "Invoice #,PO #,Invoice Date,Product Amount,Wayfair Allowance for Damages/ Defects [4.00%],Shipping,Other,Tax/VAT,Payment Amount,Business,Order Type",
+    '"CS665252351","CS665252351",2026-07-02,108.00,-4.32,0.00,0.00,0.00,103.68,Wayfair,Dropship',
+    ",,Sub-total:,108.00,-4.32,0.00,0.00,0.00,103.68",
+  ].join("\r\n");
+  const calls = [];
+  const fetchImpl = async (url) => {
+    const target = String(url);
+    calls.push(target);
+    if (target.includes("/oauth2/v2.0/token")) {
+      return Response.json({ access_token: "graph-token" });
+    }
+    if (target.includes("/mailFolders?")) {
+      return Response.json({
+        value: [{
+          id: "inbox",
+          displayName: "Inbox",
+          wellKnownName: "inbox",
+          childFolderCount: 0,
+        }],
+      });
+    }
+    if (target.includes("/messages?")) {
+      return Response.json({
+        value: [{
+          id: "finance-message",
+          subject: "Payment Remittance - #10002005965230",
+          from: { emailAddress: { address: "noreply@wayfair.com" } },
+          receivedDateTime: "2026-07-28T17:33:46Z",
+          isRead: true,
+          bodyPreview: "Payment remittance attached",
+          hasAttachments: true,
+        }],
+      });
+    }
+    if (target.endsWith("/$value")) return new Response(csv);
+    if (target.includes("/attachments?")) {
+      return Response.json({
+        value: [{
+          id: "remittance-csv",
+          name: "Wayfair_Remittance_10002005965230.csv",
+          contentType: "application/octet-stream",
+          size: csv.length,
+          isInline: false,
+        }],
+      });
+    }
+    throw new Error(`Unexpected fetch: ${target}`);
+  };
+  const batches = [];
+  const db = {
+    prepare(sql) {
+      return {
+        async run() {},
+        bind(...args) {
+          return { sql, args };
+        },
+      };
+    },
+    async batch(statements) {
+      batches.push(...statements);
+    },
+  };
+
+  await syncOutlookDaily({
+    env: {
+      MICROSOFT_TENANT_ID: "tenant",
+      MICROSOFT_CLIENT_ID: "client",
+      MICROSOFT_CLIENT_SECRET: "secret",
+      OUTLOOK_MAILBOX_USER: "operator@example.com",
+    },
+    db,
+    fetchImpl,
+    now: new Date("2026-07-29T01:30:00Z"),
+  });
+
+  const briefWrite = batches.find((statement) => (
+    statement.sql.includes("INSERT INTO outlook_daily_briefs")
+    && statement.args[0] === "2026-07-29"
+  ));
+  const report = JSON.parse(briefWrite.args[1]);
+  assert.equal(report.items[0].financial.amount, 565.88);
+  assert.equal(report.items[0].financial.paymentMethod, "Bank transfer");
+  assert.deepEqual(report.items[0].financial.invoiceIds, ["CS665252351"]);
+  assert.ok(calls.some((target) => target.endsWith("/$value")));
 });
