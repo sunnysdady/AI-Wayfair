@@ -1,6 +1,6 @@
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import { hasOutlookIngestAuthorization } from "@/lib/outlook-ingest-auth.mjs";
-import { normalizeEmailBriefItem } from "@/lib/email-summary.mjs";
+import { financialDailySummary, normalizeEmailBriefItem } from "@/lib/email-summary.mjs";
 
 const bindings = getRuntimeBindings;
 
@@ -147,7 +147,7 @@ export async function GET(request: Request) {
       : [];
     const financeBrief = normalizedItems
       .filter((item) => /财务|账单|回款|付款|finance|payment|remittance|invoice/i.test(String(item.category || "")))
-      .map((item) => String(item.summary || ""))
+      .map((item) => financialDailySummary(item) || String(item.summary || ""))
       .filter(Boolean)
       .join("；");
     const normalizedSections = Array.isArray(payload.sections)
