@@ -52,6 +52,24 @@ export default function ReleasesPage() {
       </section>
 
       <section className="release-section">
+        <header><span>管理摘要</span><h2>完成事项、结果与下一步</h2></header>
+        <div className="release-highlight-grid">
+          {[
+            ["今天完成了什么", release.managementBrief.completed],
+            ["结果怎么样", release.managementBrief.results],
+            ["遇到的阻力", release.managementBrief.blockers],
+            ["需要你的协助或授权", release.managementBrief.assistance],
+            ["明天计划", release.managementBrief.tomorrow],
+          ].map(([title, items]) => (
+            <article key={title as string}>
+              <h3>{title as string}</h3>
+              <ul>{(items as string[]).map((item) => <li key={item}>{item}</li>)}</ul>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="release-section">
         <header><span>系统功能升级</span><h2>昨日进入生产的能力</h2></header>
         <div className="release-highlight-grid">
           {release.systemUpgrades.map((item) => (

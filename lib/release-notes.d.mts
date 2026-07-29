@@ -31,6 +31,13 @@ export type ReleaseNotes = {
     commits: number;
     tests: number;
   };
+  managementBrief: {
+    completed: string[];
+    results: string[];
+    blockers: string[];
+    assistance: string[];
+    tomorrow: string[];
+  };
   systemUpgrades: ReleaseHighlight[];
   logicUpgrades: LogicUpgrade[];
   production: {

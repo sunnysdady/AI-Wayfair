@@ -20,6 +20,12 @@ test("locks the rerun 2026-07-28 system and logic upgrade report", () => {
     commits: 88,
     tests: 316,
   });
+  assert.equal(Object.keys(release.managementBrief).length, 5);
+  assert.ok(release.managementBrief.completed.length >= 4);
+  assert.ok(release.managementBrief.results.length >= 4);
+  assert.ok(release.managementBrief.blockers.length >= 3);
+  assert.ok(release.managementBrief.assistance.length >= 3);
+  assert.ok(release.managementBrief.tomorrow.length >= 4);
   assert.ok(release.systemUpgrades.length >= 6);
   assert.ok(release.logicUpgrades.length >= 6);
   assert.match(release.title, /系统功能与逻辑升级日报/);
@@ -81,6 +87,12 @@ test("publishes system upgrades before the secondary runtime snapshot", async ()
   assert.match(daily, /88 个提交/);
   assert.match(daily, /实际汇款 USD 565\.88/);
   assert.match(daily, /今日工作日报已由 DigitalOcean Scheduler 强制重跑/);
+  assert.match(daily, /## 管理摘要/);
+  assert.match(daily, /### 今天完成了什么/);
+  assert.match(daily, /### 结果怎么样/);
+  assert.match(daily, /### 遇到的阻力/);
+  assert.match(daily, /### 需要你的协助或授权/);
+  assert.match(daily, /### 明天计划/);
   assert.match(daily, /## 系统功能升级/);
   assert.match(daily, /## 核心逻辑升级/);
   assert.ok(daily.indexOf("## 系统功能升级") < daily.indexOf("## 运行快照"));
@@ -89,6 +101,11 @@ test("publishes system upgrades before the secondary runtime snapshot", async ()
   assert.match(html, /系统升级结论/);
   assert.match(html, /USD 565\.88/);
   assert.match(html, /今日 Orders/);
+  assert.match(html, /今天完成了什么/);
+  assert.match(html, /结果怎么样/);
+  assert.match(html, /遇到的阻力/);
+  assert.match(html, /需要你的协助或授权/);
+  assert.match(html, /明天计划/);
   assert.ok(html.indexOf("系统功能升级") < html.indexOf("运行快照"));
   const status = html.match(/<section class="release-status"[\s\S]*?<\/section>/)?.[0] || "";
   assert.match(status, /系统模块/);
