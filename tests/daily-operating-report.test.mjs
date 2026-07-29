@@ -61,6 +61,9 @@ test("builds a deterministic operator report from server-side business evidence"
       ],
     },
     planProgress: {
+      plan: {
+        orderTarget: 128,
+      },
       nextPlan: {
         executionPolicy: {
           stretchOrderTarget: 150,
@@ -93,13 +96,35 @@ test("builds a deterministic operator report from server-side business evidence"
   assert.equal(report.aiOptimization.modelTodoDelta, -3);
   assert.equal(report.todo.verifiedManual, 7);
   assert.equal(report.todo.remainingManual, 3);
-  assert.equal(report.target.orderTarget, 150);
-  assert.equal(report.target.ordersToTarget, 55);
+  assert.equal(report.target.targetMonth, "2026-07");
+  assert.equal(report.target.orderTarget, 128);
+  assert.equal(report.target.ordersToTarget, 33);
   assert.deepEqual(report.work.completed, ["完成广告对账"]);
   assert.deepEqual(report.work.inProgress, ["复核 Canada 组"]);
   assert.equal(report.approvals.length, 0);
   assert.match(report.risks[0], /675055/);
   assert.equal(report.system.execution, "SERVER_SILENT");
+});
+
+test("switches to the authorized 150-Order target and contribution floor in August", () => {
+  const report = buildDailyOperatingReport({
+    now: new Date("2026-08-01T12:00:00.000Z"),
+    monthOrders: { current: { orders: 6, units: 7, revenue: 900, contributionAfterAds: 180 } },
+    dailyAds: {
+      decisionModel: {
+        riskPolicy: { monthlyContributionFloor: 3_859.37 },
+      },
+    },
+    planProgress: {
+      plan: { orderTarget: 128 },
+      nextPlan: { executionPolicy: { stretchOrderTarget: 150 } },
+    },
+  });
+
+  assert.equal(report.target.targetMonth, "2026-08");
+  assert.equal(report.target.orderTarget, 150);
+  assert.equal(report.target.monthlyContributionFloor, 3_859.37);
+  assert.equal(report.target.ordersToTarget, 144);
 });
 
 test("wires server persistence and a Daily secondary navigation workspace", async () => {

@@ -1,6 +1,11 @@
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import { runLayeredSync } from "@/lib/server-sync.mjs";
 import { syncOutlookDaily } from "@/lib/outlook-daily-sync.mjs";
+import {
+  buildDailyOperatingReport,
+  dailyOperatingReportDue,
+  shanghaiDate,
+} from "@/lib/daily-operating-report.mjs";
 
 export const maxDuration = 800;
 export const dynamic = "force-dynamic";
@@ -37,6 +42,12 @@ async function ensureSyncTables(db: D1Database) {
   await db.prepare(
     "CREATE TABLE IF NOT EXISTS sync_locks (key TEXT PRIMARY KEY NOT NULL, acquired_at TEXT NOT NULL)",
   ).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS daily_operating_reports (
+    report_date TEXT PRIMARY KEY NOT NULL,
+    payload TEXT NOT NULL,
+    generated_at TIMESTAMPTZ NOT NULL,
+    generation_mode TEXT NOT NULL DEFAULT 'SCHEDULED'
+  )`).run();
 }
 
 function boundedInteger(value: string | undefined, fallback: number, maximum: number) {
@@ -44,6 +55,110 @@ function boundedInteger(value: string | undefined, fallback: number, maximum: nu
   return Number.isInteger(parsed) && parsed > 0 && parsed <= maximum
     ? parsed
     : fallback;
+}
+
+async function responseJson(
+  requestInternal: (target: URL | Request) => Promise<Response>,
+  path: string,
+) {
+  const response = await requestInternal(new URL(path, "https://worker.internal"));
+  const body = await response.json() as Record<string, unknown>;
+  if (!response.ok || body.error) {
+    throw new Error(`${path}：${String(body.error || `HTTP ${response.status}`)}`);
+  }
+  return body;
+}
+
+async function generateDailyOperatingReport({
+  db,
+  now,
+  force,
+  requestInternal,
+}: {
+  db: D1Database;
+  now: Date;
+  force: boolean;
+  requestInternal: (target: URL | Request) => Promise<Response>;
+}) {
+  const reportDate = shanghaiDate(now);
+  const existing = await db.prepare(
+    "SELECT report_date FROM daily_operating_reports WHERE report_date=?",
+  ).bind(reportDate).first<{ report_date: string }>();
+  if (!force && !dailyOperatingReportDue({
+    now,
+    existingReportDate: existing?.report_date || null,
+  })) {
+    return {
+      status: existing ? "ALREADY_GENERATED" : "WAITING_FOR_20_SHANGHAI",
+      reportDate,
+    };
+  }
+
+  try {
+    const monthStart = `${reportDate.slice(0, 7)}-01`;
+    const previous = await db.prepare(
+      "SELECT payload FROM daily_operating_reports WHERE report_date<? ORDER BY report_date DESC LIMIT 1",
+    ).bind(reportDate).first<{ payload: string }>();
+    const [
+      dailyOrders,
+      monthOrders,
+      dailyAds,
+      manualCompletions,
+      operations,
+      planProgress,
+      readiness,
+    ] = await Promise.all([
+      responseJson(requestInternal, `/api/orders/summary?start=${reportDate}&end=${reportDate}`),
+      responseJson(requestInternal, `/api/orders/summary?start=${monthStart}&end=${reportDate}`),
+      responseJson(requestInternal, `/api/ads/analysis?start=${reportDate}&end=${reportDate}&refresh=1`),
+      responseJson(requestInternal, "/api/ads/manual-completions"),
+      responseJson(requestInternal, "/api/operations?limit=500"),
+      responseJson(requestInternal, "/api/plan/progress"),
+      responseJson(requestInternal, "/api/system/readiness"),
+    ]);
+    const report = buildDailyOperatingReport({
+      now,
+      dailyOrders,
+      monthOrders,
+      dailyAds,
+      manualCompletions,
+      operations,
+      planProgress,
+      readiness,
+      previousReport: previous?.payload ? JSON.parse(previous.payload) : null,
+    });
+    const generatedAt = now.toISOString();
+    const generationMode = force ? "FORCED" : "SCHEDULED";
+    await db.batch([
+      db.prepare(`INSERT INTO daily_operating_reports(
+        report_date,payload,generated_at,generation_mode
+      ) VALUES(?,?,?,?)
+      ON CONFLICT(report_date) DO UPDATE SET
+        payload=excluded.payload,
+        generated_at=excluded.generated_at,
+        generation_mode=excluded.generation_mode`)
+        .bind(reportDate, JSON.stringify(report), generatedAt, generationMode),
+      db.prepare(
+        "INSERT INTO sync_state(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",
+      ).bind(
+        "server:daily-operating-report:last-run",
+        JSON.stringify({ status: "succeeded", reportDate, generationMode }),
+        generatedAt,
+      ),
+    ]);
+    return { status: "GENERATED", reportDate, generatedAt, generationMode };
+  } catch (error) {
+    const failedAt = new Date().toISOString();
+    const message = error instanceof Error ? error.message : "工作日报生成失败";
+    await db.prepare(
+      "INSERT INTO sync_state(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",
+    ).bind(
+      "server:daily-operating-report:last-run",
+      JSON.stringify({ status: "failed", reportDate, error: message }),
+      failedAt,
+    ).run();
+    throw error;
+  }
 }
 
 export async function GET(request: Request) {
@@ -71,20 +186,21 @@ export async function GET(request: Request) {
 
   try {
     const origin = syncOrigin(request, env.APP_ORIGIN);
+    const requestInternal = (target: URL | Request) => {
+      const upstream = target instanceof Request ? new URL(target.url) : new URL(target);
+      return fetch(`${origin}${upstream.pathname}${upstream.search}`, {
+        method: target instanceof Request ? target.method : "GET",
+        headers: internalHeaders(env),
+        cache: "no-store",
+      });
+    };
     const outlookConfigured = Boolean(
       env.MICROSOFT_CLIENT_ID
       && env.MICROSOFT_CLIENT_SECRET,
     );
     const result = await runLayeredSync({
       scheduledTime: now.getTime(),
-      request: (target: URL | Request) => {
-        const upstream = target instanceof Request ? new URL(target.url) : new URL(target);
-        return fetch(`${origin}${upstream.pathname}${upstream.search}`, {
-          method: target instanceof Request ? target.method : "GET",
-          headers: internalHeaders(env),
-          cache: "no-store",
-        });
-      },
+      request: requestInternal,
       syncOutlook: outlookConfigured
         ? () => syncOutlookDaily({ env, db, now })
         : undefined,
@@ -130,7 +246,13 @@ export async function GET(request: Request) {
         ).run();
       },
     });
-    return Response.json(result, {
+    const dailyOperatingReport = await generateDailyOperatingReport({
+      db,
+      now,
+      force: new URL(request.url).searchParams.get("forceDailyReport") === "1",
+      requestInternal,
+    });
+    return Response.json({ ...result, dailyOperatingReport }, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {

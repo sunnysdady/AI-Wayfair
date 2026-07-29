@@ -14,10 +14,11 @@ import legacyOperatingDataSource from "../data/dmom-operating-2026-06.json";
 
 type View = "dashboard" | "tasks" | "daily" | "ads" | "planning" | "products" | "sources" | "help";
 type AdsTab = "manager" | "listings" | "ai" | "manual" | "review";
+type DailyTab = "operating" | "email";
 type PlanningTab = "plan" | "august" | "review" | "history";
 type ProductTab = "inventory" | "catalog" | "launch" | "performance";
 type PlanSection = "july" | "bfij" | "august";
-type SubView = AdsTab | PlanningTab | ProductTab;
+type SubView = AdsTab | DailyTab | PlanningTab | ProductTab;
 
 const PRIMARY_NAV: { id: View; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
@@ -34,6 +35,7 @@ const SYSTEM_NAV: { id: View; label: string }[] = [
 ];
 
 const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
+  daily: [{ id: "operating", label: "工作日报" }, { id: "email", label: "邮件日报" }],
   ads: [{ id: "manager", label: "广告管理器" }, { id: "listings", label: "父体 SKU 广告表现" }, { id: "ai", label: "AI 优化" }, { id: "manual", label: "手动优化 To-Do" }, { id: "review", label: "优化记录与复盘" }],
   planning: [{ id: "plan", label: "运营计划" }, { id: "august", label: "8月推广计划" }, { id: "review", label: "复盘资料" }, { id: "history", label: "历史月度" }],
   products: [{ id: "inventory", label: "库存更新" }, { id: "catalog", label: "商品数据" }, { id: "launch", label: "推新 SOP" }, { id: "performance", label: "SKU 经营" }],
@@ -157,6 +159,20 @@ type EmailOrderItem = { sku:string; name?:string; quantity:number; unitPrice:num
 type EmailOrder = { poNumber:string; currency:string; totalQuantity:number; totalAmount:number; items:EmailOrderItem[] };
 type EmailItem = { id:string; category?:string; subject:string; sender:string; receivedAt:string; unread:boolean; priority:string; summary:string; bodyPreview?:string; financial?:EmailFinancial; order?:EmailOrder; owner:string; status:string; webLink:string };
 type EmailBrief = { briefDate:string; syncedAt:string; source:string; summary:{total:number;unread:number;actionRequired:number;highestPriority:string}; items:EmailItem[]; tasks:Array<{id:string;title:string;owner:string;dueDate:string;priority:string;status:string}>; sections?:Array<{title:string;body:string;tone?:string}>; error?:string };
+type DailyOperatingReport = {
+  reportDate:string;generatedAt:string;source:string;status?:string;error?:string;
+  performance?:{
+    daily:{orders:number;units:number;revenue:number;adSpend:number;retailRoas:number;wscRoas:number;contributionAfterAds:number|null};
+    delta:{orders:number;units:number;revenue:number;adSpend:number;retailRoas:number;wscRoas:number};
+    month:{orders:number;units:number;revenue:number;contributionAfterAds:number|null};
+  };
+  work?:{completed:string[];inProgress:string[];failed:string[]};
+  aiOptimization?:{modelTodoCount:number;modelTodoDelta:number|null;zombieFindingCount:number;attributionMature:boolean;note:string};
+  todo?:{totalManual:number;verifiedManual:number;remainingManual:number;activeOperations:number;failedToday:number};
+  target?:{metric:"ORDERS";targetMonth:string;orderTarget:number;monthOrders:number;ordersToTarget:number;completionRate:number;monthlyContributionFloor:number|null;monthContributionAfterAds:number|null;contributionGap:number|null};
+  risks?:string[];approvals?:string[];tomorrow?:string[];
+  system?:{execution:"SERVER_SILENT";environmentVerified:boolean;healthyScopes:number;failedScopes:number;browserDependency:false;codexDependency:false};
+};
 type QueuedAdAction = {
   id: string; run_key: string; listing: string; campaign_id: string; action_type: string;
   before_payload: string; proposed_payload: string; status: string; created_at: string; updated_at: string;
@@ -497,6 +513,65 @@ function Dashboard() {
       </div>
     </section>
   </>;
+}
+
+function OperatingDaily() {
+  const [report,setReport]=useState<DailyOperatingReport|null>(null);
+  const [dates,setDates]=useState<string[]>([]);
+  const [date,setDate]=useState("");
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState("");
+  useEffect(()=>{
+    const controller=new AbortController();
+    fetch("/api/operations/daily-report?available=1",{signal:controller.signal})
+      .then(async response=>{const body=await response.json() as {dates?:string[];error?:string};if(!response.ok)throw new Error(body.error||"工作日报日期读取失败");return body.dates||[];})
+      .then(values=>{setDates(values);setDate(current=>current||values[0]||"");})
+      .catch(reason=>{if(reason.name!=="AbortError")setError(reason.message||"工作日报日期读取失败");});
+    return()=>controller.abort();
+  },[]);
+  useEffect(()=>{
+    const controller=new AbortController();
+    setLoading(true);setError("");
+    fetch(`/api/operations/daily-report${date?`?date=${encodeURIComponent(date)}`:""}`,{signal:controller.signal,cache:"no-store"})
+      .then(async response=>{const body=await response.json() as DailyOperatingReport;if(!response.ok)throw new Error(body.error||"工作日报读取失败");return body;})
+      .then(setReport)
+      .catch(reason=>{if(reason.name!=="AbortError")setError(reason.message||"工作日报读取失败");})
+      .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    return()=>controller.abort();
+  },[date]);
+  const daily=report?.performance?.daily;
+  const delta=report?.performance?.delta;
+  const target=report?.target;
+  const ready=Boolean(report?.performance);
+  const waiting=!loading&&!error&&(!report?.reportDate||report.status==="WAITING_FOR_SCHEDULED_RUN");
+  const deltaLabel=(value:number|undefined,suffix="")=>value==null?"等待对比":`${value>=0?"+":""}${value.toFixed(2)}${suffix}`;
+  return <>
+    <Hero eyebrow="SERVER · DAILY OPERATING REPORT" title="工作日报" text="由 DigitalOcean 服务器静默生成并持久化，不依赖 Codex、浏览器或本地电脑在线" side={<div className="hero-side"><b>{loading?"生成记录读取中":waiting?"等待 20:00":report?.reportDate||"暂无日报"}</b><span>{report?.generatedAt?`生成 ${new Date(report.generatedAt).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"})}`:"每日北京时间 20:00 后生成"}</span></div>} />
+    {!!dates.length&&<section className="daily-date-tabs" aria-label="工作日报日期">{dates.map(value=><button key={value} className={(date||report?.reportDate)===value?"active":""} onClick={()=>setDate(value)}>{value===dateText(new Date())?"今天":value.slice(5)}<small>{value}</small></button>)}</section>}
+    {error&&<div className="inline-error">{error}</div>}
+    {waiting&&<section className="card operating-daily-waiting"><span>SERVER SCHEDULER</span><h2>等待今日工作日报</h2><p>服务器会在北京时间 20:00 后的首次同步中生成；失败自动重试，结果写入 PostgreSQL，Codex 与浏览器离线不影响执行。</p></section>}
+    {ready&&<section className="stat-grid four daily-kpis">
+      <article className="stat"><strong>{daily?.orders??"-"}</strong><span>今日 Orders</span><small>较昨日 {deltaLabel(delta?.orders," 单")}</small></article>
+      <article className="stat"><strong>{daily?.units??"-"}</strong><span>今日 Units</span><small>较昨日 {deltaLabel(delta?.units," 件")}</small></article>
+      <article className="stat"><strong>{daily?`${daily.retailRoas.toFixed(2)}×`:"-"}</strong><span>Retail ROAS</span><small>较昨日 {deltaLabel(delta?.retailRoas,"×")}</small></article>
+      <article className="stat profit-stat"><strong>{daily?.contributionAfterAds==null?"待广告覆盖":money2(daily.contributionAfterAds)}</strong><span>广告后贡献</span><small>WSC ROAS {daily?`${daily.wscRoas.toFixed(2)}×`:"-"}</small></article>
+    </section>}
+    {ready&&<section className="operating-daily-grid">
+      <article className="card operating-daily-target"><div className="section-head"><div><span>MONTHLY TARGET</span><h2>{target?.targetMonth||"当月"} · {target?.orderTarget||150} Orders 与利润护栏</h2></div><b>{target?`${(target.completionRate*100).toFixed(1)}%`:"-"}</b></div><div className="operating-target-meter"><i style={{width:`${Math.min(100,Math.max(0,(target?.completionRate||0)*100))}%`}}></i></div><dl><div><dt>月累计 Orders</dt><dd>{target?.monthOrders??"-"} / {target?.orderTarget??150}</dd></div><div><dt>剩余 Orders</dt><dd>{target?.ordersToTarget??"-"}</dd></div><div><dt>月广告后贡献</dt><dd>{target?.monthContributionAfterAds==null?"待完整覆盖":money2(target.monthContributionAfterAds)}</dd></div><div><dt>贡献护栏差额</dt><dd>{target?.contributionGap==null?"等待完整口径":money2(target.contributionGap)}</dd></div></dl></article>
+      <article className="card operating-daily-ai"><div className="section-head"><div><span>AI OPTIMIZATION</span><h2>AI 优化与 To-Do</h2></div><b>{report?.aiOptimization?.modelTodoCount??0} 项模型任务</b></div><dl><div><dt>模型任务变化</dt><dd>{report?.aiOptimization?.modelTodoDelta==null?"首日基线":deltaLabel(report.aiOptimization.modelTodoDelta," 项")}</dd></div><div><dt>真实投放诊断</dt><dd>{report?.aiOptimization?.zombieFindingCount??0} 项</dd></div><div><dt>手动任务闭环</dt><dd>{report?.todo?.verifiedManual??0} / {report?.todo?.totalManual??10}</dd></div><div><dt>仍待处理</dt><dd>{report?.todo?.remainingManual??0} 项</dd></div></dl><p>{report?.aiOptimization?.note}</p></article>
+      {[
+        ["今日完成",report?.work?.completed||[]],
+        ["进行中",report?.work?.inProgress||[]],
+        ["风险与异常",report?.risks||[]],
+        ["明日计划",report?.tomorrow||[]],
+      ].map(([title,items])=><article className="card operating-daily-list" key={title as string}><div className="section-head"><div><span>OPERATIONS</span><h2>{title as string}</h2></div><b>{(items as string[]).length} 项</b></div><ul>{(items as string[]).map(item=><li key={item}>{item}</li>)}{!(items as string[]).length&&<li>无新增事项</li>}</ul></article>)}
+      <article className="card operating-daily-approval"><div className="section-head"><div><span>RULE EXCEPTIONS</span><h2>待审批事项</h2></div><b>{report?.approvals?.length||0} 项</b></div>{report?.approvals?.length?<ul>{report.approvals.map(item=><li key={item}>{item}</li>)}</ul>:<p>今日无需审批。规则内事项由运营负责人直接判断、执行和验收。</p>}<small>服务器静默执行 · 不依赖 Codex · 不依赖浏览器</small></article>
+    </section>}
+  </>;
+}
+
+function DailyWorkspace({tab}:{tab:DailyTab}) {
+  return tab==="operating"?<OperatingDaily/>:<Daily/>;
 }
 
 function Daily() {
@@ -1169,6 +1244,7 @@ function Help() {
 
 export default function OpsCenter() {
   const [view,setView]=useState<View>('dashboard');
+  const [dailyTab,setDailyTab]=useState<DailyTab>('operating');
   const [adsTab,setAdsTab]=useState<AdsTab>('manager');
   const [planningTab,setPlanningTab]=useState<PlanningTab>('plan');
   const [productTab,setProductTab]=useState<ProductTab>('inventory');
@@ -1176,6 +1252,7 @@ export default function OpsCenter() {
     function restoreNavigation(){
       const state=navigationStateFromSearch(window.location.search);
       setView(state.view as View);
+      if(state.view==='daily'&&state.tab)setDailyTab(state.tab as DailyTab);
       if(state.view==='planning'&&state.tab)setPlanningTab(state.tab as PlanningTab);
       if(state.view==='ads'&&state.tab)setAdsTab(state.tab as AdsTab);
       if(state.view==='products'&&state.tab)setProductTab(state.tab as ProductTab);
@@ -1185,15 +1262,16 @@ export default function OpsCenter() {
     return()=>window.removeEventListener('popstate',restoreNavigation);
   },[]);
   useEffect(()=>{window.scrollTo(0,0);const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view]);
-  const activeSub: SubView | null=view==='ads'?adsTab:view==='planning'?planningTab:view==='products'?productTab:null;
+  const activeSub: SubView | null=view==='daily'?dailyTab:view==='ads'?adsTab:view==='planning'?planningTab:view==='products'?productTab:null;
   function updateLocation(nextView:View,nextTab:SubView|null=null){window.history.pushState({},'',navigationSearch({view:nextView,tab:nextTab}));}
-  function navigateView(next:View){setView(next);const nextTab=next==='ads'?adsTab:next==='planning'?planningTab:next==='products'?productTab:null;updateLocation(next,nextTab);}
+  function navigateView(next:View){setView(next);const nextTab=next==='daily'?dailyTab:next==='ads'?adsTab:next==='planning'?planningTab:next==='products'?productTab:null;updateLocation(next,nextTab);}
   function navigateSub(next:SubView){
+    if(view==='daily'&&(next==='operating'||next==='email'))setDailyTab(next);
     if(view==='ads'&&(next==='manager'||next==='listings'||next==='ai'||next==='manual'||next==='review'))setAdsTab(next);
     if(view==='planning'&&(next==='plan'||next==='august'||next==='review'||next==='history'))setPlanningTab(next);
     if(view==='products'&&(next==='inventory'||next==='catalog'||next==='launch'||next==='performance'))setProductTab(next);
     updateLocation(view,next);
   }
-  const page=({dashboard:<Dashboard/>,tasks:<TaskCenter/>,daily:<Daily/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={navigateSub}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view];
+  const page=({dashboard:<Dashboard/>,tasks:<TaskCenter/>,daily:<DailyWorkspace tab={dailyTab}/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={navigateSub}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view];
   return <div className="app app-shell"><ShellHeader active={view} activeSub={activeSub} onNavigate={navigateView} onSubNavigate={navigateSub}/><div className="content-shell"><main>{page}</main><footer><span>Wayfair AI 运营中台</span><span>个人测试阶段</span></footer></div></div>;
 }

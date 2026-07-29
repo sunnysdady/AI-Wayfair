@@ -26,3 +26,18 @@ test("builds a shareable August promotion review URL", () => {
     "?view=planning&tab=august",
   );
 });
+
+test("opens server and email daily reports from stable direct links", () => {
+  assert.deepEqual(
+    navigationStateFromSearch("?view=daily&tab=operating"),
+    { view: "daily", tab: "operating" },
+  );
+  assert.deepEqual(
+    navigationStateFromSearch("?view=daily&tab=email"),
+    { view: "daily", tab: "email" },
+  );
+  assert.equal(
+    navigationSearch({ view: "daily", tab: "operating" }),
+    "?view=daily&tab=operating",
+  );
+});
