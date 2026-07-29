@@ -1,4 +1,4 @@
-import { loadAcceptedInventoryDryRun, loadInventoryPushRun, loadSnapshotItems, saveInventoryPushRun } from "@/lib/inventory";
+import { loadAcceptedInventoryDryRun, loadInventoryPushRun, loadLatestLiveInventoryPushRun, loadSnapshotItems, saveInventoryPushRun } from "@/lib/inventory";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import { assertLiveOperation } from "@/lib/operating-safety.mjs";
 import { classifyInventoryFeed, isInventoryDryRunAccepted, summarizeInventoryFeeds } from "@/lib/wayfair-inventory-feed.mjs";
@@ -35,10 +35,13 @@ function publicBatches(receipts:{index:number;expectedItemCount:number;feed?:Fee
 
 export async function GET(request:Request) {
   try {
-    const pushId=new URL(request.url).searchParams.get("pushId");
-    if(!pushId)return Response.json({error:"缺少库存推送回执 ID"},{status:400});
+    const params=new URL(request.url).searchParams;
+    const pushId=params.get("pushId");
+    const latestLive=params.get("latestLive")==="1";
+    const snapshotId=params.get("snapshotId");
+    if(!pushId&&(!latestLive||!snapshotId))return Response.json({error:"缺少库存推送回执 ID"},{status:400});
     const env=await bindings();
-    const run=await loadInventoryPushRun(env.DB,pushId);
+    const run=pushId?await loadInventoryPushRun(env.DB,pushId):await loadLatestLiveInventoryPushRun(env.DB,snapshotId!);
     if(!run)return Response.json({error:"库存推送回执不存在"},{status:404});
     const dryRun=run.pushId.startsWith("dryrun-");
     const accessToken=await token(env);

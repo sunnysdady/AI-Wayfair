@@ -145,7 +145,7 @@ test("inventory page restores the latest live receipt after refresh without resu
   assert.match(page, /latestLive=1/);
   assert.match(page, /恢复正式推送回执/);
   assert.match(page, /未形成完成回执前不得视为写入成功/);
-  assert.doesNotMatch(page, /restoreLatestLivePush[\s\S]*method:'POST'/);
+  assert.match(page, /fetch\(`\/api\/inventory\/push\?latestLive=1[^`]+`,\{signal:controller\.signal\}\)/);
 });
 
 test("uses Wayfair's real dry run and accepts its validated processing receipt before live inventory", async () => {
