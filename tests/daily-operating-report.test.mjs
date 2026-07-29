@@ -140,6 +140,7 @@ test("wires server persistence and a Daily secondary navigation workspace", asyn
   assert.match(cron, /dailyOperatingReportDue/);
   assert.match(cron, /daily_operating_reports/);
   assert.match(cron, /forceDailyReport/);
+  assert.match(cron, /existing\?\.generation_mode === "FORCED"/);
   assert.match(api, /SELECT payload,generated_at FROM daily_operating_reports/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS daily_operating_reports/);
 

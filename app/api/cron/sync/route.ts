@@ -82,11 +82,13 @@ async function generateDailyOperatingReport({
 }) {
   const reportDate = shanghaiDate(now);
   const existing = await db.prepare(
-    "SELECT report_date FROM daily_operating_reports WHERE report_date=?",
-  ).bind(reportDate).first<{ report_date: string }>();
+    "SELECT report_date,generation_mode FROM daily_operating_reports WHERE report_date=?",
+  ).bind(reportDate).first<{ report_date: string; generation_mode: string }>();
   if (!force && !dailyOperatingReportDue({
     now,
-    existingReportDate: existing?.report_date || null,
+    existingReportDate: existing?.generation_mode === "FORCED"
+      ? null
+      : existing?.report_date || null,
   })) {
     return {
       status: existing ? "ALREADY_GENERATED" : "WAITING_FOR_20_SHANGHAI",
