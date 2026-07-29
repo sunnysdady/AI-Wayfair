@@ -59,7 +59,7 @@ test("links the live control snapshot into analysis, model Todo, persistence and
   assert.match(ads, /campaignControl:\s*campaignExecutionFact\(campaignId\)/);
   assert.match(ads, /reconcileAugustCampaignFindings\(rawZombieFindings\)/);
   assert.match(ads, /campaignControl:\s*AUGUST_CAMPAIGN_CONTROL_SNAPSHOT/);
-  assert.match(ads, /ads-analysis:v23/);
+  assert.match(ads, /ads-analysis:v24/);
   assert.match(model, /campaignControl:\s*unit\.campaignControl/);
   assert.match(page, /Wallet Daily Cap/);
   assert.match(page, /597350/);

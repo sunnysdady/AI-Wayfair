@@ -10,6 +10,7 @@ import { eventCycleForDate } from "./event-cycle.mjs";
 import { applyLiveSafety } from "./ad-live-safety.mjs";
 import { applyOperatorDebate } from "./ad-operator-debate.mjs";
 import { buildAdDecisionModel, normalizeAdAudience } from "./ad-decision-model.mjs";
+import { shouldGenerateAdModelTodo } from "./ad-model-todo.mjs";
 import { resolveContributionEconomics, type SkuCostEvidence } from "./ad-contribution-economics.mjs";
 import { fetchAdvertisingResponse } from "./wayfair-ad-retry.mjs";
 import { syncAdActionOperation } from "./ad-operation-link.mjs";
@@ -598,6 +599,14 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       const site = String(latest.store_url || "");
       const audience = normalizeAdAudience(latest);
       const targetingType = String(latest.targeting_type || campaignTargetingById.get(campaignId) || "");
+      const campaignStatus = String(latest.campaign_status || "");
+      const campaignActiveFlag = String(latest.campaign_is_active || "");
+      const campaignInactive = /INACTIVE|ARCHIVED|PAUSED|FALSE/i.test(`${campaignStatus} ${campaignActiveFlag}`);
+      const campaignActive = campaignInactive
+        ? false
+        : /ACTIVE|TRUE/i.test(`${campaignStatus} ${campaignActiveFlag}`)
+          ? true
+          : null;
       const parts = String(latest.first_10_part_numbers || "").split(",").map((item) => item.trim()).filter(Boolean);
       const inventoryRows = parts.map((part) => inventory.get(part));
       const inventoryKnown = parts.length > 0 && inventoryRows.every(Boolean);
@@ -635,6 +644,11 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
           campaignId,
           targetingType,
           listing,
+        },
+        operatingState: {
+          campaignStatus,
+          campaignActive,
+          listingStatus: String(latest.product_status || ""),
         },
         metrics: {
           clicks: metric.clicks,
@@ -688,6 +702,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
   };
   const modelTodo = decisionModel.decisions
     .flatMap((decision) => {
+      if (!shouldGenerateAdModelTodo(decision).include) return [];
       const candidate = decision.candidates.find((item) => item.action === decision.suggestedAction);
       const listing = String(decision.identity.listing || "UNKNOWN");
       const campaignId = String(decision.identity.campaignId || "UNKNOWN");
@@ -701,6 +716,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
       return [{
         id: `model-${suffix}`,
         unitKey: decision.unitKey,
+        identity: decision.identity,
         listing,
         campaignId,
         priority: isCanary || manualAiReview ? "P1" : "P2",
@@ -980,7 +996,7 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const listingFetchEnd = today;
   const fetchEnd = [campaignFetchEnd, listingFetchEnd].sort().at(-1) as string;
   if (daysBetween(fetchStart, fetchEnd) > 93) throw new Error("广告底层取数跨度超过93天，请缩短展示周期");
-  const cacheKey = `ads-analysis:v23:${start}:${end}:${decisionStart}:${decisionEnd}`;
+  const cacheKey = `ads-analysis:v24:${start}:${end}:${decisionStart}:${decisionEnd}`;
   if (env.DB && !force) {
     const [cached, catalogVersion] = await Promise.all([
       env.DB.prepare("SELECT value, updated_at FROM sync_state WHERE key=?").bind(cacheKey).first<{ value: string; updated_at: string }>(),

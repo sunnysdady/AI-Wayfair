@@ -31,6 +31,16 @@ test("keeps a new diagnostic for an active campaign even when its listing needs 
   );
 });
 
+test("does not silently treat a missing campaign status as proof of inactivity", () => {
+  assert.deepEqual(
+    shouldGenerateAdModelTodo({
+      operatingState: { campaignStatus: "", campaignActive: null },
+      campaignControl: null,
+    }),
+    { include: true, reason: null },
+  );
+});
+
 test("links operational state into model Todo and labels distinct audience grains", async () => {
   const [ads, page] = await Promise.all([
     readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
