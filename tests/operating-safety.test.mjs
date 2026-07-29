@@ -131,6 +131,23 @@ test("inventory UI and route do not equate HTTP success with completed processin
   assert.doesNotMatch(page, /正式库存已提交，共/);
 });
 
+test("inventory page restores the latest live receipt after refresh without resubmitting", async () => {
+  const [route, inventory, page] = await Promise.all([
+    readFile(new URL("../app/api/inventory/push/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/inventory.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(inventory, /loadLatestLiveInventoryPushRun/);
+  assert.match(inventory, /id NOT LIKE 'dryrun-%'/);
+  assert.match(route, /latestLive/);
+  assert.match(route, /loadLatestLiveInventoryPushRun/);
+  assert.match(page, /latestLive=1/);
+  assert.match(page, /恢复正式推送回执/);
+  assert.match(page, /未形成完成回执前不得视为写入成功/);
+  assert.doesNotMatch(page, /restoreLatestLivePush[\s\S]*method:'POST'/);
+});
+
 test("uses Wayfair's real dry run and accepts its validated processing receipt before live inventory", async () => {
   const [route, inventory, page] = await Promise.all([
     readFile(new URL("../app/api/inventory/push/route.ts", import.meta.url), "utf8"),
