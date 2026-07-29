@@ -7,8 +7,8 @@ import {
 } from "@/lib/release-notes.mjs";
 
 export const metadata: Metadata = {
-  title: "版本记录 · Wayfair AI 运营中台",
-  description: "Wayfair AI 运营中台日终日报与生产版本记录。",
+  title: "系统功能与逻辑升级日报 · Wayfair AI",
+  description: "Wayfair AI 运营中台系统功能、判断逻辑与生产验证日报。",
 };
 
 const release = validateReleaseNotes(RELEASE_NOTES);
@@ -26,49 +26,78 @@ function shanghaiTime(value: string) {
 }
 
 export default function ReleasesPage() {
-  const nonTerminal = release.operations.total - release.operations.closed;
   const versionLabel = `v${release.version}`;
+  const nonTerminal = release.operations.total - release.operations.closed;
   return (
     <main className="release-page">
       <header className="release-hero">
         <div>
           <span>Wayfair AI · 版本记录</span>
           <h1>{release.title}</h1>
-          <strong className="release-conclusion-label">日终结论</strong>
+          <strong className="release-conclusion-label">系统升级结论</strong>
           <p>{release.conclusion}</p>
         </div>
         <aside>
           <b>{versionLabel}</b>
-          <small>生产基线 {release.productionBaseline}</small>
+          <small>功能汇总基线 {release.productionBaseline}</small>
           <Link href="/">返回运营中台</Link>
         </aside>
       </header>
 
-      <section className="release-status" aria-label="版本状态">
-        <article><span>今日 Git</span><strong>{release.git.commits}</strong><small>个生产分支提交</small></article>
-        <article><span>Outlook 日报</span><strong>{release.outlook.total}</strong><small>{release.outlook.unread} 封未读 · {release.outlook.actionRequired} 项待办</small></article>
-        <article><span>闭环任务</span><strong>{release.operations.closed}/{release.operations.total}</strong><small>{nonTerminal} 项仍非终态</small></article>
-        <article><span>生产健康</span><strong>{release.production.health}</strong><small>Scheduler {release.production.scheduler}</small></article>
+      <section className="release-status" aria-label="系统升级指标">
+        <article><span>系统模块</span><strong>{release.systemSummary.featureAreas}</strong><small>个功能域完成升级</small></article>
+        <article><span>核心逻辑</span><strong>{release.systemSummary.logicUpgrades}</strong><small>组判断规则重构</small></article>
+        <article><span>代码提交</span><strong>{release.systemSummary.commits}</strong><small>个昨日生产提交</small></article>
+        <article><span>验证测试</span><strong>{release.systemSummary.tests}</strong><small>项全量测试通过</small></article>
       </section>
 
       <section className="release-section">
-        <header><span>今日收尾</span><h2>已进入生产的工作</h2></header>
+        <header><span>系统功能升级</span><h2>昨日进入生产的能力</h2></header>
         <div className="release-highlight-grid">
-          {release.highlights.map((item, index) => (
+          {release.systemUpgrades.map((item) => (
             <article key={item.title}>
-              <small>{String(index + 1).padStart(2, "0")} · {item.area}</small>
+              <small>{item.area}</small>
               <h3>{item.title}</h3>
               <p>{item.detail}</p>
+              <b>{item.outcome}</b>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="release-section release-daily">
-        <header><span>日报快照</span><h2>2026-07-28 运营状态</h2></header>
+      <section className="release-section">
+        <header><span>核心逻辑升级</span><h2>判断方式发生了什么变化</h2></header>
+        <div className="release-logic-grid">
+          {release.logicUpgrades.map((item, index) => (
+            <article key={item.title}>
+              <small>{String(index + 1).padStart(2, "0")}</small>
+              <div>
+                <h3>{item.title}</h3>
+                <dl>
+                  <div><dt>原逻辑</dt><dd>{item.before}</dd></div>
+                  <div><dt>新逻辑</dt><dd>{item.after}</dd></div>
+                  <div><dt>解决问题</dt><dd>{item.impact}</dd></div>
+                </dl>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="release-section release-daily release-runtime">
+        <header><span>运行快照 · 次要信息</span><h2>系统升级后的生产状态</h2></header>
         <div className="release-daily-grid">
           <article>
-            <h3>Outlook 日报</h3>
+            <h3>部署与同步</h3>
+            <dl>
+              <div><dt>健康检查</dt><dd>{release.production.health}</dd></div>
+              <div><dt>访问保护</dt><dd>{release.production.anonymousHome}</dd></div>
+              <div><dt>Scheduler</dt><dd>{release.production.scheduler}</dd></div>
+              <div><dt>运行环境</dt><dd>{release.production.platform}</dd></div>
+            </dl>
+          </article>
+          <article>
+            <h3>Outlook 快照</h3>
             <dl>
               <div><dt>同步时间</dt><dd>{shanghaiTime(release.outlook.syncedAt)}</dd></div>
               <div><dt>邮件 / 未读</dt><dd>{release.outlook.total} / {release.outlook.unread}</dd></div>
@@ -77,34 +106,25 @@ export default function ReleasesPage() {
             </dl>
           </article>
           <article>
-            <h3>任务闭环台</h3>
+            <h3>闭环台快照</h3>
             <dl>
               <div><dt>已关闭</dt><dd>{release.operations.closed}</dd></div>
-              <div><dt>待验收</dt><dd>{release.operations.pendingAcceptance}</dd></div>
-              <div><dt>待复盘</dt><dd>{release.operations.pendingReview}</dd></div>
+              <div><dt>非终态</dt><dd>{nonTerminal}</dd></div>
+              <div><dt>待验收 / 复盘</dt><dd>{release.operations.pendingAcceptance} / {release.operations.pendingReview}</dd></div>
               <div><dt>失败待处理</dt><dd>{release.operations.failed}</dd></div>
-            </dl>
-          </article>
-          <article>
-            <h3>生产验收</h3>
-            <dl>
-              <div><dt>唯一域名</dt><dd>{release.production.domain}</dd></div>
-              <div><dt>健康检查</dt><dd>{release.production.health}</dd></div>
-              <div><dt>匿名首页</dt><dd>{release.production.anonymousHome}</dd></div>
-              <div><dt>运行环境</dt><dd>{release.production.platform}</dd></div>
             </dl>
           </article>
         </div>
       </section>
 
       <section className="release-section release-followups">
-        <header><span>后续待办</span><h2>未达到终态的事项</h2></header>
+        <header><span>后续待办</span><h2>升级后的持续验证</h2></header>
         <ol>{release.followUps.map((item) => <li key={item}>{item}</li>)}</ol>
       </section>
 
       <footer className="release-footer">
-        <span>生成于 {shanghaiTime(release.generatedAt)}（Asia/Shanghai）</span>
-        <span>生产分支 {release.git.branch} · 基线 {release.productionBaseline}</span>
+        <span>修订于 {shanghaiTime(release.generatedAt)}（Asia/Shanghai）</span>
+        <span>生产分支 {release.git.branch} · 功能汇总基线 {release.productionBaseline}</span>
       </footer>
     </main>
   );

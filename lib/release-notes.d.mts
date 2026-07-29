@@ -2,6 +2,14 @@ export type ReleaseHighlight = {
   area: string;
   title: string;
   detail: string;
+  outcome: string;
+};
+
+export type LogicUpgrade = {
+  title: string;
+  before: string;
+  after: string;
+  impact: string;
 };
 
 export type ReleaseNotes = {
@@ -17,6 +25,14 @@ export type ReleaseNotes = {
     firstCommitAt: string;
     baselineReleasedAt: string;
   };
+  systemSummary: {
+    featureAreas: number;
+    logicUpgrades: number;
+    commits: number;
+    tests: number;
+  };
+  systemUpgrades: ReleaseHighlight[];
+  logicUpgrades: LogicUpgrade[];
   production: {
     domain: string;
     platform: string;
@@ -38,7 +54,6 @@ export type ReleaseNotes = {
     pendingReview: number;
     failed: number;
   };
-  highlights: ReleaseHighlight[];
   followUps: string[];
 };
 
