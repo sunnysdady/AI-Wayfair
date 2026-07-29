@@ -88,21 +88,21 @@ export default function ReleasesPage() {
         <header><span>运行快照 · 次要信息</span><h2>系统升级后的生产状态</h2></header>
         <div className="release-daily-grid">
           <article>
-            <h3>部署与同步</h3>
+            <h3>今日工作日报与部署</h3>
             <dl>
+              <div><dt>今日 Orders / Units</dt><dd>{release.dailyRun.orders} / {release.dailyRun.units}</dd></div>
+              <div><dt>营收 / 广告后贡献</dt><dd>USD {release.dailyRun.revenue.toFixed(2)} / {release.dailyRun.contributionAfterAds.toFixed(2)}</dd></div>
               <div><dt>健康检查</dt><dd>{release.production.health}</dd></div>
-              <div><dt>访问保护</dt><dd>{release.production.anonymousHome}</dd></div>
               <div><dt>Scheduler</dt><dd>{release.production.scheduler}</dd></div>
-              <div><dt>运行环境</dt><dd>{release.production.platform}</dd></div>
             </dl>
           </article>
           <article>
-            <h3>Outlook 快照</h3>
+            <h3>Outlook 与财务</h3>
             <dl>
               <div><dt>同步时间</dt><dd>{shanghaiTime(release.outlook.syncedAt)}</dd></div>
               <div><dt>邮件 / 未读</dt><dd>{release.outlook.total} / {release.outlook.unread}</dd></div>
-              <div><dt>待办</dt><dd>{release.outlook.actionRequired}</dd></div>
-              <div><dt>最高优先级</dt><dd>{release.outlook.highestPriority}</dd></div>
+              <div><dt>实际汇款</dt><dd>{release.finance.currency} {release.finance.actualAmount.toFixed(2)}</dd></div>
+              <div><dt>汇款单 / 发票</dt><dd>{release.finance.remittanceId} / {release.finance.invoiceCount} 张</dd></div>
             </dl>
           </article>
           <article>

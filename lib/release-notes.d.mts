@@ -47,6 +47,30 @@ export type ReleaseNotes = {
     actionRequired: number;
     highestPriority: string;
   };
+  finance: {
+    remittanceId: string;
+    currency: string;
+    actualAmount: number;
+    paymentDate: string;
+    paymentMethod: string;
+    grossInvoiceValue: number;
+    qualityDeduction: number;
+    earlyPayDiscount: number;
+    serviceFee: number;
+    invoiceCount: number;
+  };
+  dailyRun: {
+    generatedAt: string;
+    orders: number;
+    units: number;
+    revenue: number;
+    adSpend: number;
+    contributionAfterAds: number;
+    monthOrders: number;
+    completedManualAds: number;
+    remainingManualAds: number;
+    adsDataLayer: string;
+  };
   operations: {
     total: number;
     closed: number;

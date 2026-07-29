@@ -150,7 +150,7 @@ test("ships the compact operations shell and bulk advertising workflow", async (
   assert.match(page, /AI API 执行工作台/);
   assert.match(page, /确认并预检/);
   assert.match(page, /执行已预检项/);
-  assert.match(page, /API 状态 \/ 结果/);
+  assert.match(page, /<span>对象<\/span><span>表现<\/span><span>经营边界<\/span><span>判断<\/span><span>执行<\/span>/);
   assert.doesNotMatch(page, /输入：执行广告修改/);
   assert.match(page, /日级投放效率/);
   assert.match(page, /归因销售额/);

@@ -18,7 +18,7 @@ test("locks the rerun 2026-07-28 system and logic upgrade report", () => {
     featureAreas: 6,
     logicUpgrades: 6,
     commits: 88,
-    tests: 313,
+    tests: 316,
   });
   assert.ok(release.systemUpgrades.length >= 6);
   assert.ok(release.logicUpgrades.length >= 6);

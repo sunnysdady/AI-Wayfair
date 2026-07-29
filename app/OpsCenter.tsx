@@ -388,7 +388,7 @@ function ShellHeader({ active, activeSub, onNavigate, onSubNavigate }: { active:
       </nav>
       <nav className="nav utility-nav" aria-label="系统导航">
         {SYSTEM_NAV.map((item) => <button key={item.id} className={active === item.id ? "active" : ""} aria-current={active===item.id?'page':undefined} onClick={() => navigate(item.id)}>{item.label}</button>)}
-        <Link className="release-link" href="/releases">版本记录 · v0.2.1</Link>
+        <Link className="release-link" href="/releases">版本记录 · v0.2.2</Link>
       </nav>
     </div>
     <div className="system"><i></i><span><strong>生产数据已连接</strong><small>写操作需人工确认</small></span></div>
@@ -533,7 +533,7 @@ function OperatingDaily() {
   },[]);
   useEffect(()=>{
     const controller=new AbortController();
-    setLoading(true);setError("");
+    queueMicrotask(()=>{if(!controller.signal.aborted){setLoading(true);setError("");}});
     fetch(`/api/operations/daily-report${date?`?date=${encodeURIComponent(date)}`:""}`,{signal:controller.signal,cache:"no-store"})
       .then(async response=>{const body=await response.json() as DailyOperatingReport;if(!response.ok)throw new Error(body.error||"工作日报读取失败");return body;})
       .then(setReport)
