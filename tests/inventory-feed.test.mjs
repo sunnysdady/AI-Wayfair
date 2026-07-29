@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { classifyInventoryFeed, summarizeInventoryFeeds } from "../lib/wayfair-inventory-feed.mjs";
+import { classifyInventoryFeed, isInventoryDryRunAccepted, summarizeInventoryFeeds } from "../lib/wayfair-inventory-feed.mjs";
 
 test("rejects incomplete inventory feed receipts", () => {
   assert.match(classifyInventoryFeed(null).reason, /未返回/);
@@ -33,6 +33,29 @@ test("distinguishes active processing from a stalled Wayfair workflow", () => {
   };
   assert.equal(classifyInventoryFeed(feed, { now: new Date("2026-07-28T00:05:00Z") }).state, "processing");
   assert.equal(classifyInventoryFeed(feed, { now: new Date("2026-07-28T00:31:00Z") }).state, "failed");
+  assert.equal(classifyInventoryFeed(feed, {
+    now: new Date("2026-07-28T00:31:00Z"),
+    allowIndefiniteProcessing: true,
+  }).state, "processing");
+});
+
+test("accepts a complete Wayfair dry-run receipt without requiring an unreachable terminal status", () => {
+  const accepted = [{
+    state: "processing",
+    feed: {
+      handle: "inventory-dry-run-handle",
+      status: "PROCESSING",
+      itemCount: 430,
+      completedCount: 0,
+      processingCount: 430,
+      errorCount: 0,
+      errors: [],
+    },
+  }];
+  assert.equal(isInventoryDryRunAccepted(accepted), true);
+  assert.equal(isInventoryDryRunAccepted([{ ...accepted[0], state: "failed" }]), false);
+  assert.equal(isInventoryDryRunAccepted([{ ...accepted[0], feed: { ...accepted[0].feed, handle: "", errorCount: 1 } }]), false);
+  assert.equal(isInventoryDryRunAccepted([]), false);
 });
 
 test("never summarizes an empty or failed receipt set as completed", () => {
