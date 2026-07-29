@@ -146,6 +146,34 @@ test("keeps parsed remittance details in the daily finance item", () => {
   assert.deepEqual(reports[0].items[0].financial, financial);
 });
 
+test("uses the complete structured finance rule in the persisted daily section", () => {
+  const reports = buildDailyReports([{
+    id: "finance-section",
+    subject: "Payment Remittance - #10002005965230",
+    from: { emailAddress: { address: "noreply@wayfair.com" } },
+    receivedDateTime: "2026-07-28T17:33:46Z",
+    isRead: true,
+    bodyPreview: "Payment remittance attached",
+    financial: {
+      remittanceId: "10002005965230",
+      amount: 565.88,
+      currency: "USD",
+      paymentDate: "2026-07-31",
+      paymentMethod: "Bank transfer",
+      invoiceIds: ["CS665252351", "CS665201357"],
+      grossAmount: 602,
+      allowanceAmount: -24.08,
+      epdAmount: -12.04,
+      serviceFeeAmount: 0,
+    },
+  }], "2026-07-29");
+  const finance = reports[0].sections.find((section) => section.title === "财务/回款");
+
+  assert.match(finance.body, /实际汇款 USD 565\.88/);
+  assert.match(finance.body, /质量扣款 USD -24\.08/);
+  assert.match(finance.body, /关联发票 2 张/);
+});
+
 test("direct Outlook sync reads remittance attachment content before persisting", async () => {
   const csv = [
     "Wayfair Remittance #: 10002005965230",

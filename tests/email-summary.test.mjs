@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import * as emailSummary from "../lib/email-summary.mjs";
 import { normalizeEmailBriefItem } from "../lib/email-summary.mjs";
 
 test("keeps the PO and shipping service while removing order boilerplate", () => {
@@ -106,4 +107,39 @@ test("keeps identifiers, deadline, and exception for other operational mail", ()
   assert.match(result.summary, /blocked|missing/i);
   assert.match(`${result.summary}\n${result.bodyPreview}`, /2026-07-29/);
   assert.doesNotMatch(result.bodyPreview, /Best regards/i);
+});
+
+test("builds a complete finance daily summary from verified remittance fields", () => {
+  const summary = emailSummary.financialDailySummary({
+    category: "账单/回款",
+    subject: "Payment Remittance - #10002005965230",
+    financial: {
+      remittanceId: "10002005965230",
+      amount: 565.88,
+      currency: "USD",
+      paymentDate: "2026-07-31",
+      paymentMethod: "Bank transfer",
+      invoiceIds: [
+        "CS665252351",
+        "CS665201357",
+        "CS665431118",
+        "CS665350673",
+        "CS665253880",
+      ],
+      grossAmount: 602,
+      allowanceAmount: -24.08,
+      epdAmount: -12.04,
+      serviceFeeAmount: 0,
+    },
+  });
+
+  assert.match(summary, /实际汇款 USD 565\.88/);
+  assert.match(summary, /汇款单 #10002005965230/);
+  assert.match(summary, /付款日 2026-07-31/);
+  assert.match(summary, /Bank transfer/);
+  assert.match(summary, /发票货值 USD 602\.00/);
+  assert.match(summary, /质量扣款 USD -24\.08/);
+  assert.match(summary, /早付折扣 USD -12\.04/);
+  assert.match(summary, /服务费 USD 0\.00/);
+  assert.match(summary, /关联发票 5 张/);
 });
