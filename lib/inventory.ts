@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import mapping from "./inventory-mapping.json";
 import { buildCompleteInventoryRows } from "./inventory-plan.mjs";
 import { calculateInventoryValueRisk } from "./inventory-value-risk.mjs";
+import { isInventoryDryRunAccepted } from "./wayfair-inventory-feed.mjs";
 
 const MAX_XLSX_SIZE = 20 * 1024 * 1024;
 
@@ -141,9 +142,14 @@ export async function loadInventoryPushRun(db:D1Database,pushId:string) {
   return {pushId:run.id,snapshotId:run.snapshot_id,status:run.status,itemCount:Number(run.item_count),batchCount:Number(run.batch_count),completedBatches:Number(run.completed_batches),failedBatches:Number(run.failed_batches),createdAt:run.created_at,batches:(rows.results||[]).map(row=>({index:Number(row.batch_index),expectedItemCount:Number(row.expected_item_count),state:row.state,reason:row.reason||"",feed:{id:row.feed_id||undefined,handle:row.handle||undefined,status:row.status,submittedAt:row.submitted_at||undefined,completedAt:row.completed_at||undefined,itemCount:row.item_count==null?undefined:Number(row.item_count),errorCount:Number(row.error_count),completedCount:row.completed_count==null?undefined:Number(row.completed_count),processingCount:row.processing_count==null?undefined:Number(row.processing_count),errors:JSON.parse(row.errors||"[]")}}))};
 }
 
-export async function loadCompletedInventoryDryRun(db:D1Database,snapshotId:string) {
+export async function loadAcceptedInventoryDryRun(db:D1Database,snapshotId:string) {
   await ensureInventoryPushTables(db);
-  return db.prepare("SELECT id,updated_at FROM inventory_push_runs WHERE snapshot_id=? AND id LIKE 'dryrun-%' AND status='completed' ORDER BY updated_at DESC LIMIT 1").bind(snapshotId).first<{id:string;updated_at:string}>();
+  const candidates=await db.prepare("SELECT id,updated_at FROM inventory_push_runs WHERE snapshot_id=? AND id LIKE 'dryrun-%' AND status IN ('processing','completed') ORDER BY updated_at DESC LIMIT 10").bind(snapshotId).all<{id:string;updated_at:string}>();
+  for(const candidate of candidates.results||[]){
+    const run=await loadInventoryPushRun(db,candidate.id);
+    if(run&&isInventoryDryRunAccepted(run.batches))return candidate;
+  }
+  return null;
 }
 
 export async function loadInventoryValueRisk(db: D1Database, snapshotId: string) {
