@@ -131,7 +131,7 @@ test("inventory UI and route do not equate HTTP success with completed processin
   assert.doesNotMatch(page, /正式库存已提交，共/);
 });
 
-test("uses Wayfair's real dry run and requires its completed receipt before live inventory", async () => {
+test("uses Wayfair's real dry run and accepts its validated processing receipt before live inventory", async () => {
   const [route, inventory, page] = await Promise.all([
     readFile(new URL("../app/api/inventory/push/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/inventory.ts", import.meta.url), "utf8"),
@@ -141,9 +141,12 @@ test("uses Wayfair's real dry run and requires its completed receipt before live
   assert.match(route, /\$dryRun:Boolean!/);
   assert.match(route, /dryRun:\$dryRun/);
   assert.doesNotMatch(route, /if\(body\.dryRun!==false\) return Response\.json\(\{mode:"dry-run"/);
-  assert.match(route, /loadCompletedInventoryDryRun/);
+  assert.match(route, /loadAcceptedInventoryDryRun/);
+  assert.match(route, /allowIndefiniteProcessing/);
+  assert.match(route, /dryRunAccepted/);
   assert.match(inventory, /id LIKE 'dryrun-%'/);
-  assert.match(page, /Wayfair API Dry-run 已通过/);
+  assert.match(page, /Wayfair 已接收 Dry-run/);
+  assert.doesNotMatch(page, /正式推送继续锁定/);
   assert.doesNotMatch(page, /if\(dryRun\)\{setState\('Dry-run 已通过'\)/);
 });
 
