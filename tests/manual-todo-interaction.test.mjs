@@ -37,9 +37,12 @@ test("renders every manual action at advertising-group grain with its Campaign I
   assert.match(page, /campaignId: "622725"/);
   assert.match(page, /campaignId: "622721"/);
   assert.match(page, /campaignId: "622722"/);
-  assert.match(page, /campaignId: "622737"/);
+  assert.match(page, /campaignId: "675055"/);
+  assert.match(page, /campaignId: "676296"/);
+  assert.match(page, /campaignId: "676299"/);
+  assert.match(page, /campaignId: "676302"/);
   assert.match(page, /campaignId: "635903"/);
-  assert.match(page, /campaignId: "\u65b0\u5efa\u540e\u56de\u586b"/);
+  assert.doesNotMatch(page, /campaignId: "\u65b0\u5efa\u540e\u56de\u586b"/);
 });
 
 test("migrates saved advertising-group completion ids to parent-SKU keys", async () => {
