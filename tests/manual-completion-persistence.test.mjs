@@ -73,11 +73,20 @@ test("persists manual completions outside the AI API execution queue", async () 
 
   assert.match(route, /CREATE TABLE IF NOT EXISTS ad_manual_completions/);
   assert.match(route, /ON CONFLICT\(task_key\)/);
+  assert.match(route, /operation_id/);
+  assert.match(route, /execution_result/);
+  assert.match(route, /evidence/);
+  assert.match(route, /accepted_by/);
+  assert.match(route, /upsertOperation/);
   assert.match(route, /sameOrigin/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS ad_manual_completions/);
   assert.match(page, /\/api\/ads\/manual-completions/);
   assert.match(page, /manualCompletionPayload/);
-  assert.match(page, /服务器审计记录/);
+  assert.match(page, /提交验收/);
+  assert.match(page, /批量提交验收/);
+  assert.match(page, /submitSelectedManualAcceptances/);
+  assert.match(page, /<option value="READY">可验收<\/option>/);
+  assert.match(page, /统一任务账本/);
   assert.doesNotMatch(route, /ad_action_queue/);
 });
 

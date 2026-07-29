@@ -18,6 +18,10 @@ test("requires execution evidence and acceptance instead of a completion checkbo
   assert.doesNotMatch(page, /className="manual-todo-check"/);
   assert.doesNotMatch(styles, /\.manual-todo-check:hover/);
   assert.match(styles, /\.manual-todo-content\{[^}]*user-select:text/);
+  assert.match(page, /submitManualAcceptance/);
+  assert.match(page, /submitSelectedManualAcceptances/);
+  assert.match(page, /<option value="READY">可验收<\/option>/);
+  assert.match(styles, /\.manual-acceptance-tools/);
 });
 
 test("renders every manual action at advertising-group grain with its Campaign ID", async () => {

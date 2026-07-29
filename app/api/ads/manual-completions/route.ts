@@ -26,6 +26,22 @@ async function ensureTables(db: D1Database) {
     completed_at TEXT,
     updated_at TEXT NOT NULL
   )`).run();
+  await Promise.all([
+    "ALTER TABLE ad_manual_completions ADD COLUMN operation_id TEXT",
+    "ALTER TABLE ad_manual_completions ADD COLUMN owner TEXT NOT NULL DEFAULT '待分派'",
+    "ALTER TABLE ad_manual_completions ADD COLUMN execution_result TEXT",
+    "ALTER TABLE ad_manual_completions ADD COLUMN evidence TEXT",
+    "ALTER TABLE ad_manual_completions ADD COLUMN acceptance_criteria TEXT",
+    "ALTER TABLE ad_manual_completions ADD COLUMN accepted_by TEXT",
+    "ALTER TABLE ad_manual_completions ADD COLUMN review_due_at TEXT",
+  ].map(async (sql) => {
+    try {
+      await db.prepare(sql).run();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/duplicate column|already exists|exists/i.test(message)) throw error;
+    }
+  }));
   await db.prepare(`CREATE TABLE IF NOT EXISTS ad_manual_completion_events (
     id TEXT PRIMARY KEY NOT NULL,
     task_key TEXT NOT NULL,
