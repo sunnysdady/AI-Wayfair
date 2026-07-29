@@ -127,6 +127,22 @@ test("switches to the authorized 150-Order target and contribution floor in Augu
   assert.equal(report.target.ordersToTarget, 144);
 });
 
+test("keeps the report available and discloses an Advertising API refresh fallback", () => {
+  const report = buildDailyOperatingReport({
+    now: new Date("2026-07-29T12:00:00.000Z"),
+    dailyAds: {
+      current: { spend: 0, retailRoas: 0, wscRoas: 0 },
+      refreshFallback: "Advertising API JWKS 401；已使用 PostgreSQL 广告快照",
+      cache: { layer: "POSTGRESQL_REPORT_ROWS" },
+    },
+  });
+
+  assert.equal(report.dataQuality.adsFresh, false);
+  assert.equal(report.dataQuality.adsLayer, "POSTGRESQL_REPORT_ROWS");
+  assert.match(report.risks[0], /广告实时刷新失败/);
+  assert.match(report.risks[0], /JWKS 401/);
+});
+
 test("wires server persistence and a Daily secondary navigation workspace", async () => {
   const [cron, api, page, navigation, migration] = await Promise.all([
     readFile(new URL("../app/api/cron/sync/route.ts", import.meta.url), "utf8"),
@@ -141,6 +157,8 @@ test("wires server persistence and a Daily secondary navigation workspace", asyn
   assert.match(cron, /daily_operating_reports/);
   assert.match(cron, /forceDailyReport/);
   assert.match(cron, /existing\?\.generation_mode === "FORCED"/);
+  assert.match(cron, /responseJsonWithFallback/);
+  assert.match(cron, /refreshFallback/);
   assert.match(api, /SELECT payload,generated_at FROM daily_operating_reports/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS daily_operating_reports/);
 
