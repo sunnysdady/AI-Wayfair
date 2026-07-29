@@ -107,6 +107,71 @@ export const BFIJ_PLAN = {
   ],
 };
 
+export const AUGUST_OPERATIONS_GUIDE = {
+  id: "yb-2026-08-operations-guide-v1",
+  month: "2026-08",
+  version: "1.0",
+  authority: "REFERENCE_ONLY",
+  effectiveExecutionPolicyId: AUGUST_EXECUTION_POLICY.id,
+  file: "YB店_2026年8月运营指南.html",
+  ledgerFile: "YB店_2026年8月运营记录与学习台账.xlsx",
+  sourceAsOf: "2026-07-29",
+  targetMetric: "UNITS",
+  target: 150,
+  weeklyTargets: [30, 35, 40, 45],
+  baseAdBudget: 1800,
+  hardAdCap: 2500,
+  marginFloor: .2,
+  fillRateFloor: .95,
+  guardrails: [
+    { id: "G1", name: "商品状态", rule: "放量前必须Live，且无未解决的Rejected或Wayfair Reviewing。" },
+    { id: "G2", name: "评分", rule: "评分≥4.2可放量；4.0–4.19仅限额；低于4停止。" },
+    { id: "G3", name: "库存", rule: "确认YB归属；未来14天可售库存≥1.2×Part目标；核心库存低于14天停止放量。" },
+    { id: "G4", name: "履约", rule: "Fill Rate≥95%，目标送达少于5天；缺货、取消或延迟上升时同日暂停对应广告或Offer。" },
+    { id: "G5", name: "毛利", rule: "折后真实毛利≥20%；低于20%不得以广告或折扣换量。" },
+    { id: "G6", name: "广告", rule: "WSC ROAS保留线≥3.2×、放量线≥4.0×；低于2.5×连续7天减20%或暂停。" },
+    { id: "G7", name: "点击止损", rule: "新增组达到20点击仍0单才暂停；不足20点击时锁Cap继续观察。" },
+    { id: "G8", name: "费率与日耗", rule: "预测广告费率≤15%，日耗不得超过Daily Cap的120%。" },
+    { id: "G9", name: "归因", rule: "Offer兑换、其余SP归因和自然单逐单唯一归因；缺Order ID或重复归因不得形成已验证结论。" },
+    { id: "G10", name: "变更控制", rule: "一次只改一个变量；执行前保存参数快照，并记录Operation ID、证据、验收人与复盘日。" },
+  ],
+  dailyCadence: [
+    { time: "08:45", owner: "AI", action: "汇总上一日Units、广告、库存、履约、Promotion与Offer数据并检查口径冲突。" },
+    { time: "09:15", owner: "AI", action: "更新节奏、月末预测、红黄绿灯和带证据的闭环任务草案。" },
+    { time: "09:30", owner: "OPERATOR", action: "确认数据真实性、库存归属、毛利口径与优先级，并指定实际执行人。" },
+    { time: "16:00", owner: "AI", action: "进行第二次异常扫描，只输出可逆建议、预期影响、风险和回退条件。" },
+  ],
+  learningRules: [
+    { id: "L1", rule: "数据完整率≥95%，否则只标记待验证。" },
+    { id: "L2", rule: "一个Operation只改变一个关键变量。" },
+    { id: "L3", rule: "广告至少观察7天或20点击，Offer至少观察14天。" },
+    { id: "L4", rule: "保留前快照、审批、执行、后结果、验收和成熟复盘的完整证据链。" },
+    { id: "L5", rule: "连续两个观察周期方向一致，或一个完整月证据充分且人工批准，才可升级SOP。" },
+    { id: "L6", rule: "每条规则必须写触发、停止、回退动作和适用范围。" },
+    { id: "L7", rule: "使用规则ID、版本、生效日、证据Operation ID和批准人管理版本。" },
+  ],
+  conflicts: [
+    {
+      code: "TARGET_METRIC_CONFLICT",
+      guideValue: "150 Units",
+      effectiveValue: `${AUGUST_EXECUTION_POLICY.stretchOrderTarget} Orders`,
+      resolution: "指南作为库存与执行节奏参考；经营验收使用已批准执行策略的Orders口径。",
+    },
+    {
+      code: "AD_CAP_CONFLICT",
+      guideValue: "$2,500",
+      effectiveValue: `$${AUGUST_EXECUTION_POLICY.stageTwoAdCap}`,
+      resolution: "使用更晚批准的分阶段广告上限，不因参考指南自动放宽预算。",
+    },
+    {
+      code: "MARGIN_FLOOR_CONFLICT",
+      guideValue: "20%",
+      effectiveValue: `${AUGUST_EXECUTION_POLICY.marginFloor * 100}%`,
+      resolution: "20%继续作为优选和促销参考；广告执行不得绕过已批准策略及逐SKU利润Gate。",
+    },
+  ],
+};
+
 export const AUGUST_PLAN = {
   id: "yb-2026-08-growth",
   month: "2026-08",

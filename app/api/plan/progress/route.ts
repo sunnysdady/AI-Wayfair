@@ -1,6 +1,7 @@
 import {
   AUGUST_PLAN,
   AUGUST_PLAN_LISTINGS,
+  AUGUST_OPERATIONS_GUIDE,
   BFIJ_PLAN,
   JULY_EVENTS,
   JULY_PLAN,
@@ -147,6 +148,7 @@ export async function GET() {
           mappingScopeVerified: false,
         }),
         plan: AUGUST_PLAN,
+        operatingGuide: AUGUST_OPERATIONS_GUIDE,
         listings: AUGUST_PLAN_LISTINGS.filter((item) => Number(item.augustUnits || 0) > 0).map((item) => ({ ...item, actualUnits: 0 })),
         milestones: WEEKLY_MILESTONES,
         salesPlan: AUGUST_SALES_PLAN,
