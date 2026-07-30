@@ -310,7 +310,7 @@ test("Vercel exports a protected scheduler route and declares the two-hour trigg
   assert.match(route, /export async function POST/);
   assert.match(route, /CRON_SECRET/);
   assert.match(route, /manual-full/);
-  assert.match(route, /function sameOrigin/);
+  assert.match(route, /import \{ sameOrigin \} from "@\/lib\/http-origin\.mjs"/);
   assert.match(route, /if \(!sameOrigin\(request\)\)/);
   assert.match(route, /runLayeredSync/);
   assert.match(vercel, /0 \*\/2 \* \* \*/);

@@ -1,4 +1,5 @@
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+import { sameOrigin } from "@/lib/http-origin.mjs";
 import { runLayeredSync } from "@/lib/server-sync.mjs";
 import { syncOutlookDaily } from "@/lib/outlook-daily-sync.mjs";
 import {
@@ -20,11 +21,6 @@ function manuallyAuthorized(request: Request, env: Env) {
   return request.headers.get("authorization") === `Basic ${Buffer.from(
     `${env.APP_ACCESS_USER}:${env.APP_ACCESS_PASSWORD}`,
   ).toString("base64")}`;
-}
-
-function sameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  return origin === new URL(request.url).origin;
 }
 
 function syncOrigin(request: Request, configured: string | undefined) {
