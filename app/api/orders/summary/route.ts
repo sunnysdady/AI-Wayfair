@@ -129,13 +129,17 @@ async function metrics(start: string, end: string) {
   const env = await bindings();
   const db = env.DB;
   const endExclusive = addDays(end, 1);
-  const row = await db.prepare(`SELECT COUNT(*) AS orders, COALESCE(SUM(revenue_cents),0) AS revenue_cents, COALESCE(SUM(units),0) AS units FROM orders WHERE po_date >= ? AND po_date < ?`).bind(isoFromDate(start), isoFromDate(endExclusive)).first<{ orders: number; revenue_cents: number; units: number }>();
+  // Wayfair does not return a dedicated sample flag on purchase orders. A zero-value PO is
+  // therefore treated as a sample: it is excluded from sales/order volume, while its cost
+  // remains in the profitability query below.
+  const row = await db.prepare(`SELECT COUNT(*) AS orders, COALESCE(SUM(revenue_cents),0) AS revenue_cents, COALESCE(SUM(units),0) AS units FROM orders WHERE po_date >= ? AND po_date < ? AND revenue_cents > 0`).bind(isoFromDate(start), isoFromDate(endExclusive)).first<{ orders: number; revenue_cents: number; units: number }>();
   const profit = await db.prepare(`SELECT
     COALESCE(SUM(CASE WHEN c.unit_cost_cents IS NOT NULL THEN (i.unit_price_cents-c.unit_cost_cents)*i.quantity ELSE 0 END),0) AS known_profit_cents,
     COALESCE(SUM(CASE WHEN c.unit_cost_cents IS NULL THEN i.unit_price_cents*i.quantity ELSE 0 END),0) AS unknown_revenue_cents,
-    COALESCE(SUM(i.unit_price_cents*i.quantity),0) AS item_revenue_cents
+    COALESCE(SUM(i.unit_price_cents*i.quantity),0) AS item_revenue_cents,
+    COALESCE(SUM(CASE WHEN i.unit_price_cents = 0 AND c.unit_cost_cents IS NOT NULL THEN c.unit_cost_cents*i.quantity ELSE 0 END),0) AS sample_cost_cents
     FROM order_items i JOIN orders o ON o.po_number=i.po_number LEFT JOIN sku_costs c ON c.part_number=i.part_number
-    WHERE o.po_date >= ? AND o.po_date < ?`).bind(isoFromDate(start), isoFromDate(endExclusive)).first<{ known_profit_cents: number; unknown_revenue_cents: number; item_revenue_cents: number }>();
+    WHERE o.po_date >= ? AND o.po_date < ?`).bind(isoFromDate(start), isoFromDate(endExclusive)).first<{ known_profit_cents: number; unknown_revenue_cents: number; item_revenue_cents: number; sample_cost_cents: number }>();
   const estimatedProfitCents = Number(profit?.known_profit_cents || 0) + Math.round(Number(profit?.unknown_revenue_cents || 0) * DEFAULT_MARGIN_RATE);
   const advertising = await cachedAdSpend(db, start, end);
   const advertisingBeforeGrossProfit = estimatedProfitCents / 100;
@@ -149,6 +153,7 @@ async function metrics(start: string, end: string) {
     contributionAfterAds,
     advertisingSpend: advertising.spend,
     advertisingCoverage: advertising.coverage,
+    sampleCost: Number(profit?.sample_cost_cents || 0) / 100,
     profitMode: Number(profit?.unknown_revenue_cents || 0) > 0 ? "estimated" : "cost-covered",
     costCoverage: Number(profit?.item_revenue_cents || 0) ? 1 - Number(profit?.unknown_revenue_cents || 0) / Number(profit?.item_revenue_cents || 0) : 0,
     marginRate: DEFAULT_MARGIN_RATE,
@@ -175,8 +180,8 @@ export async function GET(request: Request) {
     const previousStart = addDays(previousEnd, -(span - 1));
     const previous = await metrics(previousStart, previousEnd);
     const endExclusive = addDays(end, 1);
-    const daily = await env.DB.prepare(`SELECT to_char(po_date::timestamptz AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD') AS date, COUNT(*) AS orders, SUM(revenue_cents)/100.0 AS revenue, SUM(units) AS units FROM orders WHERE po_date >= ? AND po_date < ? GROUP BY to_char(po_date::timestamptz AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD') ORDER BY date`).bind(isoFromDate(start), isoFromDate(endExclusive)).all();
-    const topSkus = await env.DB.prepare(`SELECT i.part_number AS partNumber, SUM(i.quantity) AS units, SUM(i.unit_price_cents*i.quantity)/100.0 AS revenue FROM order_items i JOIN orders o ON o.po_number=i.po_number WHERE o.po_date >= ? AND o.po_date < ? GROUP BY i.part_number ORDER BY revenue DESC LIMIT 8`).bind(isoFromDate(start), isoFromDate(endExclusive)).all();
+    const daily = await env.DB.prepare(`SELECT to_char(po_date::timestamptz AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD') AS date, COUNT(*) AS orders, SUM(revenue_cents)/100.0 AS revenue, SUM(units) AS units FROM orders WHERE po_date >= ? AND po_date < ? AND revenue_cents > 0 GROUP BY to_char(po_date::timestamptz AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD') ORDER BY date`).bind(isoFromDate(start), isoFromDate(endExclusive)).all();
+    const topSkus = await env.DB.prepare(`SELECT i.part_number AS partNumber, SUM(i.quantity) AS units, SUM(i.unit_price_cents*i.quantity)/100.0 AS revenue FROM order_items i JOIN orders o ON o.po_number=i.po_number WHERE o.po_date >= ? AND o.po_date < ? AND o.revenue_cents > 0 AND i.unit_price_cents > 0 GROUP BY i.part_number ORDER BY revenue DESC LIMIT 8`).bind(isoFromDate(start), isoFromDate(endExclusive)).all();
     return Response.json({ source: "Wayfair Orders API", range: { start, end, previousStart, previousEnd }, current, previous, daily: daily.results, topSkus: topSkus.results, sync });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "订单数据读取失败" }, { status: 500 });

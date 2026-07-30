@@ -15,6 +15,9 @@ test("keeps one-hour snapshots across page switches without clearing ad actions"
   assert.match(cache, /STORAGE_PREFIX/);
   assert.match(ads, /60 \* 60 \* 1000/);
   assert.match(orders, /60 \* 60 \* 1000/);
+  assert.match(orders, /zero-value PO is/);
+  assert.match(orders, /revenue_cents > 0/);
+  assert.match(orders, /sample_cost_cents/);
   assert.match(catalog, /60 \* 60 \* 1000/);
   assert.match(page, /ad-queue:/);
   assert.match(page, /ads:v11:/);

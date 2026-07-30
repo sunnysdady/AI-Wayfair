@@ -49,7 +49,7 @@ type ProductAuditAccount = { period:string;label:string;days:number;orders:numbe
 type ProductAuditRole = { listing:string;tier:string;role:string;confidence:string;actionGuardrail:string;platformStatus:string;lastExecutionResult:null;parts:string[];conflictParts:string[];mature56Units:number;julyVsJuneDaily:number|null;matureMargin:number|null;listingAdSpend:number;listingRoas:number|null;breakEvenRoas:number|null;knownContributionUpperBound:number;operatorNote:string };
 type ProductOperatingAudit = { auditId:string;version:string;asOfDate:string;performanceThrough:string;roleEvidenceStart:string;roleEvidenceThrough:string;costUpdatedAt:string;sourceSnapshotSha256:string;review:{owner:string;reviewedAt:string;verdict:string};matureWindow:{start:string;end:string;days:number};profitDefinition:string;executionRule:string;account:ProductAuditAccount[];roles:ProductAuditRole[];adCoverage:{campaignSpend:number;listingAllocatedSpend:number;unallocatedSpend:number;listingCoverageRate:number};quality:{soldSkuCostCoverage:number;costHistoryRows:number;matureUnallocatedAdSpend:number;inventoryDuplicateGroups:number;sharedSourceSkuCount:number;multiListingPartCount:number;missingNetProfitInputs:string[]} };
 
-type OrderMetric = { revenue: number; orders: number; units: number; aov: number; advertisingBeforeGrossProfit: number; contributionAfterAds: number | null; advertisingSpend: number | null; advertisingCoverage: string; profitMode: "estimated" | "cost-covered"; costCoverage: number; marginRate: number };
+type OrderMetric = { revenue: number; orders: number; units: number; aov: number; advertisingBeforeGrossProfit: number; contributionAfterAds: number | null; advertisingSpend: number | null; advertisingCoverage: string; sampleCost: number; profitMode: "estimated" | "cost-covered"; costCoverage: number; marginRate: number };
 type OrderSummary = {
   current: OrderMetric;
   previous: OrderMetric;
@@ -504,6 +504,13 @@ function Dashboard() {
 
   const current = data?.current;
   const previous = data?.previous;
+  const hasSettledPreviousContribution = previous?.advertisingCoverage === "FULL" && previous.contributionAfterAds != null;
+  const contributionDisplay = loading ? "-" : current?.contributionAfterAds == null ? "待回传（T+1）" : money(current.contributionAfterAds);
+  const contributionNote = current?.advertisingSpend == null
+    ? hasSettledPreviousContribution
+      ? `${start === end ? "今日广告数据按 T+1 回传 · 昨日" : "广告数据按 T+1 回传 · 上一周期"}已结算贡献 ${money(previous?.contributionAfterAds ?? undefined)}`
+      : adSpendGapNote(current?.advertisingCoverage)
+    : `已扣广告费 ${money(current.advertisingSpend)} · ${current.advertisingCoverage === 'FULL' ? '完整覆盖' : '部分覆盖（当期仍在累计）'}`;
   const chartMax = Math.max(1, ...(data?.daily || []).map((item) => Number(item.revenue)));
   const rangeLabel = start === end ? start : `${start} - ${end}`;
   const loadingLabel=(retained:boolean)=>retained?"后台更新中":"同步中";
@@ -520,8 +527,8 @@ function Dashboard() {
         [loading ? "-" : String(current?.orders || 0), "订单", change(current?.orders, previous?.orders)],
         [loading ? "-" : String(current?.units || 0), "件数", change(current?.units, previous?.units)],
         [loading ? "-" : money(current?.aov), "客单价", change(current?.aov, previous?.aov)],
-        [loading ? "-" : money(current?.advertisingBeforeGrossProfit), "广告前商品毛利", `成本覆盖 ${Math.round((current?.costCoverage || 0) * 100)}% · 未覆盖部分按 ${((current?.marginRate || .2826) * 100).toFixed(2)}%估算`],
-        [loading ? "-" : current?.contributionAfterAds == null ? "待广告同步" : money(current.contributionAfterAds), "广告后店铺贡献", current?.advertisingSpend == null ? adSpendGapNote(current?.advertisingCoverage) : `已扣广告费 ${money(current.advertisingSpend)} · ${current.advertisingCoverage === 'FULL' ? '完整覆盖' : '部分覆盖（当期仍在累计）'}`],
+        [loading ? "-" : money(current?.advertisingBeforeGrossProfit), "广告前商品毛利", `成本覆盖 ${Math.round((current?.costCoverage || 0) * 100)}% · 未覆盖部分按 ${((current?.marginRate || .2826) * 100).toFixed(2)}%估算${current?.sampleCost ? ` · 含送测成本 ${money(current.sampleCost)}` : ""}`],
+        [contributionDisplay, "广告后店铺贡献", contributionNote],
       ].map(([value,label,note]) => <article className={`stat ${/毛利|贡献/.test(label) ? "profit-stat" : ""}`} key={label}><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}
     </section>
     <section className="card order-performance">

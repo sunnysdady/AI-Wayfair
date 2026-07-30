@@ -59,8 +59,10 @@ export async function GET() {
     const from = `${start}T00:00:00+08:00`;
     const until = `${endExclusive}T00:00:00+08:00`;
 
-    const actual = await env.DB.prepare(`SELECT COUNT(*) AS orders, COALESCE(SUM(units),0) AS units, COALESCE(SUM(revenue_cents),0)/100.0 AS revenue FROM orders WHERE po_date>=? AND po_date<?`).bind(from, until).first<{ orders: number; units: number; revenue: number }>();
-    const orderItems = await env.DB.prepare(`SELECT i.po_number AS poNumber, i.part_number AS partNumber, i.quantity AS quantity, i.unit_price_cents AS unitPriceCents FROM order_items i JOIN orders o ON o.po_number=i.po_number WHERE o.po_date>=? AND o.po_date<?`).bind(from, until).all();
+    // Zero-value POs are samples: omit them from sales-plan order/volume progress, but retain
+    // their items in the gross-profit query below so a known procurement cost is still deducted.
+    const actual = await env.DB.prepare(`SELECT COUNT(*) AS orders, COALESCE(SUM(units),0) AS units, COALESCE(SUM(revenue_cents),0)/100.0 AS revenue FROM orders WHERE po_date>=? AND po_date<? AND revenue_cents > 0`).bind(from, until).first<{ orders: number; units: number; revenue: number }>();
+    const orderItems = await env.DB.prepare(`SELECT i.po_number AS poNumber, i.part_number AS partNumber, i.quantity AS quantity, i.unit_price_cents AS unitPriceCents FROM order_items i JOIN orders o ON o.po_number=i.po_number WHERE o.po_date>=? AND o.po_date<? AND o.revenue_cents > 0 AND i.unit_price_cents > 0`).bind(from, until).all();
     const rows = (orderItems.results || []) as { poNumber: string; partNumber: string; quantity: number; unitPriceCents: number }[];
     const byPart = new Map<string, { orders: Set<string>; units: number; revenue: number }>();
     for (const row of rows) {
