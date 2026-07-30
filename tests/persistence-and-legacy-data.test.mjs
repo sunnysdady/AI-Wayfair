@@ -46,10 +46,10 @@ test("offers a compact accessible manual refresh without clearing the retained d
 
   assert.match(page, /function refreshDashboard\(\)/);
   assert.match(page, /refresh=1/);
-  assert.match(page, /className=\{`dashboard-refresh/);
-  assert.match(page, /aria-label="立即刷新订单数据"/);
-  assert.match(page, /title="立即刷新"/);
-  assert.match(page, /disabled=\{refreshing\}/);
+  assert.match(page, /className=\{`dashboard-refresh dashboard-full-sync/);
+  assert.match(page, /aria-label="同步全站点数据"/);
+  assert.match(page, /同步全站点/);
+  assert.doesNotMatch(page, /aria-label="立即刷新订单数据"/);
   assert.match(styles, /\.dashboard-refresh\{/);
   assert.match(styles, /\.dashboard-refresh\.refreshing svg/);
 });
