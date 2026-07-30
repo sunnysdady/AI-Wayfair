@@ -75,6 +75,33 @@ test("runs mature advertising and all reported catalog pages at 06:00 Shanghai",
   assert.equal(checkpoints.at(-1).integrity.closed, true);
 });
 
+test("manual full sync includes advertising and Catalog regardless of the clock", async () => {
+  const requests = [];
+  const result = await runLayeredSync({
+    scheduledTime: Date.parse("2026-07-21T20:00:00Z"),
+    mode: "manual-full",
+    catalogPageBudget: 10,
+    request: async (url) => {
+      const value = String(url);
+      requests.push(value);
+      if (value.includes("page=1")) {
+        return jsonResponse({
+          paginationInfo: { totalPages: 1, totalCount: 1 },
+          items: [{ supplierPartNumber: "SKU-1" }],
+        });
+      }
+      return jsonResponse({});
+    },
+    loadCatalogCheckpoint: async () => null,
+    saveCatalogCheckpoint: async () => {},
+    record: async () => {},
+  });
+
+  assert.equal(result.mode, "manual-full");
+  assert.ok(requests.some((url) => url.includes("/api/ads/analysis?")));
+  assert.ok(requests.some((url) => url.includes("/api/catalog/items?page=1")));
+});
+
 test("continues an incomplete catalog crawl on regular runs without repeating completed pages", async () => {
   let checkpoint = null;
   const firstRequests = [];
@@ -280,7 +307,11 @@ test("Vercel exports a protected scheduler route and declares the two-hour trigg
   ]);
 
   assert.match(route, /export async function GET/);
+  assert.match(route, /export async function POST/);
   assert.match(route, /CRON_SECRET/);
+  assert.match(route, /manual-full/);
+  assert.match(route, /function sameOrigin/);
+  assert.match(route, /if \(!sameOrigin\(request\)\)/);
   assert.match(route, /runLayeredSync/);
   assert.match(vercel, /0 \*\/2 \* \* \*/);
 });

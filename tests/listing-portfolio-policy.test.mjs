@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("blocks duplicate links that differ only by copy, images, or price", async () => {
+test("keeps duplicate-listing controls in the plan API without cluttering the August page", async () => {
   const [page, plan, route] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/operating-plan.ts", import.meta.url), "utf8"),
@@ -13,8 +13,8 @@ test("blocks duplicate links that differ only by copy, images, or price", async 
   assert.match(plan, /同一产品不得仅通过文案、图片或价格差异创建2–3条链接/);
   assert.match(plan, /真实型号、结构、尺寸、材质、功能或套装数量/);
   assert.match(route, /listingPortfolioPolicy: LISTING_PORTFOLIO_POLICY/);
-  assert.match(page, /成功老品放大 · 合规边界/);
-  assert.match(page, /不执行视觉去重规避/);
+  assert.doesNotMatch(page, /成功老品放大 · 合规边界/);
+  assert.doesNotMatch(page, /不执行视觉去重规避/);
 });
 
 test("keeps successful-product growth experiments on the original listing", async () => {

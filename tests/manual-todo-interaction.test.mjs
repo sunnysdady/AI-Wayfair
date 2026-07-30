@@ -2,23 +2,26 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("limits completion interaction and hover feedback to the checkbox column", async () => {
+test("requires execution evidence and acceptance instead of a completion checkbox", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /className=\{`manual-todo-row/);
-  assert.match(page, /className="manual-todo-check"/);
+  assert.match(page, /className="manual-task-closure"/);
   assert.match(page, /className="manual-todo-content"/);
-  assert.doesNotMatch(page, /<label className=\{done\?'done':''\} key=\{task\.id\}>/);
-  assert.match(styles, /\.manual-todo-check:hover/);
-  assert.doesNotMatch(styles, /\.manual-todo-list label:hover/);
+  assert.match(page, /执行结果/);
+  assert.match(page, /执行证据/);
+  assert.match(page, /验收人/);
+  assert.match(page, /提交验收/);
+  assert.doesNotMatch(page, /className="manual-todo-check"/);
+  assert.doesNotMatch(styles, /\.manual-todo-check:hover/);
   assert.match(styles, /\.manual-todo-content\{[^}]*user-select:text/);
   assert.match(page, /submitManualAcceptance/);
   assert.match(page, /submitSelectedManualAcceptances/);
   assert.match(page, /<option value="READY">可验收<\/option>/);
-  assert.match(styles, /\.manual-acceptance-form/);
+  assert.match(styles, /\.manual-acceptance-tools/);
 });
 
 test("renders every manual action at advertising-group grain with its Campaign ID", async () => {
@@ -38,9 +41,12 @@ test("renders every manual action at advertising-group grain with its Campaign I
   assert.match(page, /campaignId: "622725"/);
   assert.match(page, /campaignId: "622721"/);
   assert.match(page, /campaignId: "622722"/);
-  assert.match(page, /campaignId: "622737"/);
+  assert.match(page, /campaignId: "675055"/);
+  assert.match(page, /campaignId: "676296"/);
+  assert.match(page, /campaignId: "676299"/);
+  assert.match(page, /campaignId: "676302"/);
   assert.match(page, /campaignId: "635903"/);
-  assert.match(page, /campaignId: "\u65b0\u5efa\u540e\u56de\u586b"/);
+  assert.doesNotMatch(page, /campaignId: "\u65b0\u5efa\u540e\u56de\u586b"/);
 });
 
 test("migrates saved advertising-group completion ids to parent-SKU keys", async () => {

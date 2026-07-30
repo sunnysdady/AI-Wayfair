@@ -1,23 +1,28 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { CLIENT_CACHE_RETENTION_MS, invalidateClientCache, readClientCache, writeClientCache } from "../lib/client-cache";
 import { canRemoveAction, executionResultForAction, filterAdActions, isBulkApprovable, queuedActionState } from "../lib/ad-action-queue.mjs";
 import { isBulkActionSelectionComplete, nextBulkActionSelection } from "../lib/ad-action-selection.mjs";
 import { nextSort, sortRows } from "../lib/table-sort.mjs";
 import { financialDetailsForEmail } from "../lib/email-finance.mjs";
 import { manualCompletionPayload } from "../lib/manual-ad-completions.mjs";
+import { navigationSearch, navigationStateFromSearch } from "../lib/app-navigation.mjs";
+import { PLAN_PROGRESS_CACHE_KEY } from "../lib/plan-progress-view.mjs";
 import legacyOperatingDataSource from "../data/dmom-operating-2026-06.json";
 
-type View = "dashboard" | "daily" | "ads" | "planning" | "products" | "sources" | "help";
+type View = "dashboard" | "tasks" | "daily" | "ads" | "planning" | "products" | "sources" | "help";
 type AdsTab = "manager" | "listings" | "ai" | "manual" | "review";
-type PlanningTab = "plan" | "review" | "history";
+type DailyTab = "operating" | "email";
+type PlanningTab = "plan" | "august" | "review" | "history";
 type ProductTab = "inventory" | "catalog" | "launch" | "performance";
 type PlanSection = "july" | "bfij" | "august";
-type SubView = AdsTab | PlanningTab | ProductTab;
+type SubView = AdsTab | DailyTab | PlanningTab | ProductTab;
 
 const PRIMARY_NAV: { id: View; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
+  { id: "tasks", label: "闭环任务" },
   { id: "daily", label: "日报" },
   { id: "ads", label: "广告" },
   { id: "planning", label: "计划与复盘" },
@@ -30,14 +35,19 @@ const SYSTEM_NAV: { id: View; label: string }[] = [
 ];
 
 const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
+  daily: [{ id: "operating", label: "工作日报" }, { id: "email", label: "邮件日报" }],
   ads: [{ id: "manager", label: "广告管理器" }, { id: "listings", label: "父体 SKU 广告表现" }, { id: "ai", label: "AI 优化" }, { id: "manual", label: "手动优化 To-Do" }, { id: "review", label: "优化记录与复盘" }],
-  planning: [{ id: "plan", label: "运营计划" }, { id: "review", label: "复盘资料" }, { id: "history", label: "历史月度" }],
+  planning: [{ id: "plan", label: "运营计划" }, { id: "august", label: "8月推广计划" }, { id: "review", label: "复盘资料" }, { id: "history", label: "历史月度" }],
   products: [{ id: "inventory", label: "库存更新" }, { id: "catalog", label: "商品数据" }, { id: "launch", label: "推新 SOP" }, { id: "performance", label: "SKU 经营" }],
 };
 
 type LegacySku = { "Supplier Part Number":string;"Wayfair Sku":string;"Product Name":string;"Class Name":string;"Total Revenue":number;Sessions:number;CVR:number;rating:number;review_count:number;tag_pct:number;wsc:number;cogs:number;my_profit:number;my_margin:number;wf_space:number;grade:string;cn_name:string|null };
 type LegacyOperatingData = { meta:{store:string;biz_month:string};skus:LegacySku[];trend:{months:string[];revenue:Array<number|null>;orders:Array<number|null>;sessions:Array<number|null>;cvr:Array<number|null>;sp_spend:Array<number|null>};acct_monthly:Array<{m:number;orders:number;ad_orders:number;spend:number;rev:number}> };
 const LEGACY_OPERATING_DATA=legacyOperatingDataSource as unknown as LegacyOperatingData;
+
+type ProductAuditAccount = { period:string;label:string;days:number;orders:number;units:number;revenue:number;procurementProfit:number;procurementMargin:number;campaignAdSpend:number;contributionProxy:number;contributionMargin:number;revenuePerDay:number;contributionPerDay:number };
+type ProductAuditRole = { listing:string;tier:string;role:string;confidence:string;actionGuardrail:string;platformStatus:string;lastExecutionResult:null;parts:string[];conflictParts:string[];mature56Units:number;julyVsJuneDaily:number|null;matureMargin:number|null;listingAdSpend:number;listingRoas:number|null;breakEvenRoas:number|null;knownContributionUpperBound:number;operatorNote:string };
+type ProductOperatingAudit = { auditId:string;version:string;asOfDate:string;performanceThrough:string;roleEvidenceStart:string;roleEvidenceThrough:string;costUpdatedAt:string;sourceSnapshotSha256:string;review:{owner:string;reviewedAt:string;verdict:string};matureWindow:{start:string;end:string;days:number};profitDefinition:string;executionRule:string;account:ProductAuditAccount[];roles:ProductAuditRole[];adCoverage:{campaignSpend:number;listingAllocatedSpend:number;unallocatedSpend:number;listingCoverageRate:number};quality:{soldSkuCostCoverage:number;costHistoryRows:number;matureUnallocatedAdSpend:number;inventoryDuplicateGroups:number;sharedSourceSkuCount:number;multiListingPartCount:number;missingNetProfitInputs:string[]} };
 
 type OrderMetric = { revenue: number; orders: number; units: number; aov: number; advertisingBeforeGrossProfit: number; contributionAfterAds: number | null; advertisingSpend: number | null; advertisingCoverage: string; profitMode: "estimated" | "cost-covered"; costCoverage: number; marginRate: number };
 type OrderSummary = {
@@ -75,6 +85,16 @@ type CatalogResponse = { items?: CatalogItem[]; paginationInfo?: { page: number;
 
 type AdMetric = { impressions: number; clicks: number; spend: number; orders: number; units: number; retail: number; wsc: number; ctr: number; cvr: number; cpa: number; retailRoas: number; wscRoas: number };
 type AdCampaign = AdMetric & { campaignId: string; name: string; targetingType: string; site: string; status: string; isActive: string; isB2b: string; dailyCap: string; lifetimeBudget: string; startDate: string; endDate: string; strategy: string; targetRoas: string };
+type CampaignControlFact = {
+  campaignId:string;status:"ACTIVE"|"PAUSED";dailyCap:number|null;protectedFromWholeCampaignPause:boolean;
+  controlMode:"LISTING_ISOLATION"|"CAMPAIGN_PAUSED"|"CAMPAIGN_ACTIVE";
+  isolatedProducts:Array<{listing:string;part:string;status:"PAUSED"}>;
+};
+type CampaignControlSnapshot = {
+  asOf:string;source:string;walletDailyCap:number;activeCampaignDailyCap:number;walletHeadroom:number;
+  activeCampaignDailyCaps:Record<string,number>;pausedCampaignIds:string[];
+  correctedCampaign:{campaignId:"597350";status:"ACTIVE";dailyCap:number;last28Spend:number;last28Revenue:number;last28RetailRoas:number;protectedFromWholeCampaignPause:true;controlMode:"LISTING_ISOLATION";isolatedProducts:Array<{listing:"DMOM1025";part:"LFC-3W";status:"PAUSED"}>};
+};
 type ZombieCampaignFinding = {
   campaignId: string; campaignName: string; targetingType: string; site: string; listing: string; productName: string; linkStatus: string; bid: number; parts: string[];
   metric: { impressions: number; clicks: number; spend: number; orders: number };
@@ -82,7 +102,7 @@ type ZombieCampaignFinding = {
   label: string; reasons: string[]; before: Record<string, unknown>; proposed: Record<string, unknown>;
 };
 type AdListing = {
-  listing: string; campaignId: string; campaignName: string; site: string; productName: string; className: string; isB2b: string; campaignStatus: string; parts: string[]; bid: number; status: string;
+  listing: string; campaignId: string; campaignName: string; site: string; targetingType?: string; strategy?: string; productName: string; className: string; isB2b: string; campaignStatus: string; parts: string[]; bid: number; status: string;
   current: AdMetric; previous: AdMetric;
   plan: null | { budget: number; augustUnits?: number; julyTargetOrders?: number; role: string; gate: string; eligible: boolean; adRole: string; rating?: number; reviews?: number };
   nextPlan: null | { budget: number; augustUnits?: number; role: string; gate: string; eligible: boolean; adRole: string };
@@ -95,18 +115,65 @@ type AdListing = {
   operatorReview?: { owner: string; verdict: string; stage: string; thesis: string; counterpoint: string; controls: string[]; requiresHumanApproval: boolean; proposalOwner: string; decisionOwner: string; decisionStatus: string; hypothesis: string; singleVariable: boolean; cooldownUntil: string | null; reviewDue: string | null; rollbackPlan: string };
   action: { type: string; label: string; recommendation: string; execution: string; confidence: string; reasons: string[]; blockers: string[]; warnings: string[]; repairPlan?: null | { focus?: string; diagnosis: string; steps: string[]; acceptance: string[]; retest: string }; before: Record<string, unknown>; proposed: Record<string, unknown> };
 };
+type AdModelDecision = {
+  unitKey:string;
+  identity:{site:string;currency?:string;isB2B:boolean;campaignId:string;targetingType:string;listing:string};
+  operatingState:null|{campaignStatus:string;campaignActive:boolean|null;listingStatus:string};
+  executionPlan:null|{targetMetric:"ORDERS";listingTargetOrders:number;listingBaseAdBudget:number;listingCanaryBudget:number;listingPlannedAdBudget:number;scaleEligible:boolean;portfolioStageOneAdCap:number;portfolioStageTwoAdCap:number};
+  campaignControl:CampaignControlFact|null;
+  mode:"SHADOW";
+  eligibleForExecution:false;
+  suggestedAction:string;
+  blockers:string[];
+  confidenceScore:number;
+  confidence:{data:string;predictive:string;causal:string;explanation:string};
+  posterior:{ordersPerDollar:number;ordersPer100Spend:number;ordersPer100SpendInterval80:[number,number];wscPerOrder:number;priorOrdersPer100Spend:number;priorStrengthSpend:number};
+  metrics:{wscRoas:number|null;ordersPer100Spend:number|null;contributionProfit:number|null;incrementalMarketingRoi:number|null};
+  candidates:Array<{action:string;attributedScenario:{orders:number|null;wsc:number|null;spend:number|null;contributionProxy:number|null;wscRoas:number|null};attributedScenarioDelta:{orders:number|null;wsc:number|null;spend:number|null;contributionProxy:number|null};expected:{orders:null;wsc:null;spend:null;contributionProfit:null;wscRoas:null;incrementalMarketingRoi:null};expectedDelta:{orders:null;wsc:null;spend:null;contributionProfit:null};probabilityIncrementalContributionPositive:null;causalStatus:"NOT_ESTIMABLE_C0"}>;
+};
+type AdDecisionModel = {
+  version:string;mode:"SHADOW";objective:string;grain:string;
+  optimalBudget:{status:string;amount:number|null;reason:string};
+  summary:{units:number;actionableInShadow:number;blocked:number};
+  riskPolicy:{basis:string;monthlyRevenueTarget:number;monthlyContributionFloor:number;baseAdPlan:number;conservativeMarginRate:number;projectedContribution:number;targetBuffer:number;portfolioMaxLoss:number;portfolioMaxDailyIncrementalLoss:number;earliestStart:string;earliestMatureReview:string;scope:string};
+  decisions:AdModelDecision[];
+};
+type AdModelTodo = {
+  id:string;unitKey:string;identity:{site:string;currency?:string;isB2B:boolean;campaignId:string;targetingType:string;listing:string};listing:string;campaignId:string;priority:"P1"|"P2";type:"DESIGN_CANARY"|"FIX_MODEL_INPUT"|"WAIT_FOR_EVIDENCE"|"MANUAL_AI_REVIEW";title:string;detail:string;suggestedAction:string;blockers:string[];
+  executionPlan:null|{targetMetric:"ORDERS";listingTargetOrders:number;listingBaseAdBudget:number;listingCanaryBudget:number;listingPlannedAdBudget:number;scaleEligible:boolean;portfolioStageOneAdCap:number;portfolioStageTwoAdCap:number};
+  campaignControl:CampaignControlFact|null;
+  confidence:{data:string;predictive:string;causal:string};attributedScenarioDelta:{orders:number|null;spend:number|null;wsc:number|null;contributionProxy:number|null}|null;incrementalContributionProbability:null;experimentContract:null|{status:string;treatment:string;control:string;primaryMetric:string;attributionWaitDays:number;minimumSampleSize:null;requiresPowerAnalysis:boolean;stopRule:string;contaminationControls:string[];maxIncrementalLoss:number;maxDailyIncrementalLoss:number;portfolioMaxIncrementalLoss:number;portfolioMaxDailyIncrementalLoss:number;earliestStart:string;earliestMatureReview:string};mode:"SHADOW";eligibleForExecution:false;
+};
 type AdAnalysis = {
   current: AdMetric; previous: AdMetric; decision: { current: AdMetric; previous: AdMetric }; history: ({ date: string } & AdMetric)[]; campaigns: AdCampaign[]; listings: AdListing[]; parentListings?: AdListing[]; liveSafetyFindings?: AdListing[]; zombieFindings: ZombieCampaignFinding[];
   zombieAudit: { matureDays: number; total: number; hard: number; near: number };
   range: { start: string; end: string; previousStart: string; previousEnd: string; asOf: string; matureThrough: string; mature: boolean };
   decisionRange: { start: string; end: string; previousStart: string; previousEnd: string; cadence: string; rule: string };
   liveSafetyRange?: { start: string; end: string; trailingStart: string; days: number; rule: string };
+  decisionModel?: AdDecisionModel; modelTodo?: AdModelTodo[]; campaignControl?: CampaignControlSnapshot;
   runKey: string; generatedAt: string; attributionWindowDays: number; cache?: { hit?: boolean; layer?: string; updatedAt?: string }; safety: { reason: string }; error?: string;
 };
 type SortState = { key: string; direction: "asc" | "desc" };
-type EmailFinancial = { remittanceId?:string; amount?:number; currency?:string; paymentDate?:string; paymentMethod?:string; invoiceIds?:string[] };
-type EmailItem = { id:string; category?:string; subject:string; sender:string; receivedAt:string; unread:boolean; priority:string; summary:string; bodyPreview?:string; financial?:EmailFinancial; owner:string; status:string; webLink:string };
+type EmailFinancial = { remittanceId?:string; amount?:number; currency?:string; paymentDate?:string; paymentMethod?:string; invoiceIds?:string[]; grossAmount?:number; allowanceAmount?:number; epdAmount?:number; serviceFeeAmount?:number };
+type EmailOrderItem = { sku:string; name?:string; quantity:number; unitPrice:number };
+type EmailOrder = { poNumber:string; currency:string; totalQuantity:number; totalAmount:number; items:EmailOrderItem[] };
+type EmailItem = { id:string; category?:string; subject:string; sender:string; receivedAt:string; unread:boolean; priority:string; summary:string; bodyPreview?:string; financial?:EmailFinancial; order?:EmailOrder; owner:string; status:string; webLink:string };
 type EmailBrief = { briefDate:string; syncedAt:string; source:string; summary:{total:number;unread:number;actionRequired:number;highestPriority:string}; items:EmailItem[]; tasks:Array<{id:string;title:string;owner:string;dueDate:string;priority:string;status:string}>; sections?:Array<{title:string;body:string;tone?:string}>; error?:string };
+type DailyOperatingReport = {
+  reportDate:string;generatedAt:string;source:string;status?:string;error?:string;
+  performance?:{
+    daily:{orders:number;units:number;revenue:number;adSpend:number;retailRoas:number;wscRoas:number;contributionAfterAds:number|null};
+    delta:{orders:number;units:number;revenue:number;adSpend:number;retailRoas:number;wscRoas:number};
+    month:{orders:number;units:number;revenue:number;contributionAfterAds:number|null};
+  };
+  work?:{completed:string[];inProgress:string[];failed:string[]};
+  aiOptimization?:{modelTodoCount:number;modelTodoDelta:number|null;zombieFindingCount:number;attributionMature:boolean;note:string};
+  todo?:{totalManual:number;verifiedManual:number;remainingManual:number;activeOperations:number;failedToday:number};
+  target?:{metric:"ORDERS";targetMonth:string;orderTarget:number;monthOrders:number;ordersToTarget:number;completionRate:number;monthlyContributionFloor:number|null;monthContributionAfterAds:number|null;contributionGap:number|null};
+  risks?:string[];approvals?:string[];tomorrow?:string[];
+  dataQuality?:{adsFresh:boolean;adsLayer:string;adsRefreshFallback:string|null;orderSyncStale:boolean};
+  system?:{execution:"SERVER_SILENT";environmentVerified:boolean;healthyScopes:number;failedScopes:number;browserDependency:false;codexDependency:false};
+};
 type QueuedAdAction = {
   id: string; run_key: string; listing: string; campaign_id: string; action_type: string;
   before_payload: string; proposed_payload: string; status: string; created_at: string; updated_at: string;
@@ -134,9 +201,9 @@ type SystemReadiness = {
   };
   metrics: { id: string; label: string; unit: string; grain: string; source: string; definition: string }[];
 };
-type ZombieResolution = { method: string; done: boolean };
-type ManualCompletionRecord = { taskKey:string;parentSku:string;taskId:string;campaignId:string;adGroup:string;title:string;owner:string;assignee:string;executionChannel:string;executionResult:string;wayfairEvidence:string;receiver:string;reviewDate:string;closedLoopStatus:"CLOSED_LOOP_RECORDED"|"ASSIGNED";status:"COMPLETED"|"OPEN";completedAt:string|null;updatedAt:string };
-type ManualCompletionDraft = { owner:string; assignee:string; executionChannel:string; executionResult:string; wayfairEvidence:string; receiver:string; reviewDate:string };
+type ZombieResolution = { resolutionKey:string;operationId:string;campaignId:string;listing:string;actionType:string;method:string;owner:string;status:"DISCOVERED"|"ASSIGNED"|"EXECUTING"|"PENDING_ACCEPTANCE"|"VERIFIED"|"FAILED"|"REOPENED";executionResult:string;evidence:string;acceptanceCriteria:string;acceptedBy:string;updatedAt?:string };
+type ManualCompletionRecord = { operationId:string;taskKey:string;parentSku:string;taskId:string;campaignId:string;adGroup:string;title:string;status:"OPEN"|"IN_PROGRESS"|"PENDING_ACCEPTANCE"|"VERIFIED"|"REOPENED"|"FAILED";owner:string;executionResult:string;evidence:string;acceptanceCriteria:string;acceptedBy:string;reviewDueAt:string;completedAt:string|null;updatedAt:string };
+type OperationRecord = { operationId:string;sourceType:string;sourceId:string;objectType:string;objectId:string;title:string;owner:string;status:string;proposedAction:string;executionResult?:string;terminalReceipt?:string;evidence:{type:string;value:string}[];acceptanceCriteria?:string;acceptedBy?:string;reviewDueAt?:string;reviewVerdict?:string;updatedAt:string };
 const API_AD_ACTION_TYPES=new Set(['SET_LISTING_BID','SET_LISTING_ACTIVE']);
 const ZOMBIE_RESOLUTION_STORAGE_KEY='zombie-resolutions:v1';
 const ZOMBIE_METHOD_OPTIONS:Record<ZombieCampaignFinding['actionType'],string[]>={
@@ -158,12 +225,22 @@ type PlanProgress = {
   activity: { name: string; officialEventRange: string; canadaCoInvestRange: string; flashDealRange: string; flashConfirmationDeadline: string; catalogLockRange: string; strategyBudget: number; monthlyBudget: number; budgetNote: string; source: string; sourceAsOf: string; activePhase: string; phases: { id: string; label: string; range: string; budgetCap: number; bidRule: string; capRule: string; objective: string }[] };
   cpcPlan: { sourcePage: number; appliesTo: string[]; benchmarkMeaning: string; categoryBenchmarks: Record<string,number>; operatingRule: string; revenueGuardrail: string; augustGuardrail: string; juneAccountFacts: { adSpend: number; attributedOrders: number; attributedWsc: number; accountWsc: number; wspWscRoas: number } };
   nextPlan: {
-    plan: { unitTarget: number; baseAdBudget: number; hardAdCap: number; sourceAsOf: string; scopeWarning: string };
+    advertisingExecution: { asOf: string; walletDailyCap: number; activeCampaignDailyCap: number; otherActiveCampaignDailyCap: number; correctedCampaign: { campaignId: "597350"; status: "ACTIVE"; dailyCap: number; last28RetailRoas: number; pausedProductRows: string[] }; pausedCampaignIds: string[] };
+    executionPolicy: { authorizationStatus: "APPROVED"; targetMetric: "ORDERS"; stretchOrderTarget: number; baseAdBudget: number; canaryLossCap: number; stageOneAdCap: number; stageTwoAdCap: number; retiredAdBudgets: number[]; earliestCanaryStart: string; policy: string };
+    executionStage: { ready: boolean; authorizedAdCap: number; blockers: string[] };
+    plan: { targetMetric: "ORDERS"; orderTarget: number; baseAdBudget: number; hardAdCap: number; stageTwoHardAdCap: number; sourceAsOf: string; scopeWarning: string };
     listings: { listing: string; parts: string[]; juneUnits: number; augustUnits: number; actualUnits: number; budget: number; role: string; gate: string }[];
     milestones: { label: string; range: string; cumulative: number; note: string }[];
-    promotionEvents: { id: string; name: string; status: "OPEN_FOR_SUBMISSION"; submissionOpened: string; curationDeadline: string; start: string; end: string; lengthDays: number; category: string; recommendedProducts: number | null; sourceAsOf: string }[];
-    promotionPlan: { listing: string; parts: string[]; action: "PROPOSE" | "HOLD" | "EXCLUDE"; eventIds: string[]; discountPlan: string; maximumIncrementalOffer: number; estimatedWorstMargin: number | null; reason: string; requiredGates: string[]; reviewStatus: "PENDING_REVIEW"; canSubmitToZiniao: false }[];
-    promotionSummary: { totalListings: number; proposedListings: number; proposedParts: number; heldOrExcludedListings: number; pendingReviewListings: number; ziniaoReadyListings: number; submissionLocked: boolean };
+    salesPlan: { targetMetric: "ORDERS"; orderTarget: number; baselineAsOf: string; baselineMappedOrders: number; currentStoreOrders: number; currentForecastOrders: number; marginFloor: number; marginTarget: number; marginCeiling: number; reviewStatus: "APPROVED"; reviewedAt: string; canExecuteAds: false; canBuildPromotionPlan: true; source: string; sourceAsOf: string; strategy: string; riskNote: string };
+    salesPlanRows: { listing: string; parts: string[]; role: "VOLUME_CORE" | "PROFIT_POOL" | "CONTROLLED_GROWTH" | "REPAIR_ORGANIC"; targetOrders: number; julyOrders: number; juneOrders: number; inventoryOnHand: number; averageRevenuePerOrder: number; preAdMarginRate: number; marginMode: "ORDER_ACTUAL" | "STORE_ESTIMATE"; baseAdBudget: number; performanceReserve: number; plannedAdBudget: number; expectedRevenue: number; expectedGrossProfit: number; projectedPostAdProfit: number; projectedPostAdMargin: number; tactic: string; gate: string; stopRule: string; promotion: { status: "SUBMITTED" | "PARTIALLY_SUBMITTED" | "ON_HOLD"; submittedParts: string[]; heldParts: string[]; eventIds: string[]; activeEventIds: string[]; submittedEventIds: string[]; discountTiers: string[]; quantityOfferParts: string[]; marginAlertParts: string[]; marginExceptionParts: string[]; syncedAt: string } }[];
+    salesPlanSummary: { targetOrders: number; projectedRevenue: number; projectedGrossProfit: number; baseAdBudget: number; performanceReserve: number; plannedAdBudget: number; projectedPostAdProfit: number; projectedPostAdMargin: number; hardAdCap: number; roleMix: Record<string,{targetOrders:number;projectedRevenue:number;projectedGrossProfit:number;plannedAdBudget:number}> };
+    salesMilestones: { label: string; range: string; weekOrders: number; cumulativeOrders: number; note: string }[];
+    promotionPlanStatus: "SYNCED_AFTER_SUBMISSION";
+    promotionEvents: { id: string; projectId: string; name: string; status: "ACTIVE" | "SUBMITTED"; planningStatus: "ACTIVE" | "SUBMITTED_PROCESSING"; canRelyOnForPlan: boolean; planningNote: string; submissionOpened: string; curationDeadline: string; start: string; end: string; lengthDays: number; category: string; recommendedProducts: number | null; submittedProducts: number; submittedAt: string; sourceAsOf: string }[];
+    promotionPlan: { listing: string; part: string; role: "VOLUME_CORE" | "PROFIT_POOL" | "CONTROLLED_GROWTH" | "REPAIR_ORGANIC"; action: "SUBMITTED" | "HOLD"; priceBasisCents: number | null; priceBasisType: "PARTNER_HOME_CURRENT_BASE_COST"; costCents: number | null; inventoryOnHand: number; catalogLiveCount: number; eventIds: string[]; activeEventIds: string[]; submittedEventIds: string[]; discountPlan: string; b2cDiscount: number; b2bTotalDiscount: number; memberB2cDiscount: number | null; quantityOffer: number; quantityPromotionStatus: "PROCESSING" | "NOT_APPLICABLE"; worstDiscount: number; estimatedWorstMargin: number | null; roleMarginFloor: number; marginAlert: boolean; marginExceptionApproved: boolean; reason: string; requiredGates: string[]; reviewStatus: "APPROVED" | "APPROVED_HOLD"; submittedToZiniao: boolean; canSubmitToZiniao: false }[];
+    quantityPromotion: { id: string; projectId: string; name: string; status: "PROCESSING"; submittedAt: string; minimumQuantity: number; additionalDiscount: number; stackingRule: string; platformMessage: string; parts: string[] };
+    promotionPortfolio: { originalAdBudget: number; recommendedAdBudget: number; baseAdBudget: number; performanceReserve: number; fallbackAdBudget: number; methodology: string; budgetRule: string; scenarios: { promotionOrderShare: number; quantityOrderShare: number; eventDiscountLoss: number; quantityDiscountLoss: number; projectedRevenue: number; projectedGrossProfit: number; projectedPostAdProfit: number; projectedPostAdMargin: number; hardAdCapAt10Percent: number; targetAdCapAt12Percent: number }[] };
+    promotionSummary: { totalListings: number; totalParts: number; submittedListings: number; submittedParts: number; heldParts: number; approvedParts: number; ziniaoSubmittedParts: number; activeEvents: number; submittedEvents: number; quantityPromotionParts: number; quantityPromotionStatus: string; marginAlertParts: number; marginExceptionParts: number; originalAdBudget: number; recommendedAdBudget: number; adBudgetReduction: number; projectedPromotionOrderShare: number; projectedQuantityOrderShare: number; projectedRevenue: number; projectedPostAdProfit: number; projectedPostAdMargin: number; stressPromotionOrderShare: number; stressQuantityOrderShare: number; stressPostAdMargin: number; fallbackAdBudget: number; fullPromotionHardAdCap: number };
   };
   error?: string;
 };
@@ -185,16 +262,16 @@ const KEYWORD_LISTING_ALLOCATION = [
 ] as const;
 
 const MANUAL_AD_TASKS = [
-  { id: "ai-learning-escalation", parentSkus: ["DMOM1002"], priority: "P0", group: "AI学习期", adGroup: "AI-TROAS · DMOM1002 · 8T-kayak", campaignId: "660198", title: "升级处理超期学习广告组", detail: "保存 Active Learning、开始日期、近14天归因订单、花费、tROAS 与 Daily Cap 截图，联系 Account Manager 核查未完成学习的原因。", sku: "DMOM1002 · 8T-kayak", adType: "Product Targeting · AI-TROAS", keywords: "AI Campaign 不执行关键词或否词动作", match: "不适用", bid: "不改单品 Bid", budget: "当前 NO DAILY CAP（风险项）", rule: "学习期内禁止修改 tROAS、Daily Cap 与 Listing；紧急止损须审批后暂停整个 Campaign。" },
+  { id: "ai-learning-escalation", parentSkus: ["DMOM1002"], priority: "P0", group: "AI学习期", adGroup: "AI-TROAS · DMOM1002 · 8T-kayak", campaignId: "660198", title: "确认超期学习广告组已归档", detail: "Wayfair 最新回读显示 Campaign 660198 已归档；补录关闭凭证，后续不再生成优化动作。", sku: "DMOM1002 · 8T-kayak", adType: "Product Targeting · AI-TROAS", keywords: "AI Campaign 不执行关键词或否词动作", match: "不适用", bid: "不改单品 Bid", budget: "已归档，不再占用预算", rule: "归档状态保持即验收通过；如未来重新启用并进入学习期，学习期内禁止修改 tROAS、Daily Cap 与 Listing，必须作为新事件重新评审。" },
   { id: "legacy-keyword-cleanup", parentSkus: ["DRCI1007"], priority: "P0", group: "旧组清理", adGroup: "Filing Cabinets 共享 Keyword Campaign", campaignId: "597350", title: "从旧共享广告组移除已合并 SKU", detail: "DRCI1007 已被 Wayfair 合并；只移除该 Listing 及其词，不暂停整个 597350，避免误伤同组其他 Listing。该组仅用于 filing cabinets 类目。", sku: "DRCI1007", adType: "Sponsored Products · Keyword", keywords: "移除 DRCI1007 对应词与落地页", match: "沿用后台现有匹配", bid: "不改其他 Listing Bid", budget: "不改整组 Cap", rule: "验收 DRCI1007 7天花费/点击/订单均为0，且同组其他 Listing 持续投放。" },
-  { id: "dmom1021-product", parentSkus: ["DMOM1021"], priority: "P0", group: "Product 调整", adGroup: "Product US · DMOM1021-宽二680", campaignId: "622725", title: "下调 DMOM1021 Product Bid 并设定 Cap", detail: "只调整该 Product 广告组，不同步改动 DMOM1021 的 Keyword 组。", sku: "DMOM1021 · LFC-2B-680 / LFC-2W-680", adType: "Sponsored Products · Product", keywords: "Product Targeting", match: "不适用", bid: "$0.68 → $0.55（硬上限 $0.58）", budget: "$320/月 · Daily Cap $10.32", rule: "Day 7 先控 Cap；新增≥20点0单暂停。Day 14 ROAS≥4×、≥3单且 CVR≥2% 才加 Cap。" },
-  { id: "dmom1021-keyword", parentSkus: ["DMOM1021"], priority: "P0", group: "Keyword 新建", adGroup: "YB_US_KW_DMOM1021_CORE_202608", campaignId: "新建后回填", title: "新建 DMOM1021 Keyword Core 广告组", detail: "Exact 承接已验证词，Phrase 低价拓词。创建后立即回填平台 Campaign ID，后续所有复盘使用该 ID。", sku: "DMOM1021 · LFC-2B-680 / LFC-2W-680", adType: "Sponsored Products · Keyword", keywords: "lateral filing cabinet; 2 drawer filing cabinet", match: "Exact / Phrase 分层", bid: "按词级设定", budget: "$380/月 · Daily Cap $12.26", rule: "初始 Paused；完成 US站点、Listing、关键词、Negative 双人 QA 后启用。" },
-  { id: "dmom1022-product-us", parentSkus: ["DMOM1022"], priority: "P0", group: "Product 调整", adGroup: "Product US · DMOM1022-三抽活动柜", campaignId: "622721", title: "下调 DMOM1022 US Product Bid", detail: "只调整 US 广告组 622721；Canada 组 622722 保持独立预算和止损线。", sku: "DMOM1022 · MFC-D3-W / MFC-D3-B", adType: "Sponsored Products · Product · US", keywords: "Product Targeting", match: "不适用", bid: "$0.60 → $0.42（硬上限 $0.48）", budget: "$220/月 · Daily Cap $7.10", rule: "Live 与库存 ID 通过后执行；Day 14 达到放量 Gate 才增加 Cap。" },
-  { id: "dmom1022-product-ca", parentSkus: ["DMOM1022"], priority: "P1", group: "Canada 限额", adGroup: "Product Canada · DMOM1022-三抽活动柜", campaignId: "622722", title: "保留 Canada 组并设置独立限额", detail: "Canada 组不与 US 组合并调整；单独记录 Bid、Cap、花费与订单。", sku: "DMOM1022 · MFC-D3-W / MFC-D3-B", adType: "Sponsored Products · Product · Canada", keywords: "Product Targeting", match: "不适用", bid: "$0.50 → $0.45（硬上限 $0.50）", budget: "$50/月 · Daily Cap $1.61", rule: "累计花费 $50 硬停；新增≥20点0单暂停该 Canada Campaign。" },
-  { id: "dmom1022-keyword", parentSkus: ["DMOM1022"], priority: "P1", group: "Keyword 新建", adGroup: "YB_US_KW_DMOM1022_MOBILE_202608", campaignId: "新建后回填", title: "新建 DMOM1022 Mobile Keyword 广告组", detail: "只投 mobile、rolling 和 3-drawer 结构词。创建后回填真实 Campaign ID，不与 Product 或 Canada 组混记。", sku: "DMOM1022 · MFC-D3-W / MFC-D3-B", adType: "Sponsored Products · Keyword · US", keywords: "mobile file cabinet; rolling file cabinet; 3 drawer file cabinet", match: "Exact / Phrase 分层", bid: "按词级设定", budget: "$120/月 · Daily Cap $3.87", rule: "初始 Paused；前14天不投 generic；新增≥20点0单暂停该词。" },
-  { id: "dmom1019-product", parentSkus: ["DMOM1019"], priority: "P1", group: "Product 条件重启", adGroup: "Product US · DMOM1019-窄三-VFC-3B", campaignId: "622737", title: "按 Gate 条件重启 DMOM1019 Product 组", detail: "后台 Listing 仍 Inactive 则否决启用；不得用 DMOM1019 的自然单或 Keyword 数据代替该 Product 组验收。", sku: "DMOM1019 · VFC-3B / VFC-3W", adType: "Sponsored Products · Product", keywords: "Product Targeting", match: "不适用", bid: "$0.58 → $0.38（硬上限 $0.45）", budget: "$90/月 · Daily Cap $2.90", rule: "Listing Active 与库存同时通过才重启；新增≥20点0单暂停。" },
-  { id: "dmom1019-keyword", parentSkus: ["DMOM1019"], priority: "P1", group: "Keyword 新建", adGroup: "YB_US_KW_DMOM1019_CORE_202608", campaignId: "新建后回填", title: "新建 DMOM1019 Keyword Core 广告组", detail: "将已验证的 vertical / 3 drawer 词放入独立组。创建后回填真实 Campaign ID，与 622737 Product 组分开复盘。", sku: "DMOM1019 · VFC-3B / VFC-3W", adType: "Sponsored Products · Keyword", keywords: "vertical file cabinet; 3 drawer file cabinet; metal file cabinet", match: "Exact / Phrase 分层", bid: "按词级设定", budget: "$200/月 · Daily Cap $6.45", rule: "初始 Paused；US站点、Listing、词意和 Negative 双人 QA 通过后启用。" },
-  { id: "dmom1003-product", parentSkus: ["DMOM1003"], priority: "P1", group: "Product 调整", adGroup: "Product US · HIGH_POTENTIAL_SKU-Wayfair(US)-0507", campaignId: "635903", title: "下调 4T-Kayak Product Bid 并独立复盘", detail: "只调整 635903；新建的 DMOM1003 Keyword 测试必须使用另一 Campaign ID。", sku: "DMOM1003 · 4T-Kayak", adType: "Sponsored Products · Product", keywords: "Product Targeting", match: "不适用", bid: "$0.75 → $0.55（硬上限 $0.60）", budget: "$90/月 · Daily Cap $2.90", rule: "4T-Kayak Live 且库存节点归属确认后执行；Backorder 立即暂停该 Campaign。" },
+  { id: "dmom1021-product", parentSkus: ["DMOM1021"], priority: "P0", group: "Product 调整", adGroup: "Product US · DMOM1021-宽二680", campaignId: "622725", title: "确认 DMOM1021 Product Bid 与 Cap", detail: "Wayfair 最新回读：Campaign Active，Bid $0.55，Daily Cap $15；补录完成凭证，Keyword 组保持独立。", sku: "DMOM1021 · LFC-2B-680 / LFC-2W-680", adType: "Sponsored Products · Product", keywords: "Product Targeting", match: "不适用", bid: "当前 $0.55（硬上限 $0.58）", budget: "当前 Daily Cap $15", rule: "Day 14 ROAS≥4×、≥3单且 CVR≥2% 才允许继续增加 Cap。" },
+  { id: "dmom1021-keyword", parentSkus: ["DMOM1021"], priority: "P0", group: "Keyword 新建", adGroup: "YB_US_KW_DMOM1021_CORE_202608", campaignId: "675055", title: "确认 DMOM1021 Keyword Core 已创建", detail: "真实 Campaign ID 675055 已回填且 Campaign Active；创建任务关闭，零成熟曝光另行保留诊断任务。", sku: "DMOM1021 · LFC-2B-680 / LFC-2W-680", adType: "Sponsored Products · Keyword", keywords: "lateral filing cabinet; 2 drawer filing cabinet", match: "Exact / Phrase 分层", bid: "按词级设定", budget: "当前 Daily Cap $2", rule: "新建完成与投放健康分开验收；成熟曝光为0时触发独立诊断。" },
+  { id: "dmom1022-product-us", parentSkus: ["DMOM1022"], priority: "P0", group: "Product 调整", adGroup: "Product US · DMOM1022-三抽活动柜", campaignId: "622721", title: "确认 DMOM1022 US Product Bid 与 Cap", detail: "Wayfair 最新回读：Campaign Active，Bid $0.43，Daily Cap $5；Canada 组继续独立管理。", sku: "DMOM1022 · MFC-D3-W / MFC-D3-B", adType: "Sponsored Products · Product · US", keywords: "Product Targeting", match: "不适用", bid: "当前 $0.43（硬上限 $0.48）", budget: "当前 Daily Cap $5", rule: "Day 14 达到放量 Gate 才增加 Cap。" },
+  { id: "dmom1022-product-ca", parentSkus: ["DMOM1022"], priority: "P1", group: "Canada 限额", adGroup: "Product Canada · DMOM1022-三抽活动柜", campaignId: "622722", title: "复核 Canada 组状态、Bid 与独立限额", detail: "最新回读为 Campaign Active、Listing Inactive、Bid $0.70，且未验证独立 Cap；与目标不一致，保持待办。", sku: "DMOM1022 · MFC-D3-W / MFC-D3-B", adType: "Sponsored Products · Product · Canada", keywords: "Product Targeting", match: "不适用", bid: "当前 $0.70；目标 $0.45（硬上限 $0.50）", budget: "目标 Daily Cap $1.61，尚待验证", rule: "Listing 恢复 Active 后才可投放；累计花费 $50 硬停。" },
+  { id: "dmom1022-keyword", parentSkus: ["DMOM1022"], priority: "P1", group: "Keyword 新建", adGroup: "YB_US_KW_DMOM1022_MOBILE_202608", campaignId: "676296", title: "确认 DMOM1022 Mobile Keyword 已创建", detail: "真实 Campaign ID 676296 已回填且 Campaign Active；创建任务关闭，零成熟曝光另行保留诊断任务。", sku: "DMOM1022 · MFC-D3-W / MFC-D3-B", adType: "Sponsored Products · Keyword · US", keywords: "mobile file cabinet; rolling file cabinet; 3 drawer file cabinet", match: "Exact / Phrase 分层", bid: "按词级设定", budget: "当前 Daily Cap $2", rule: "新建完成与投放健康分开验收；成熟曝光为0时触发独立诊断。" },
+  { id: "dmom1019-product", parentSkus: ["DMOM1019"], priority: "P1", group: "Product 条件重启", adGroup: "Product US · DMOM1019-窄三-VFC-3B", campaignId: "676299", title: "确认 DMOM1019 Product 组已重启", detail: "真实 Campaign ID 676299 已回填且 Campaign Active；重启任务关闭，Listing eligibility 异常另行保留诊断任务。", sku: "DMOM1019 · VFC-3B / VFC-3W", adType: "Sponsored Products · Product", keywords: "Product Targeting", match: "不适用", bid: "按现有 Product Targeting 设置", budget: "当前 Daily Cap $2", rule: "重启完成与投放资格分开验收；成熟曝光为0时执行 Listing eligibility 诊断。" },
+  { id: "dmom1019-keyword", parentSkus: ["DMOM1019"], priority: "P1", group: "Keyword 新建", adGroup: "YB_US_KW_DMOM1019_CORE_202608", campaignId: "676302", title: "确认 DMOM1019 Keyword Core 已创建", detail: "真实 Campaign ID 676302 已回填且 Campaign Active；创建任务关闭，零成熟曝光另行保留诊断任务。", sku: "DMOM1019 · VFC-3B / VFC-3W", adType: "Sponsored Products · Keyword", keywords: "vertical file cabinet; 3 drawer file cabinet; metal file cabinet", match: "Exact / Phrase 分层", bid: "按词级设定", budget: "当前 Daily Cap $2", rule: "新建完成与投放健康分开验收；成熟曝光为0时触发独立诊断。" },
+  { id: "dmom1003-product", parentSkus: ["DMOM1003"], priority: "P1", group: "Product 调整", adGroup: "Product US · HIGH_POTENTIAL_SKU-Wayfair(US)-0507", campaignId: "635903", title: "下调 4T-Kayak Product Bid 并独立复盘", detail: "最新回读 Campaign Active、Daily Cap $5，但 Bid 仍为 $0.70，未达到 $0.55 目标，保持待办。", sku: "DMOM1003 · 4T-Kayak", adType: "Sponsored Products · Product", keywords: "Product Targeting", match: "不适用", bid: "当前 $0.70；目标 $0.55（硬上限 $0.60）", budget: "当前 Daily Cap $5", rule: "4T-Kayak Live 且库存节点归属确认后执行；Backorder 立即暂停该 Campaign。" },
 ] as const;
 
 type ManualAdTask = (typeof MANUAL_AD_TASKS)[number];
@@ -284,7 +361,8 @@ type UploadedReport = { id: string; fileName: string; title: string; kind: strin
 const REPORTS: EvidenceReport[] = [
   { title: "7月推广计划 v3.1 真实基线", file: "Wayfair_7月推广计划_v3真实基线_20260623.html", kind: "当前计划", date: "2026/06/23", summary: "以6月真实基线制定7月128 Orders目标、$790广告预算、SKU责任和活动节奏。", metrics: [["主目标","128 Orders"],["真实基线","102 Orders"],["广告预算","$790"],["预计净利","$3,394"],["冲刺目标","145 Orders"]], sections: [["01","目标阶梯","保底112、主目标128、冲刺145；长尾激活待新产品SOP，不计入承诺目标。"],["02","SKU责任","10个Listing拆解128 Orders；系统用订单API关联实际订单与件数。"],["03","数据冲突","正文基线102、SKU表合计100；DMOM1022正文10单、表格5单，均保留待确认。"],["04","广告联动","月预算、SKU角色、利润与链接Gate直接约束当前广告动作。"]] },
   { title: "Black Friday in July 官宣与广告策略", file: "Wayfair 北美地区 Black Friday in July官宣定档！.pdf", kind: "活动", date: "2026/07/16", summary: "官方活动规则已转成独立阶段策略，活动预算包含在7月$790内。", metrics: [["北美主活动","07/23-07/28"],["Canada Co-Invest","07/23-07/27"],["Flash窗口","07/26-07/27"],["活动广告上限","$330"],["商品锁定","07/21-07/28"]], sections: [["01","资格与费用","Flash Deal须07/17前确认；受邀SKU上线收取$75固定费，必须计入利润。"],["02","投放节奏","资格确认、预热、Member Day衔接、主活动、Flash窗口、收尾六阶段独立预算。"],["03","价格与商品","普通折扣不叠加；Conditional Offer会叠加；商品编辑在07/21-07/28锁定。"],["04","执行护栏","促销、利润、库存、链接和历史ROAS全部通过后，才释放活动Bid与Cap。"]] },
-  { title: "8月150单完整增长 Playbook", file: "YB店_8月150单完整增长Playbook.html", kind: "下一计划", date: "2026/07/15", summary: "SKU目标、渠道预算、Campaign、Offer利润、周节奏和Scorecard的下一月计划。", metrics: [["目标口径","150 Units"],["6月基线","90 Units"],["基础预算","$1,800"],["预算硬上限","$2,500"],["WSC ROAS","≥ 3.2×"]], sections: [["01","SKU责任","10个Listing拆解150 Units；DMOM1021/1022/1019承担101件。"],["02","预算结构","基础广告预算$1,800；Keyword $750、Product $650、B2B $150、Canada $50、机动$200。"],["03","周节奏","W1/W2/W3/W4累计目标30/65/105/150；未过Gate不得解锁预算。"],["04","经营护栏","WSC ROAS目标≥3.2×，放量≥4.0×；Fill Rate≥95%，月花费硬上限$2,500。"]] },
+  { title: "YB店 2026年8月运营指南", file: "YB店_2026年8月运营指南.html", kind: "运行参考", date: "2026/07/29", summary: "目标、10条经营护栏、人机职责、逐日执行与SOP学习闭环。系统将其作为运行参考，并由更晚批准的执行策略处理口径冲突。", metrics: [["参考目标","150 Units"],["周节奏","30 / 35 / 40 / 45"],["基础预算","$1,800"],["指南预算上限","$2,500"],["学习规则","7条"]], sections: [["01","运行边界","指南为REFERENCE_ONLY；实际广告预算与经营验收继续使用已批准执行策略。"],["02","每日协作","AI在08:45、09:15和16:00汇总、诊断与异常扫描；运营在09:30核验并审批执行。"],["03","经营护栏","商品、评分、库存、履约、毛利、广告、点击、费率、归因和变更控制共同约束建议。"],["04","学习升级","每次动作写入配套台账；达到观察窗和证据门槛后才能升级为SOP规则。"]] },
+  { title: "8月150单完整增长 Playbook", file: "YB店_8月150单完整增长Playbook.html", kind: "历史来源", date: "2026/07/15", summary: "原始SKU、渠道和Scorecard来源；冲突口径已由2026-07-28授权执行策略替代。", metrics: [["当前目标","150 Orders"],["旧口径","150 Units（仅库存参考）"],["基础预算","$1,800"],["首阶段总上限","$1,861.10"],["第二阶段上限","$2,019.57"]], sections: [["01","目标锁定","150 Orders为冲刺目标；旧Units责任表不再作为经营目标。"],["02","预算锁定","基础预算$1,800；Canary最大增量亏损$61.10。"],["03","周节奏","W1/W2/W3/W4/收口累计目标25/59/98/136/150。"],["04","经营护栏","促销、利润、库存、履约、Listing与映射门禁全部通过后才进入第二阶段。"]] },
   { title: "2026年6月月度复盘总览", file: "index.html", kind: "REVIEW", summary: "6月经营基线、诊断结论和全部复盘证据索引。", sections: [["01","经营基线","6月SKU拆解基线90 Units，为8月150 Units计划提供增量基准。"],["02","核心矛盾","流量并非唯一瓶颈；库存、Catalog、Listing承接和广告结构共同限制增长。"],["03","证据边界","不同报告日期和口径必须保留来源，不用下一月目标冒充当前月目标。"],["04","进入计划","复盘结论已结构化为SKU责任、预算Gate和周里程碑。"]] },
   { title: "店铺诊断报告", file: "YB店_店铺诊断报告.html", kind: "诊断", summary: "店铺增长是否成立、主要瓶颈和优先级判断。", sections: [["01","增长判断","增长成立，但不能靠无差别增加广告预算。"],["02","结构问题","头部SKU贡献集中，长尾商品和低质量链接稀释效率。"],["03","优先级","先修库存与目录，再修链接承接，最后扩广告。"],["04","验收","每项诊断必须落到负责人、期限和可量化验收条件。"]] },
   { title: "SKU健康体检", file: "YB店_SKU健康体检.html", kind: "SKU", summary: "90个Part的销量、Sessions/CVR、评分评论、目录和整改证据。", sections: [["01","商品范围","覆盖90个Supplier Part，不再只展示Catalog当前状态。"],["02","质量维度","Sessions、CVR、评分评论、内容问题、图片和目录状态共同判断链接质量。"],["03","运营分组","区分主力、修复、自然观察和永久剔除池。"],["04","广告联动","链接质量不通过时，只生成整改任务，不允许加Bid或扩预算。"]] },
@@ -300,15 +378,20 @@ const REPORTS: EvidenceReport[] = [
 ];
 
 function ShellHeader({ active, activeSub, onNavigate, onSubNavigate }: { active: View; activeSub: SubView | null; onNavigate: (view: View) => void; onSubNavigate: (view: SubView) => void }) {
-  useEffect(()=>{if(window.innerWidth>760)return;const frame=requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.sidebar button[aria-current="page"]')?.scrollIntoView({block:'nearest',inline:'center'}));return()=>cancelAnimationFrame(frame);},[active,activeSub]);
+  const [mobileOpen,setMobileOpen]=useState(false);
+  const navigate=(next:View)=>{onNavigate(next);setMobileOpen(false);};
   return <aside className="sidebar">
-    <button className="brand" onClick={() => onNavigate("dashboard")}><span>W</span><strong>Wayfair AI</strong><small>运营中台</small></button>
-    <nav className="nav" aria-label="主导航">
-      {PRIMARY_NAV.map((item) => <div className={`nav-group ${active === item.id ? "expanded" : ""}`} key={item.id}><button className={active === item.id ? "active" : ""} aria-current={active===item.id&&!SUB_NAV[item.id]?.length?'page':undefined} aria-expanded={SUB_NAV[item.id]?.length?active===item.id:undefined} onClick={() => onNavigate(item.id)}>{item.label}</button>{active === item.id && SUB_NAV[item.id]?.length ? <div className="nav-submenu" aria-label={`${item.label}子菜单`}>{SUB_NAV[item.id]?.map((child) => <button key={child.id} className={activeSub === child.id ? "active" : ""} aria-current={activeSub===child.id?'page':undefined} onClick={() => onSubNavigate(child.id)}>{child.label}</button>)}</div> : null}</div>)}
-    </nav>
-    <nav className="nav utility-nav" aria-label="系统导航">
-      {SYSTEM_NAV.map((item) => <button key={item.id} className={active === item.id ? "active" : ""} aria-current={active===item.id?'page':undefined} onClick={() => onNavigate(item.id)}>{item.label}</button>)}
-    </nav>
+    <button className="brand" onClick={() => navigate("dashboard")}><span>W</span><strong>Wayfair AI</strong><small>运营中台</small></button>
+    <button className="mobile-nav-toggle" aria-expanded={mobileOpen} aria-controls="app-navigation" onClick={()=>setMobileOpen(value=>!value)}><span>{mobileOpen?'关闭':'菜单'}</span><b>{PRIMARY_NAV.find(item=>item.id===active)?.label||SYSTEM_NAV.find(item=>item.id===active)?.label}</b></button>
+    <div className={`sidebar-navigation${mobileOpen?' open':''}`} id="app-navigation">
+      <nav className="nav" aria-label="主导航">
+        {PRIMARY_NAV.map((item) => <div className={`nav-group ${active === item.id ? "expanded" : ""}`} key={item.id}><button className={active === item.id ? "active" : ""} aria-current={active===item.id&&!SUB_NAV[item.id]?.length?'page':undefined} aria-expanded={SUB_NAV[item.id]?.length?active===item.id:undefined} onClick={() => navigate(item.id)}>{item.label}</button>{active === item.id && SUB_NAV[item.id]?.length ? <div className="nav-submenu" aria-label={`${item.label}子菜单`}>{SUB_NAV[item.id]?.map((child) => <button key={child.id} className={activeSub === child.id ? "active" : ""} aria-current={activeSub===child.id?'page':undefined} onClick={() => {onSubNavigate(child.id);setMobileOpen(false);}}>{child.label}</button>)}</div> : null}</div>)}
+      </nav>
+      <nav className="nav utility-nav" aria-label="系统导航">
+        {SYSTEM_NAV.map((item) => <button key={item.id} className={active === item.id ? "active" : ""} aria-current={active===item.id?'page':undefined} onClick={() => navigate(item.id)}>{item.label}</button>)}
+        <Link className="release-link" href="/releases">版本记录 · v0.2.1</Link>
+      </nav>
+    </div>
     <div className="system"><i></i><span><strong>生产数据已连接</strong><small>写操作需人工确认</small></span></div>
   </aside>;
 }
@@ -329,10 +412,10 @@ function useEmailDailyBrief(date: string) {
     const controller = new AbortController();
     if (cached) {
       queueMicrotask(() => { if (!controller.signal.aborted) { setBrief(cached); setLoading(false); setError(""); } });
-      return () => controller.abort();
+    } else {
+      queueMicrotask(() => { if (!controller.signal.aborted) { setLoading(true); setError(""); } });
     }
-    queueMicrotask(() => { if (!controller.signal.aborted) { setLoading(true); setError(""); } });
-    fetch(`/api/email/daily?date=${encodeURIComponent(date)}`, { signal: controller.signal })
+    fetch(`/api/email/daily?date=${encodeURIComponent(date)}`, { signal: controller.signal, cache: "no-store" })
       .then(async response => { const body = await response.json() as EmailBrief; if (!response.ok) throw new Error(body.error || "Outlook 日报读取失败"); return body; })
       .then(body => { writeClientCache(cacheKey, body); setBrief(body); })
       .catch(reason => { if (reason.name !== "AbortError") setError(reason.message || "Outlook 日报读取失败"); })
@@ -366,6 +449,8 @@ function Dashboard() {
   const [data, setData] = useState<OrderSummary | null>(retainedDashboard);
   const [loading, setLoading] = useState(!retainedDashboard);
   const [refreshing,setRefreshing]=useState(false);
+  const [fullSyncing,setFullSyncing]=useState(false);
+  const [fullSyncMessage,setFullSyncMessage]=useState("");
   const [forceRefresh,setForceRefresh]=useState(false);
   const [error, setError] = useState("");
 
@@ -403,17 +488,42 @@ function Dashboard() {
     setForceRefresh(true);
   }
 
+  async function syncAllSites(){
+    setError("");
+    setFullSyncMessage("正在同步订单、广告、Catalog 和 Outlook 数据…");
+    setFullSyncing(true);
+    try {
+      const response=await fetch("/api/cron/sync",{method:"POST",cache:"no-store"});
+      const body=await response.json() as {completed?:string[];catalog?:{status?:string};error?:string};
+      if(!response.ok)throw new Error(body.error||"全站点同步失败");
+      const labels:Record<string,string>={orders:"订单",ads:"广告",outlook:"Outlook 日报"};
+      const completed=(body.completed||[]).map(item=>item.startsWith("catalog:")?"Catalog":labels[item]||item);
+      const catalogPending=body.catalog?.status==="running";
+      setFullSyncMessage(catalogPending
+        ? `已同步：${[...new Set(completed)].join("、")}；Catalog 仍在分批续传`
+        : `全站点同步完成：${[...new Set(completed)].join("、")||"数据已更新"}`);
+      setRefreshing(true);
+      setForceRefresh(true);
+    }catch(reason){
+      const message=reason instanceof Error?reason.message:"全站点同步失败";
+      setError(message);
+      setFullSyncMessage("");
+    }finally{
+      setFullSyncing(false);
+    }
+  }
+
   const current = data?.current;
   const previous = data?.previous;
   const chartMax = Math.max(1, ...(data?.daily || []).map((item) => Number(item.revenue)));
   const rangeLabel = start === end ? start : `${start} - ${end}`;
   const loadingLabel=(retained:boolean)=>retained?"后台更新中":"同步中";
   return <>
-    <Hero eyebrow="ORDERS API · OPERATING BRIEF" title="Dashboard" text={`${rangeLabel} · 订单业绩与经营概览`} side={<div className="hero-side"><b>{refreshing ? loadingLabel(true) : loading ? loadingLabel(false) : error ? "需检查" : "已更新"}</b><span>{data?.sync.stale ? "正在使用最近缓存" : "Ops API（库存 + 订单）"}</span></div>} />
+    <Hero eyebrow="ORDERS API · OPERATING BRIEF" title="Dashboard" text={`${rangeLabel} · 订单业绩与经营概览`} side={<div className="hero-side"><b>{fullSyncing?"全站点同步中":refreshing ? loadingLabel(true) : loading ? loadingLabel(false) : error ? "需检查" : "已更新"}</b><span>{data?.sync.stale ? "正在使用最近缓存" : "Ops API（库存 + 订单）"}</span></div>} />
     <section className="date-console" aria-label="经营周期">
       <div className="preset-list">{presetOptions.map(([id, label]) => <button key={id} className={preset === id ? "active" : ""} onClick={() => selectPreset(id)}>{label}</button>)}</div>
       {preset === "custom" && <div className="custom-range"><label>开始<input type="date" value={start} max={end} onChange={(event) => {setLoading(true);setError("");setStart(event.target.value);}} /></label><label>结束<input type="date" value={end} min={start} onChange={(event) => {setLoading(true);setError("");setEnd(event.target.value);}} /></label></div>}
-      <div className="dashboard-sync-tools"><span className={error ? "sync-state error" : "sync-state"}>{error || (data?.sync.stale ? `同步失败，显示缓存：${data.sync.error}` : data?.sync.syncedAt ? `最近同步 ${new Date(data.sync.syncedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}` : "正在连接订单数据")}</span><button type="button" className={`dashboard-refresh ${refreshing?"refreshing":""}`} aria-label="立即刷新订单数据" title="立即刷新" disabled={refreshing} onClick={refreshDashboard}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg></button></div>
+      <div className="dashboard-sync-tools"><span className={error ? "sync-state error" : "sync-state"}>{error || fullSyncMessage || (data?.sync.stale ? `同步失败，显示缓存：${data.sync.error}` : data?.sync.syncedAt ? `最近同步 ${new Date(data.sync.syncedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}` : "正在连接订单数据")}</span><button type="button" className={`dashboard-refresh ${refreshing?"refreshing":""}`} aria-label="立即刷新订单数据" title="立即刷新" disabled={refreshing} onClick={refreshDashboard}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg></button><button type="button" className={`dashboard-refresh ${fullSyncing?"refreshing":""}`} aria-label="同步全站点数据" title="同步全站点数据" disabled={fullSyncing} onClick={syncAllSites}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg></button></div>
     </section>
     <section className="stat-grid six order-kpis">
       {[
@@ -433,6 +543,65 @@ function Dashboard() {
       </div>
     </section>
   </>;
+}
+
+function OperatingDaily() {
+  const [report,setReport]=useState<DailyOperatingReport|null>(null);
+  const [dates,setDates]=useState<string[]>([]);
+  const [date,setDate]=useState("");
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState("");
+  useEffect(()=>{
+    const controller=new AbortController();
+    fetch("/api/operations/daily-report?available=1",{signal:controller.signal})
+      .then(async response=>{const body=await response.json() as {dates?:string[];error?:string};if(!response.ok)throw new Error(body.error||"工作日报日期读取失败");return body.dates||[];})
+      .then(values=>{setDates(values);setDate(current=>current||values[0]||"");})
+      .catch(reason=>{if(reason.name!=="AbortError")setError(reason.message||"工作日报日期读取失败");});
+    return()=>controller.abort();
+  },[]);
+  useEffect(()=>{
+    const controller=new AbortController();
+    setLoading(true);setError("");
+    fetch(`/api/operations/daily-report${date?`?date=${encodeURIComponent(date)}`:""}`,{signal:controller.signal,cache:"no-store"})
+      .then(async response=>{const body=await response.json() as DailyOperatingReport;if(!response.ok)throw new Error(body.error||"工作日报读取失败");return body;})
+      .then(setReport)
+      .catch(reason=>{if(reason.name!=="AbortError")setError(reason.message||"工作日报读取失败");})
+      .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    return()=>controller.abort();
+  },[date]);
+  const daily=report?.performance?.daily;
+  const delta=report?.performance?.delta;
+  const target=report?.target;
+  const ready=Boolean(report?.performance);
+  const waiting=!loading&&!error&&(!report?.reportDate||report.status==="WAITING_FOR_SCHEDULED_RUN");
+  const deltaLabel=(value:number|undefined,suffix="")=>value==null?"等待对比":`${value>=0?"+":""}${value.toFixed(2)}${suffix}`;
+  return <>
+    <Hero eyebrow="SERVER · DAILY OPERATING REPORT" title="工作日报" text="由 DigitalOcean 服务器静默生成并持久化，不依赖 Codex、浏览器或本地电脑在线" side={<div className="hero-side"><b>{loading?"生成记录读取中":waiting?"等待 20:00":report?.reportDate||"暂无日报"}</b><span>{report?.generatedAt?`生成 ${new Date(report.generatedAt).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"})}`:"每日北京时间 20:00 后生成"}</span></div>} />
+    {!!dates.length&&<section className="daily-date-tabs" aria-label="工作日报日期">{dates.map(value=><button key={value} className={(date||report?.reportDate)===value?"active":""} onClick={()=>setDate(value)}>{value===dateText(new Date())?"今天":value.slice(5)}<small>{value}</small></button>)}</section>}
+    {error&&<div className="inline-error">{error}</div>}
+    {waiting&&<section className="card operating-daily-waiting"><span>SERVER SCHEDULER</span><h2>等待今日工作日报</h2><p>服务器会在北京时间 20:00 后的首次同步中生成；失败自动重试，结果写入 PostgreSQL，Codex 与浏览器离线不影响执行。</p></section>}
+    {ready&&<section className="stat-grid four daily-kpis">
+      <article className="stat"><strong>{daily?.orders??"-"}</strong><span>今日 Orders</span><small>较昨日 {deltaLabel(delta?.orders," 单")}</small></article>
+      <article className="stat"><strong>{daily?.units??"-"}</strong><span>今日 Units</span><small>较昨日 {deltaLabel(delta?.units," 件")}</small></article>
+      <article className="stat"><strong>{daily?`${daily.retailRoas.toFixed(2)}×`:"-"}</strong><span>Retail ROAS</span><small>较昨日 {deltaLabel(delta?.retailRoas,"×")}</small></article>
+      <article className="stat profit-stat"><strong>{daily?.contributionAfterAds==null?"待广告覆盖":money2(daily.contributionAfterAds)}</strong><span>广告后贡献</span><small>WSC ROAS {daily?`${daily.wscRoas.toFixed(2)}×`:"-"}</small></article>
+    </section>}
+    {ready&&<section className="operating-daily-grid">
+      <article className="card operating-daily-target"><div className="section-head"><div><span>MONTHLY TARGET</span><h2>{target?.targetMonth||"当月"} · {target?.orderTarget||150} Orders 与利润护栏</h2></div><b>{target?`${(target.completionRate*100).toFixed(1)}%`:"-"}</b></div><div className="operating-target-meter"><i style={{width:`${Math.min(100,Math.max(0,(target?.completionRate||0)*100))}%`}}></i></div><dl><div><dt>月累计 Orders</dt><dd>{target?.monthOrders??"-"} / {target?.orderTarget??150}</dd></div><div><dt>剩余 Orders</dt><dd>{target?.ordersToTarget??"-"}</dd></div><div><dt>月广告后贡献</dt><dd>{target?.monthContributionAfterAds==null?"待完整覆盖":money2(target.monthContributionAfterAds)}</dd></div><div><dt>贡献护栏差额</dt><dd>{target?.contributionGap==null?"等待完整口径":money2(target.contributionGap)}</dd></div></dl></article>
+      <article className="card operating-daily-ai"><div className="section-head"><div><span>AI OPTIMIZATION</span><h2>AI 优化与 To-Do</h2></div><b>{report?.aiOptimization?.modelTodoCount??0} 项模型任务</b></div><dl><div><dt>模型任务变化</dt><dd>{report?.aiOptimization?.modelTodoDelta==null?"首日基线":deltaLabel(report.aiOptimization.modelTodoDelta," 项")}</dd></div><div><dt>真实投放诊断</dt><dd>{report?.aiOptimization?.zombieFindingCount??0} 项</dd></div><div><dt>手动任务闭环</dt><dd>{report?.todo?.verifiedManual??0} / {report?.todo?.totalManual??10}</dd></div><div><dt>仍待处理</dt><dd>{report?.todo?.remainingManual??0} 项</dd></div></dl><p>{report?.aiOptimization?.note}</p></article>
+      {[
+        ["今日完成",report?.work?.completed||[]],
+        ["进行中",report?.work?.inProgress||[]],
+        ["风险与异常",report?.risks||[]],
+        ["明日计划",report?.tomorrow||[]],
+      ].map(([title,items])=><article className="card operating-daily-list" key={title as string}><div className="section-head"><div><span>OPERATIONS</span><h2>{title as string}</h2></div><b>{(items as string[]).length} 项</b></div><ul>{(items as string[]).map(item=><li key={item}>{item}</li>)}{!(items as string[]).length&&<li>无新增事项</li>}</ul></article>)}
+      <article className="card operating-daily-approval"><div className="section-head"><div><span>RULE EXCEPTIONS</span><h2>待审批事项</h2></div><b>{report?.approvals?.length||0} 项</b></div>{report?.approvals?.length?<ul>{report.approvals.map(item=><li key={item}>{item}</li>)}</ul>:<p>今日无需审批。规则内事项由运营负责人直接判断、执行和验收。</p>}<small>服务器静默执行 · 不依赖 Codex · 不依赖浏览器</small></article>
+    </section>}
+  </>;
+}
+
+function DailyWorkspace({tab}:{tab:DailyTab}) {
+  return tab==="operating"?<OperatingDaily/>:<Daily/>;
 }
 
 function Daily() {
@@ -459,6 +628,7 @@ function Daily() {
   }, [previewEmail]);
   const previewFinancial = previewEmail ? financialDetailsForEmail(previewEmail) : null;
   const previewInvoiceIds = previewFinancial?.invoiceIds ?? [];
+  const previewOrder = previewEmail?.order;
   async function importDailyBrief() {
     setImporting(true);
     setImportStatus("");
@@ -497,11 +667,12 @@ function Daily() {
     </section>
     {!!brief?.sections?.length && <section className="daily-insights">{brief.sections.map((section, index) => <article className={`card daily-insight ${section.tone || ""}`} key={`${section.title}-${index}`}><span>运营摘要</span><h2>{section.title}</h2><p>{section.body}</p></article>)}</section>}
     {previewEmail && <div className="email-preview-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPreviewEmail(null); }} onKeyDown={(event) => { if (event.key === "Escape") setPreviewEmail(null); }}>
-      <section className="email-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="email-preview-title">
+      <section className={`email-preview-dialog ${previewOrder ? "has-order-details" : ""}`} role="dialog" aria-modal="true" aria-labelledby="email-preview-title">
         <header><div><span>{previewEmail.category || "其他运营"} · {previewEmail.priority}</span><h2 id="email-preview-title">{previewEmail.subject}</h2></div><button type="button" autoFocus aria-label="关闭邮件预览" onClick={() => setPreviewEmail(null)}>×</button></header>
         <div className="email-preview-meta"><div><span>发件人</span><b>{previewEmail.sender}</b></div><div><span>收件时间</span><b>{new Date(previewEmail.receivedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</b></div><div><span>处理状态</span><b>{previewEmail.unread ? "未读" : "已读"} · {previewEmail.status}</b></div><div><span>负责人</span><b>{previewEmail.owner}</b></div></div>
-        {previewFinancial?.isFinancial && <section className="email-finance-summary" aria-label="财务信息"><header><div><span>FINANCE DETAILS</span><h3>财务信息</h3></div><b>{previewFinancial.amountLabel === "待邮件同步" ? "待核对" : "已识别"}</b></header><div><article><span>汇款金额</span><strong>{previewFinancial.amountLabel}</strong><small>{previewFinancial.currency}</small></article><article><span>汇款单号</span><strong>{previewFinancial.remittanceId}</strong><small>Remittance ID</small></article><article><span>付款日期</span><strong>{previewFinancial.paymentDate}</strong><small>Payment date</small></article><article><span>付款方式</span><strong>{previewFinancial.paymentMethod}</strong><small>Payment method</small></article><article className="invoice-detail"><span>关联发票</span><strong>{previewInvoiceIds.length ? previewInvoiceIds.join(" · ") : "待邮件同步"}</strong><small>{previewInvoiceIds.length ? `${previewInvoiceIds.length} 张` : "Invoice details"}</small></article><article><span>财务处理</span><strong>{previewEmail.status}</strong><small>{previewEmail.owner}</small></article></div></section>}
-        <div className="email-preview-content"><span>邮件内容预览</span><p>{previewEmail.bodyPreview || previewEmail.summary}</p></div>
+        {previewOrder && <section className="email-order-summary" aria-label="订单信息"><header><div><span>ORDER DETAILS</span><h3>订单信息</h3></div><b>{previewOrder.items.length} 个 SKU</b></header><div className="email-order-kpis"><article><span>订单号</span><strong>{previewOrder.poNumber}</strong></article><article><span>订单数量</span><strong>{previewOrder.totalQuantity}</strong><small>Units</small></article><article><span>订单金额</span><strong>{previewOrder.currency} {previewOrder.totalAmount.toFixed(2)}</strong><small>Order total</small></article></div><div className="email-order-lines"><div className="email-order-line head"><span>SKU</span><span>商品名称</span><span>数量</span><span>单价</span><span>小计</span></div>{previewOrder.items.map((item, index) => <div className="email-order-line" key={`${item.sku}-${index}`}><b>{item.sku}</b><span>{item.name || "商品名待同步"}</span><strong>{item.quantity}</strong><span>{previewOrder.currency} {item.unitPrice.toFixed(2)}</span><strong>{previewOrder.currency} {(item.quantity * item.unitPrice).toFixed(2)}</strong></div>)}</div><div className="email-order-action"><span>履约要求</span><p>{previewEmail.bodyPreview?.split("\n")[0] || previewEmail.summary}</p></div></section>}
+        {previewFinancial?.isFinancial && <section className="email-finance-summary" aria-label="财务信息"><header><div><span>FINANCE DETAILS</span><h3>汇款核对</h3></div><b>{previewFinancial.amountLabel === "待邮件同步" ? "待核对" : "数据完整"}</b></header><div className="email-finance-primary"><article><span>实际汇款</span><strong>{previewFinancial.amountLabel}</strong><small>{previewFinancial.currency}</small></article><article><span>汇款单号</span><strong>{previewFinancial.remittanceId}</strong><small>Remittance ID</small></article><article><span>付款日期</span><strong>{previewFinancial.paymentDate}</strong><small>Payment date</small></article><article><span>付款方式</span><strong>{previewFinancial.paymentMethod}</strong><small>Payment method</small></article></div><div className="email-finance-adjustments"><article><span>发票货值</span><strong>{previewFinancial.grossAmountLabel}</strong></article><article><span>质量扣款</span><strong>{previewFinancial.allowanceAmountLabel}</strong></article><article><span>早付折扣</span><strong>{previewFinancial.epdAmountLabel}</strong></article><article><span>服务费</span><strong>{previewFinancial.serviceFeeAmountLabel}</strong></article></div><div className="email-finance-invoices"><span>关联发票 · {previewInvoiceIds.length} 张</span><p>{previewInvoiceIds.length ? previewInvoiceIds.join(" · ") : "待邮件同步"}</p></div></section>}
+        {!previewOrder && !previewFinancial?.isFinancial && <div className="email-preview-content"><span>邮件内容预览</span><p>{previewEmail.bodyPreview || previewEmail.summary}</p></div>}
         <footer>邮件详情已在运营中台内展示，不会跳转到 Outlook。</footer>
       </section>
     </div>}
@@ -509,14 +680,19 @@ function Daily() {
 }
 
 function Plan({ embedded = false, onOpenReview, tab, onTabChange }: { embedded?: boolean; onOpenReview: () => void; tab: PlanSection; onTabChange: (tab: PlanSection) => void }) {
-  const [data,setData]=useState<PlanProgress|null>(readClientCache<PlanProgress>('plan:progress',CLIENT_CACHE_RETENTION_MS)); const [error,setError]=useState('');
-  useEffect(()=>{const cached=readClientCache<PlanProgress>('plan:progress');if(cached){queueMicrotask(()=>setData(cached));return;}fetch('/api/plan/progress').then(async r=>{const body=await r.json() as PlanProgress;if(!r.ok)throw new Error(body.error||'计划读取失败');return body;}).then(body=>{setData(body);writeClientCache('plan:progress',body);}).catch(e=>setError(e.message));},[]);
+  const [data,setData]=useState<PlanProgress|null>(null); const [error,setError]=useState('');
+  useEffect(()=>{const cached=readClientCache<PlanProgress>(PLAN_PROGRESS_CACHE_KEY);if(cached){queueMicrotask(()=>setData(cached));return;}fetch('/api/plan/progress').then(async r=>{const body=await r.json() as PlanProgress;if(!r.ok)throw new Error(body.error||'计划读取失败');return body;}).then(body=>{setData(body);writeClientCache(PLAN_PROGRESS_CACHE_KEY,body);}).catch(e=>setError(e.message));},[]);
   const p=data?.progress; const actual=data?.actual;
-  const promotionEventName=(id:string)=>data?.nextPlan.promotionEvents.find(event=>event.id===id)?.name||id;
+  const salesSummary=data?.nextPlan?.salesPlanSummary;
+  const promotionSummary=data?.nextPlan?.promotionSummary;
+  const advertisingExecution=data?.nextPlan?.advertisingExecution;
+  const executionPolicy=data?.nextPlan?.executionPolicy;
+  const executionStage=data?.nextPlan?.executionStage;
+  const salesRoleNames:Record<string,string>={VOLUME_CORE:'跑量核心',PROFIT_POOL:'利润池',CONTROLLED_GROWTH:'受控增长',REPAIR_ORGANIC:'修复 / 自然'};
+  const salesPromotionStatusNames:Record<string,string>={SUBMITTED:'全部已提报',PARTIALLY_SUBMITTED:'部分提报',ON_HOLD:'暂缓'};
   return <>{!embedded&&<Hero eyebrow="MONTHLY OPERATING PLAN" title="目标与执行" text="6月复盘 → 7月真实基线执行 → 8月下一阶段准备；目标、利润与广告共用同一套运营计划" side={<button className="hero-button" onClick={onOpenReview}>查看完整复盘证据</button>} />}
-    <section className="context-strip" aria-label="经营月份导航"><button aria-label="打开6月复盘资料" onClick={onOpenReview}><span>复盘月</span><b>2026-06</b><small>经营事实已归档</small></button><button aria-label="查看7月执行计划" className={tab!=='august'?'active':''} onClick={()=>onTabChange('july')}><span>当前经营月</span><b>{data?.currentOperatingMonth.month||'2026-07'} · 128 Orders</b><small>{data?.currentOperatingMonth.note||'真实基线计划读取中'}</small></button><button aria-label="查看8月准备计划" className={tab==='august'?'active':''} onClick={()=>onTabChange('august')}><span>下一计划月</span><b>2026-08 · 150 Units</b><small>准备阶段，不与7月目标混算</small></button></section>
+    {tab!=='august'&&<><section className="context-strip" aria-label="经营月份导航"><button aria-label="打开6月复盘资料" onClick={onOpenReview}><span>复盘月</span><b>2026-06</b><small>经营事实已归档</small></button><button aria-label="查看7月执行计划" className="active" onClick={()=>onTabChange('july')}><span>当前经营月</span><b>{data?.currentOperatingMonth.month||'2026-07'} · 128 Orders</b><small>{data?.currentOperatingMonth.note||'真实基线计划读取中'}</small></button><button aria-label="查看8月推广计划" onClick={()=>onTabChange('august')}><span>下一计划月</span><b>2026-08 · 150 Orders</b><small>销售计划已确认 · 促销已提报同步</small></button></section>
     <section className={`event-cycle-banner card ${data?.eventCycle.mode||'loading'}`}><div><span>活动周期判断</span><h2>{data?.eventCycle.mode==='ACTIVE_PEAK'?'活动峰值期':data?.eventCycle.mode==='POST_PEAK_TRANSITION'?'活动峰值回落 / 长周期折扣切换':data?.eventCycle.mode==='ALWAYS_ON_PROMOTION'?'长周期折扣期':'活动周期加载中'}</h2></div><p>{data?.eventCycle.strategyNote||'正在读取活动窗口。'}<small>{data?.eventCycle.volatilityRule||'活动结束只作为业务波动解释候选。'}</small></p>{data?.eventCycle.attributionMaturesOn?<b>归因成熟 {data.eventCycle.attributionMaturesOn}</b>:<b>{data?.eventCycle.activeEvents?.map(item=>item.name).join(' · ')||'待确认'}</b>}</section>
-    {error&&<div className="inline-error">{error}</div>}
     <section className="stat-grid six plan-kpis">{[
       [`${actual?.orders||0} / 128`,"7月订单完成",`${((p?.orderCompletion||0)*100).toFixed(1)}% · ${actual?.units||0} 件`],
       [`${p?.expectedOrders||0}`,"截至今日应完成",`节奏差 ${p?.paceGap||0} Orders`],
@@ -525,7 +701,8 @@ function Plan({ embedded = false, onOpenReview, tab, onTabChange }: { embedded?:
       [actual?.adSpend==null?'待广告同步':money(actual.adSpend),"7月广告实际",`月预算 $790 · ${actual?.adCoverage||'未覆盖'}`],
       [actual?.contributionAfterAds==null?'待广告同步':money(actual.contributionAfterAds),"广告后店铺贡献",`${actual?.adCoverage==='FULL'?'广告完整覆盖':'广告仅部分覆盖'} · 成本覆盖 ${Math.round((actual?.costCoverage||0)*100)}% · 计划预计净利 $3,394`],
     ].map(([value,label,note])=><article className="stat" key={label}><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}</section>
-    <div className="plan-tabs"><button className={tab==='july'?'active':''} onClick={()=>onTabChange('july')}>7月执行计划</button><button className={tab==='bfij'?'active':''} onClick={()=>onTabChange('bfij')}>BFIJ 活动广告策略</button><button className={tab==='august'?'active':''} onClick={()=>onTabChange('august')}>8月准备计划</button></div>
+    <div className="plan-tabs"><button className={tab==='july'?'active':''} onClick={()=>onTabChange('july')}>7月执行计划</button><button className={tab==='bfij'?'active':''} onClick={()=>onTabChange('bfij')}>BFIJ 活动广告策略</button><button onClick={()=>onTabChange('august')}>8月推广计划</button></div></>}
+    {error&&<div className="inline-error">{error}</div>}
     {tab==='july'&&<><div className="plan-workspace">
       <article className="card target-card"><div className="section-head"><div><span>SKU 责任</span><h2>128 Orders责任拆解与订单API实际</h2></div><b>来源：真实基线 v3.1 · 2026-06-23</b></div><div className="plan-table july"><div className="plan-row head"><span>Listing / Part</span><span>6月基线</span><span>7月目标</span><span>实际订单 / 件</span><span>广告预算</span><span>策略与Gate</span></div>{(data?.listings||[]).map(item=><div className="plan-row" key={item.listing}><span><b>{item.listing}</b><small>{item.parts.join(' · ')}</small></span><span>{item.juneBaselineOrders}</span><span><b>{item.julyTargetOrders}</b></span><span><b>{item.actualOrders} / {item.actualUnits}</b><small>{money(item.actualRevenue)}</small></span><span>{money(item.budget)}<small>预计净利 {money(item.estimatedNetProfit)}</small></span><span><b>{item.role} · {item.tactic}</b><small>{item.gate}{item.sourceWarning?` · ${item.sourceWarning}`:''}</small></span></div>)}</div></article>
       <aside className="card milestone-card"><div className="section-head"><div><span>活动节点</span><h2>活动节奏</h2></div></div><div className="milestones">{(data?.events||[]).map(item=><div key={item.label}><b>{item.label}<small>{item.range}</small></b><strong>{item.range.includes('23')?'当前重点':'记录'}</strong><p>{item.note}</p></div>)}</div></aside>
@@ -534,13 +711,66 @@ function Plan({ embedded = false, onOpenReview, tab, onTabChange }: { embedded?:
       <section className="activity-facts"><article><span>07/17 前</span><b>确认 Flash Deal</b><small>只有收到邀请的SKU才进入；每个上线SKU固定费$75计入利润。</small></article><article><span>07/21-07/28</span><b>商品编辑锁定</b><small>Listing、折扣、媒体和变体必须在锁定前完成核查。</small></article><article><span>07/23-07/28</span><b>北美主活动</b><small>普通折扣不叠加；Conditional Offer会叠加，必须核算最终折扣。</small></article><article><span>14天后</span><b>归因复盘</b><small>活动当日只看预算、库存与异常，不用未成熟ROAS做结论。</small></article></section>
       <section className="card activity-plan"><div className="section-head"><div><span>活动投放</span><h2>六阶段广告执行表</h2></div><b>{data?.activity.budgetNote||'活动预算包含在7月总预算内'}</b></div><div className="phase-list"><div className="phase-head"><span>阶段</span><span>预算上限</span><span>Bid规则</span><span>Cap规则</span><span>运营目标</span></div>{(data?.activity.phases||[]).map(phase=><article className={data?.activity.activePhase===phase.id?'active':''} key={phase.id}><div><b>{phase.label}</b><small>{phase.range}</small></div><strong>{money(phase.budgetCap)}</strong><p>{phase.bidRule}</p><p>{phase.capRule}</p><p>{phase.objective}</p></article>)}</div></section>
       <div className="scope-alert"><b>7–8月共用 CPC 基准</b><span>Makeace 6月报告 P{data?.cpcPlan.sourcePage||22}：Filing {money2(data?.cpcPlan.categoryBenchmarks['Filing Cabinets']||.53)}、Bike/Rack {money2(data?.cpcPlan.categoryBenchmarks['Bike And Sport Racks']||.57)}。BM CPC是成本锚，不是直接写入的Bid；有订单组单次最多降10%，活动赢家只加Cap，且先保留8月责任库存。</span></div></>}
-    {tab==='august'&&<><div className="plan-workspace">
-      <article className="card target-card"><div className="section-head"><div><span>8月准备</span><h2>150 Units下一计划责任表</h2></div><b>来源：Playbook · {data?.nextPlan.plan.sourceAsOf||'2026-07-15'}</b></div><div className="plan-table"><div className="plan-row head"><span>Listing / Part</span><span>6月基线</span><span>8月目标</span><span>实际</span><span>广告预算</span><span>角色与Gate</span></div>{(data?.nextPlan.listings||[]).map(item=><div className="plan-row" key={item.listing}><span><b>{item.listing}</b><small>{item.parts.join(' · ')}</small></span><span>{item.juneUnits}</span><span><b>{item.augustUnits}</b></span><span>{item.actualUnits}</span><span>{money(item.budget)}</span><span><b>{item.role}</b><small>{item.gate}</small></span></div>)}</div></article>
-      <aside className="card milestone-card"><div className="section-head"><div><span>周里程碑</span><h2>8月周里程碑</h2></div></div><div className="milestones">{(data?.nextPlan.milestones||[]).map(item=><div key={item.label}><b>{item.label}<small>{item.range}</small></b><strong>{item.cumulative?`${item.cumulative} Units`:'准备'}</strong><p>{item.note}</p></div>)}</div></aside>
-    </div>
-      <section className="card promotion-calendar"><div className="section-head"><div><span>PARTNER HOME · 2026-07-28</span><h2>8月活动清单</h2></div><b>6 个活动 · OPEN_FOR_SUBMISSION</b></div><div className="promotion-event-grid">{(data?.nextPlan.promotionEvents||[]).map(event=><article key={event.id}><header><span>{event.category}</span><b>开放提报</b></header><h3>{event.name}</h3><dl><div><dt>提报截止</dt><dd>{event.curationDeadline}</dd></div><div><dt>活动周期</dt><dd>{event.start}<br/>{event.end}</dd></div></dl><footer><span>{event.lengthDays} 天</span><small>{event.recommendedProducts?`${event.recommendedProducts} 个后台推荐商品`:'后台未显示推荐数'}</small></footer></article>)}</div></section>
-      <section className="card promotion-review"><div className="section-head"><div><span>REVIEW QUEUE</span><h2>SKU 促销审核方案</h2></div><b className="promotion-lock">审核前不可提报紫鸟</b></div><div className="promotion-review-summary"><article><span>建议提报</span><strong>{data?.nextPlan.promotionSummary.proposedListings||0} Listings</strong><small>{data?.nextPlan.promotionSummary.proposedParts||0} Parts</small></article><article><span>保留/排除</span><strong>{data?.nextPlan.promotionSummary.heldOrExcludedListings||0} Listings</strong><small>均保留原因</small></article><article><span>待审核</span><strong>{data?.nextPlan.promotionSummary.pendingReviewListings||0}</strong><small>全部对象</small></article><article><span>紫鸟可提报</span><strong>{data?.nextPlan.promotionSummary.ziniaoReadyListings||0}</strong><small>明确批准后解锁</small></article></div><div className="promotion-review-table"><div className="promotion-review-row head"><span>Listing / Part</span><span>建议活动</span><span>折扣方案</span><span>最坏毛利</span><span>审核结论</span></div>{(data?.nextPlan.promotionPlan||[]).map(item=><article className="promotion-review-row" key={item.listing}><span><b>{item.listing}</b><small>{item.parts.join(' · ')||'无可提报Part'}</small></span><span>{item.eventIds.length?item.eventIds.map(promotionEventName).join(' · '):'不进入活动'}</span><span><b>{item.discountPlan}</b><small>额外Offer上限 {percent(item.maximumIncrementalOffer)}</small></span><span><b>{item.estimatedWorstMargin==null?'待补数据':percent(item.estimatedWorstMargin)}</b><small>Gate ≥20%</small></span><span><b className={`promotion-decision ${item.action.toLowerCase()}`}>{item.action==='PROPOSE'?'建议提报':item.action==='EXCLUDE'?'永久排除':'暂不提报'}</b><small>{item.reason}</small></span></article>)}</div><footer className="promotion-review-note">所有建议仍需复核实时库存、实时价格、组合发货成本与逐Part折后毛利；当前 `canSubmitToZiniao=false`，本页面不执行外部提报。</footer></section>
-      <section className="card listing-policy-card"><div className="section-head"><div><span>LISTING PORTFOLIO POLICY</span><h2>{data?.listingPortfolioPolicy.title||'成功老品放大 · 合规边界'}</h2></div><b>{data?.listingPortfolioPolicy.decision||'不执行视觉去重规避'}</b></div><div className="listing-policy-intro"><article><span>禁止方案</span><strong>{data?.listingPortfolioPolicy.rule||'同一产品不得仅靠换图、改文案或改价格创建重复链接。'}</strong></article><article><span>原链接放大</span><strong>{data?.listingPortfolioPolicy.originalListingPlan||'在原Listing内执行内容、价格与流量实验。'}</strong></article><article><span>新链接 Gate</span><strong>{data?.listingPortfolioPolicy.newListingGate||'仅真实产品差异可进入新Listing审核。'}</strong></article></div><div className="listing-experiment-grid">{(data?.listingPortfolioPolicy.experiments||[]).map(item=><article key={item.axis}><span>{item.axis}</span><b>{item.action}</b><small>{item.guardrail}</small></article>)}</div><footer><span>合规依据：{data?.listingPortfolioPolicy.source||'Wayfair Supplier Code of Conduct'} · 截至 {data?.listingPortfolioPolicy.sourceAsOf||'2026-07-27'}</span><a href={data?.listingPortfolioPolicy.sourceUrl||'https://sell.wayfair.com/wayfair-supplier-code-of-conduct'} target="_blank" rel="noreferrer">查看官方规则</a></footer></section><div className="scope-alert"><b>8月承接规则</b><span>继续使用 Makeace P{data?.cpcPlan.sourcePage||22} BM CPC锚；BFIJ不透支8月责任库存，活动成熟归因再决定8月首周Cap。{data?.nextPlan.plan.scopeWarning||'8月责任表按Units跟踪。'}</span></div></>}
+    {tab==='august'&&<div className="august-brief">
+      <section className="august-command card">
+        <header><div><span>2026年8月 · 已批准执行</span><h2>150 单，广告后利润率守住 10%–15%</h2><p>促销和多件优惠已经提报。8月只围绕销量、利润和库存三条线执行，不再增加新口径。</p></div><b>授权阶段 {executionStage?.ready?'2':'1'} · 07/28</b></header>
+        <div className="august-command-body">
+          <article className="august-target"><span>订单目标</span><strong>{salesSummary?.targetOrders||150}</strong><small>7月月末预测 {data?.nextPlan.salesPlan.currentForecastOrders||56.5} 单，8月需要新增约 {Math.round((salesSummary?.targetOrders||150)-(data?.nextPlan.salesPlan.currentForecastOrders||56.5))} 单</small></article>
+          <div className="august-pulse">
+            <article><span>广告后利润率</span><strong>{percent(promotionSummary?.projectedPostAdMargin||0)}</strong><small>压力情景 {percent(promotionSummary?.stressPostAdMargin||0)} · 硬底线 10%</small></article>
+            <article><span>首阶段广告总上限</span><strong>{money(executionStage?.authorizedAdCap||executionPolicy?.stageOneAdCap||0)}</strong><small>基础 {money(executionPolicy?.baseAdBudget||0)} + Canary {money(executionPolicy?.canaryLossCap||0)} · 第二阶段 {money(executionPolicy?.stageTwoAdCap||0)}</small></article>
+            <article><span>促销覆盖</span><strong>{promotionSummary?.submittedParts||0}<em> / {promotionSummary?.totalParts||21}</em></strong><small>{promotionSummary?.heldParts||0} 个保护款暂缓 · 多件优惠 {promotionSummary?.quantityPromotionParts||0} 个</small></article>
+          </div>
+        </div>
+        <footer><b>本月判断：</b><span>用利润款补贴跑量款；活动订单按 60% 建模，买 2 件优惠按 15% 建模。原销售预算 {executionPolicy?.retiredAdBudgets.map(money).join('、')||'$2,700、$4,050'} 已废止。</span></footer>
+      </section>
+
+      <section className="august-operating-grid">
+        <article className="card august-allocation">
+          <div className="section-head"><div><span>ORDER OWNERSHIP</span><h2>150 单由谁完成</h2></div><b>按目标单量排序</b></div>
+          <div className="august-allocation-list">{[...(data?.nextPlan.salesPlanRows||[])].sort((a,b)=>b.targetOrders-a.targetOrders).map(item=><article key={item.listing}>
+            <div><b>{item.listing}</b><small>{item.parts.join(' · ')}</small></div>
+            <span className={`sales-role ${item.role.toLowerCase()}`}>{salesRoleNames[item.role]||item.role}</span>
+            <progress max={salesSummary?.targetOrders||150} value={item.targetOrders}/>
+            <strong>{item.targetOrders}<small>单</small></strong>
+          </article>)}</div>
+          <footer><b>前三组承担 {((data?.nextPlan.salesPlanRows||[]).slice().sort((a,b)=>b.targetOrders-a.targetOrders).slice(0,3).reduce((sum,item)=>sum+item.targetOrders,0))} 单</b><span>主力是 DMOM1021、DMOM1022 和 DMOM1017；利润款不需要和跑量款使用同一折扣或广告强度。</span></footer>
+        </article>
+
+        <aside className="card august-control">
+          <div className="section-head"><div><span>CONTROL ROOM</span><h2>只看这 4 条红线</h2></div></div>
+          <div className="august-control-list">
+            <article><b>01</b><div><strong>利润率低于 12%</strong><small>停止释放 $500 机动预算；低于 10% 停止扩量。</small></div></article>
+            <article><b>02</b><div><strong>月度授权 {money(executionStage?.authorizedAdCap||executionPolicy?.stageOneAdCap||0)} · Wallet {money(advertisingExecution?.walletDailyCap||60)}/day</strong><small>Active Campaign Cap 合计 {money(advertisingExecution?.activeCampaignDailyCap||45)}/day；其中 597350 为 {advertisingExecution?.correctedCampaign.status==='ACTIVE'||!advertisingExecution?'Active':'待核对'}、{money(advertisingExecution?.correctedCampaign.dailyCap||4)}/day。</small></div></article>
+            <article><b>03</b><div><strong>5T-1830-900 保持保护</strong><small>当前库存 37；恢复到 60 件再评估活动和广告。</small></div></article>
+            <article><b>04</b><div><strong>混投 Campaign 先隔离零预算 Listing</strong><small>597350 保持 Active；仅 DMOM1025 / LFC-3W 产品行 Paused。L28 Retail ROAS {advertisingExecution?.correctedCampaign.last28RetailRoas.toFixed(2)||'25.30'}×。</small></div></article>
+          </div>
+          <footer className="august-ad-pause-note"><b>继续暂停</b><span>{advertisingExecution?.pausedCampaignIds.join(' · ')||'661593 · 622734 · 622727'}</span></footer>
+        </aside>
+      </section>
+
+      <section className="card august-rhythm">
+        <div className="section-head"><div><span>MONTHLY RHYTHM</span><h2>8月作战节奏</h2></div><b>累计 150 Orders</b></div>
+        <div className="august-rhythm-track">{(data?.nextPlan.salesMilestones||[]).map((item,index)=><article key={item.label}><span>0{index+1}</span><div><b>{item.label} · {item.range}</b><strong>{item.cumulativeOrders} 单</strong></div><progress max={salesSummary?.targetOrders||150} value={item.cumulativeOrders}/><p>本阶段 {item.weekOrders} 单</p></article>)}</div>
+        <div className="august-event-strip">{(data?.nextPlan.promotionEvents||[]).map(event=><article key={event.id}><div><b>{event.name.replace('NA ','').replace(' - August 2026','').replace(' (July - Nov 2026)','')}</b><small>{event.start.slice(5,10)} → {event.end.slice(5,10)}</small></div><strong>{event.submittedProducts} SKU</strong><span className={event.status==='ACTIVE'?'active':'processing'}>{event.status==='ACTIVE'?'已生效':'处理中'}</span></article>)}</div>
+      </section>
+
+      <section className="august-status-line" aria-label="促销执行摘要">
+        <article><span>活动提报</span><b>{promotionSummary?.submittedEvents||0} 个处理中</b><small>另有 {promotionSummary?.activeEvents||0} 个已生效</small></article>
+        <article><span>多件优惠</span><b>买 2 件额外 5%</b><small>#{data?.nextPlan.quantityPromotion.projectId||'-'} · {promotionSummary?.quantityPromotionParts||0} SKU</small></article>
+        <article className="attention"><span>当前唯一例外</span><b>5T-1830-900 暂缓</b><small>利润与库存保护，不属于数据缺失</small></article>
+      </section>
+
+      <details className="card august-detail">
+        <summary><span><b>完整 Listing 执行表</b><small>10 个 Listing · 目标、促销、广告预算与止损规则</small></span><em>展开明细</em></summary>
+        <div className="sales-plan-table"><div className="sales-plan-row compact head"><span>Listing / Part</span><span>8月订单</span><span>角色</span><span>促销同步</span><span>广告池</span><span>执行Gate / 止损</span></div>{(data?.nextPlan.salesPlanRows||[]).map(item=><article className="sales-plan-row compact" key={item.listing}><span><b>{item.listing}</b><small>{item.parts.join(' · ')}</small></span><span><strong>{item.targetOrders}</strong><small>7月 {item.julyOrders} 单 · 库存 {item.inventoryOnHand}</small></span><span><b className={`sales-role ${item.role.toLowerCase()}`}>{salesRoleNames[item.role]||item.role}</b><small>{item.tactic}</small></span><span><b className={`promotion-sync ${item.promotion.status.toLowerCase()}`}>{salesPromotionStatusNames[item.promotion.status]||item.promotion.status}</b><small>{item.promotion.discountTiers.length?item.promotion.discountTiers.join(' · '):'无活动折扣'}{item.promotion.quantityOfferParts.length?` · 多件 ${item.promotion.quantityOfferParts.length}款`:''}{item.promotion.heldParts.length?` · 暂缓 ${item.promotion.heldParts.join('、')}`:''}</small></span><span><b>{money(item.plannedAdBudget)}</b><small>收入 {money(item.expectedRevenue)} · 毛利 {percent(item.preAdMarginRate)}</small></span><span><b>{item.gate}</b><small>止损：{item.stopRule}</small></span></article>)}</div>
+      </details>
+
+      <details className="card august-detail">
+        <summary><span><b>逐 Part 折扣与利润明细</b><small>21 个 Part · Partner Base、采购成本、叠加后毛利与活动状态</small></span><em>展开明细</em></summary>
+        <div className="promotion-review-table"><div className="promotion-review-row head"><span>Listing / Part</span><span>角色 / 证据</span><span>活动折扣 / 多件优惠</span><span>叠加后毛利</span><span>活动 / 状态</span></div>{(data?.nextPlan.promotionPlan||[]).map(item=><article className="promotion-review-row" key={`${item.listing}-${item.part}`}><span><b>{item.listing}</b><small>{item.part}</small></span><span><b className={`sales-role ${item.role.toLowerCase()}`}>{salesRoleNames[item.role]||item.role}</b><small>Partner Base {item.priceBasisCents==null?'待补':money2(item.priceBasisCents/100)} · 成本 {item.costCents==null?'待补':money2(item.costCents/100)} · 库存 {item.inventoryOnHand}</small></span><span><b>{item.discountPlan}</b><small>{item.reason}</small></span><span><b className={item.marginAlert?'margin-alert':''}>{item.estimatedWorstMargin==null?'待补证据':percent(item.estimatedWorstMargin)}</b><small>角色底线 {percent(item.roleMarginFloor)}</small></span><span><b className={`promotion-decision ${item.action.toLowerCase()}`}>{item.action==='SUBMITTED'?'已提报':'暂缓'}</b><small>{item.submittedEventIds.length?`${item.submittedEventIds.length} 个活动已提交`:'不进入活动'}</small></span></article>)}</div>
+      </details>
+    </div>}
   </>;
 }
 
@@ -566,13 +796,14 @@ function SkuCostPanel() {
 
 function Inventory({ embedded = false }: { embedded?: boolean }) {
   type Preview={snapshotId?:string;sourceFile?:string;createdAt?:string;canPush?:boolean;summary?:{totalRows:number;supplierCount:number;zeroStockRows:number;missingCombinations:number;totalQuantityOnHand:number;ignoredStockRows:number};valueRisk?:{inventoryValue:number;absoluteChangeValue:number;costCoverage:number;unvaluedUnits:number};warnings?:{message:string}[];errors?:{message:string}[];error?:string};
-  type InventoryPushResult={error?:string;itemCount?:number;batchCount?:number;mode?:string;feedKind?:'TRUE_UP';status?:'processing'|'completed'|'failed';dryRunAccepted?:boolean;completedBatches?:number;failedBatches?:number;pushId?:string;batches?:{index:number;state:string;reason?:string;status?:string;completedCount?:number;processingCount?:number;errorCount?:number}[]};
+  type InventoryPushResult={error?:string;snapshotId?:string;itemCount?:number;batchCount?:number;mode?:string;feedKind?:'TRUE_UP';status?:'processing'|'completed'|'failed';dryRunAccepted?:boolean;completedBatches?:number;failedBatches?:number;pushId?:string;batches?:{index:number;state:string;reason?:string;status?:string;completedCount?:number;processingCount?:number;errorCount?:number}[]};
   const savedPreview=readClientCache<Preview>('inventory:preview',CLIENT_CACHE_RETENTION_MS);
   const [file,setFile]=useState<File|null>(null);const [preview,setPreview]=useState<Preview|null>(savedPreview);const [state,setState]=useState(savedPreview?.snapshotId?'最近快照可用':"读取最近快照");const [busy,setBusy]=useState(false);const [confirmation,setConfirmation]=useState("");const [zeroConfirmed,setZeroConfirmed]=useState(false);const [message,setMessage]=useState("");
   useEffect(()=>{const cached=readClientCache<Preview>('inventory:preview');const controller=new AbortController();if(cached){queueMicrotask(()=>{setPreview(cached);setState(cached.snapshotId?'最近快照可用':'等待库存文件');});return()=>controller.abort();}fetch('/api/inventory/preview',{signal:controller.signal}).then(async r=>await r.json() as Preview).then(body=>{if(body.snapshotId){setPreview(body);setState('最近快照可用');writeClientCache('inventory:preview',body);}else setState('等待库存文件');}).catch(()=>setState('等待库存文件'));return()=>controller.abort();},[]);
   async function validate(){if(!file)return;setBusy(true);setMessage('');setState('正在解析与校验');try{const form=new FormData();form.set('file',file);const response=await fetch('/api/inventory/preview',{method:'POST',body:form});const body=await response.json() as Preview;if(!response.ok)throw new Error(`${body.error||'库存校验失败'}${body.errors?.[0]?.message?`：${body.errors[0].message}`:''}`);setPreview(body);writeClientCache('inventory:preview',body);invalidateClientCache('ads:');setState('校验通过 · 已入库');setMessage(`已保存库存快照 ${body.snapshotId?.slice(0,8)}；广告放量Gate将在下次打开时自动读取。`);}catch(error){setState('校验未通过');setMessage(error instanceof Error?error.message:'库存校验失败');}finally{setBusy(false);}}
   async function waitForPush(pushId:string,initial:InventoryPushResult){let latest=initial;for(let attempt=0;attempt<20&&latest.status==='processing';attempt++){await new Promise(resolve=>setTimeout(resolve,3000));const response=await fetch(`/api/inventory/push?pushId=${encodeURIComponent(pushId)}`);latest=await response.json() as InventoryPushResult;if(!response.ok)throw new Error(latest.error||'库存推送状态查询失败');}return latest;}
   async function push(dryRun:boolean){if(!preview?.snapshotId)return;setBusy(true);setMessage('');setState(dryRun?'正在执行 Wayfair API Dry-run':'正在提交Wayfair');try{const response=await fetch('/api/inventory/push',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({snapshotId:preview.snapshotId,dryRun,confirmation,zeroStockConfirmed:zeroConfirmed})});let body=await response.json() as InventoryPushResult;if(!response.ok)throw new Error(`${body.error||'库存推送失败'}${body.batches?.find(item=>item.state==='failed')?.reason?`：${body.batches.find(item=>item.state==='failed')?.reason}`:''}`);if(body.status==='processing'&&body.pushId){setState(dryRun?'Wayfair Dry-run 处理中':'Wayfair 处理中');setMessage(`${body.batchCount||0}个${dryRun?'Dry-run ':''}差量批次已提交，正在核对Wayfair处理结果；回执 ${body.pushId.slice(0,8)}。`);body=await waitForPush(body.pushId,body);}if(dryRun){if(body.dryRunAccepted){setState('Wayfair 已接收 Dry-run');setMessage(`Wayfair 已接收并返回无错误回执；由于其 Dry-run 回执可能长期保持 PROCESSING，现在可在人工确认后正式推送。回执 ${body.pushId?.slice(0,8)}；尚未写入库存。`);}else if(body.status==='failed'){throw new Error(`${body.error||'Wayfair API Dry-run 未通过'}${body.batches?.find(item=>item.state==='failed')?.reason?`：${body.batches.find(item=>item.state==='failed')?.reason}`:''}`);}else{setState('Wayfair Dry-run 回执不完整');setMessage(`Wayfair 尚未返回可核验的无错误 Dry-run 回执；回执 ${body.pushId?.slice(0,8)}。`);}return;}if(body.status==='completed'){setState('Wayfair feed 完成 · 待库存回读');setMessage(`Wayfair仅确认差量feed处理完成：${body.completedBatches}/${body.batchCount}个批次、共${body.itemCount}条；回执 ${body.pushId?.slice(0,8)}。这不等于Partner Home库存已生效，仍需抽查变更SKU。`);}else if(body.status==='failed'){throw new Error(`${body.error||'Wayfair 库存批次处理失败'}${body.batches?.find(item=>item.state==='failed')?.reason?`：${body.batches.find(item=>item.state==='failed')?.reason}`:''}`);}else{setState('Wayfair 处理中');setMessage(`Wayfair 仍在处理：${body.completedBatches||0}/${body.batchCount}个批次完成。回执 ${body.pushId?.slice(0,8)}，未形成完成回执前不得视为写入成功。`);}}catch(error){setState(dryRun?'Dry-run 失败':'正式推送未完成');setMessage(error instanceof Error?error.message:'库存推送失败');}finally{setBusy(false);}}
+  useEffect(()=>{if(!preview?.snapshotId)return;const controller=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined;async function restoreLatestLivePush(){const response=await fetch(`/api/inventory/push?latestLive=1&snapshotId=${encodeURIComponent(preview!.snapshotId!)}`,{signal:controller.signal});if(response.status===404)return;const body=await response.json() as InventoryPushResult;if(!response.ok)throw new Error(body.error||'正式推送回执恢复失败');if(body.status==='completed'){setState('Wayfair feed 完成 · 待库存回读');setMessage(`已恢复正式推送回执 ${body.pushId?.slice(0,8)}。Wayfair仅确认feed处理完成：${body.completedBatches}/${body.batchCount}个批次、共${body.itemCount}条；仍需抽查Partner Home库存。`);}else if(body.status==='failed'){setState('正式推送未完成');setMessage(`已恢复正式推送回执 ${body.pushId?.slice(0,8)}，Wayfair 返回失败：${body.batches?.find(item=>item.state==='failed')?.reason||body.error||'请检查批次错误'}。`);}else{setState('Wayfair 处理中');setMessage(`已恢复正式推送回执 ${body.pushId?.slice(0,8)}。Wayfair 仍在处理：${body.completedBatches||0}/${body.batchCount}个批次完成，未形成完成回执前不得视为写入成功。`);timer=setTimeout(()=>{void restoreLatestLivePush();},30000);}}void restoreLatestLivePush().catch(error=>{if(!controller.signal.aborted){setState('回执恢复失败');setMessage(error instanceof Error?error.message:'正式推送回执恢复失败');}});return()=>{controller.abort();if(timer)clearTimeout(timer);};},[preview?.snapshotId]);
   const metrics=[["可推送行",preview?.summary?.totalRows],["Supplier",preview?.summary?.supplierCount],["零库存",preview?.summary?.zeroStockRows],["未匹配组合",preview?.summary?.missingCombinations]];
   return <>{!embedded&&<Hero eyebrow="INVENTORY UPDATE · CONTROLLED WRITE" title="库存更新" text="真实解析领星库存、套用SKU/仓库映射、持久化快照，再执行Dry-run与受控推送" side={<div className="hero-side"><b>{state}</b><span>{preview?.sourceFile||'尚无库存快照'}</span></div>} />}
     <div className="inventory-grid"><SkuCostPanel /><article className="card upload-card"><span className="step">库存文件与校验</span><h2>生成库存快照</h2><label className="drop"><input type="file" accept=".xlsx" onChange={e=>{const next=e.target.files?.[0]||null;setFile(next);setState(next?'文件待校验':preview?'最近快照可用':'等待库存文件');setMessage('');}}/><b>{file?.name||preview?.sourceFile||"选择领星库存 XLSX"}</b><span>读取品名、SKU、仓库、可用量、锁定量、待到货与调拨在途；映射表已固化为当前生产版本</span></label><button className="primary" disabled={!file||busy} onClick={validate}>{busy&&state.includes('解析')?'校验中…':'校验并保存快照'}</button>{preview?.createdAt&&<div className="snapshot-note">最近快照 {new Date(preview.createdAt).toLocaleString('zh-CN')} · 库存合计 {preview.summary?.totalQuantityOnHand||0}</div>}{preview?.valueRisk&&<div className="soft-note">库存成本价值 {money(preview.valueRisk.inventoryValue)} · 较上次绝对变动 {money(preview.valueRisk.absoluteChangeValue)} · 成本覆盖 {Math.round(preview.valueRisk.costCoverage*100)}%</div>}</article><article className="card gate-card"><span className="step">预检与确认</span><h2>推送前检查</h2><div className="gate-metrics">{metrics.map(([label,value])=><div key={String(label)}><span>{label}</span><strong>{value??'-'}</strong></div>)}</div>{preview?.warnings?.length?<div className="soft-note">{preview.warnings.map(item=>item.message).join('；')}</div>:<div className="soft-note">只有真实校验通过的D1快照可进入Dry-run；正式推送不会复用浏览器临时状态。</div>}<button className="primary" disabled={!preview?.canPush||busy} onClick={()=>push(true)}>执行 Wayfair API Dry-run</button><div className="live-confirm"><label>正式确认<input value={confirmation} onChange={e=>setConfirmation(e.target.value)} placeholder="输入：正式推送"/></label><label className="zero-check"><input type="checkbox" checked={zeroConfirmed} onChange={e=>setZeroConfirmed(e.target.checked)}/>确认零库存记录会改变可售状态</label><button className="primary dark" disabled={!preview?.canPush||busy||confirmation!=='正式推送'} onClick={()=>push(false)}>正式推送库存</button></div>{message&&<div className={state.includes('失败')||state.includes('阻止')||state.includes('未通过')||state.includes('未完成')?'inventory-message bad':'inventory-message good'}>{message}</div>}</article></div>
@@ -621,22 +852,18 @@ function Ads({ tab }: { tab: AdsTab }) {
   const [selectedRecommendations,setSelectedRecommendations]=useState<string[]>([]); const [selectedQueue,setSelectedQueue]=useState<string[]>([]);
   const [manualDone,setManualDone]=useState<string[]>([]);
   const [manualRecords,setManualRecords]=useState<Record<string,ManualCompletionRecord>>({});
+  const [manualDrafts,setManualDrafts]=useState<Record<string,Partial<ManualCompletionRecord>>>({});
   const [manualRecordMessage,setManualRecordMessage]=useState('');
   const [manualFilter,setManualFilter]=useState('ALL');
   const [selectedManualTasks,setSelectedManualTasks]=useState<string[]>([]);
-  const [manualDrafts,setManualDrafts]=useState<Record<string,ManualCompletionDraft>>({});
-  const [zombieResolutions,setZombieResolutions]=useState<Record<string,ZombieResolution>>({});
-  const defaultManualDraft=(task:ManualAdTask,record?:ManualCompletionRecord):ManualCompletionDraft=>({
-    owner:record?.owner||'广告运营',
-    assignee:record?.assignee||'广告 Agent',
-    executionChannel:record?.executionChannel||'Wayfair Partner Home',
-    executionResult:record?.executionResult||`${task.campaignId==='新建后回填'?'新建广告组后回填 Campaign ID':'Campaign '+task.campaignId+' 已按规则处理'}。`,
-    wayfairEvidence:record?.wayfairEvidence||'Wayfair Partner Home 回读截图 / Advertising API fresh read-back',
-    receiver:record?.receiver||'AI运营负责人',
-    reviewDate:record?.reviewDate||shiftDate(dateText(new Date()),7),
+  const [zombieResolutions,setZombieResolutions]=useState<Record<string,ZombieResolution>>(()=>{
+    if(typeof window==='undefined')return {};
+    try{return JSON.parse(window.localStorage.getItem(ZOMBIE_RESOLUTION_STORAGE_KEY)||'{}') as Record<string,ZombieResolution>;}catch{return {};}
   });
-  const manualDraftFor=(taskKey:string,task:ManualAdTask)=>manualDrafts[taskKey]||defaultManualDraft(task,manualRecords[taskKey]);
-  function updateManualDraft(taskKey:string,task:ManualAdTask,patch:Partial<ManualCompletionDraft>){setManualDrafts(value=>({...value,[taskKey]:{...manualDraftFor(taskKey,task),...patch}}));}
+  const manualDraftFor=(taskKey:string,task:ManualAdTask):Partial<ManualCompletionRecord>=>{
+    const defaults={owner:'广告运营',executionResult:`Campaign ${task.campaignId} 已在 Wayfair 平台按规则执行。`,evidence:'Wayfair Partner Home 回读截图 / Advertising API fresh read-back',acceptanceCriteria:task.rule,acceptedBy:'AI运营负责人',reviewDueAt:shiftDate(dateText(new Date()),7)};
+    return {...defaults,...manualRecords[taskKey],...manualDrafts[taskKey]};
+  };
   useEffect(()=>{const cacheKey=`ads:v8:${requested.start}:${requested.end}`;const cached=!requested.refresh&&readClientCache<AdAnalysis>(cacheKey);const controller=new AbortController();if(cached){queueMicrotask(()=>{if(!controller.signal.aborted){setData(cached);setLoading(false);setError('');}});return()=>controller.abort();}fetch(`/api/ads/analysis?start=${requested.start}&end=${requested.end}${requested.refresh?'&refresh=1':''}`,{signal:controller.signal}).then(async r=>{const body=await r.json() as AdAnalysis;if(!r.ok)throw new Error(body.error||'广告分析失败');return body;}).then(body=>{setData(body);writeClientCache(cacheKey,body);}).catch(e=>{if(e.name!=='AbortError')setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();},[requested]);
   useEffect(()=>{if(!data?.runKey)return;const cacheKey=`ad-queue:${data.runKey}`;const cached=readClientCache<AdQueueCache>(cacheKey);const controller=new AbortController();setQueueError('');if(cached){queueMicrotask(()=>{if(!controller.signal.aborted){setQueuedActions(cached.actions);setQueueState(queuedActionState(cached.actions));setLiveEnabled(cached.liveEnabled);setQueueLoading(false);}});return()=>controller.abort();}setQueueLoading(true);fetch(`/api/ads/actions?runKey=${encodeURIComponent(data.runKey)}`,{signal:controller.signal}).then(async response=>{const body=await response.json() as {actions?:QueuedAdAction[];liveEnabled?:boolean;error?:string};if(!response.ok)throw new Error(body.error||'执行批次读取失败');return body;}).then(body=>{const actions=body.actions||[];const next={actions,liveEnabled:Boolean(body.liveEnabled)};setQueuedActions(actions);setQueueState(queuedActionState(actions));setLiveEnabled(next.liveEnabled);writeClientCache(cacheKey,next);}).catch(reason=>{if(reason.name!=='AbortError')setQueueError(reason.message||'执行批次读取失败');}).finally(()=>{if(!controller.signal.aborted)setQueueLoading(false);});return()=>controller.abort();},[data?.runKey]);
   useEffect(()=>{
@@ -654,8 +881,6 @@ function Ads({ tab }: { tab: AdsTab }) {
         localCompleted=[...new Set(expanded.filter(key=>manualCompletionPayload(key,MANUAL_AD_TASKS)!==null))];
         setManualDone(localCompleted);
       }
-      const resolutions=JSON.parse(window.localStorage.getItem(ZOMBIE_RESOLUTION_STORAGE_KEY)||'{}');
-      if(resolutions&&typeof resolutions==='object'&&!Array.isArray(resolutions))setZombieResolutions(resolutions);
     }catch{}
 
     async function syncManualRecords(){
@@ -682,14 +907,22 @@ function Ads({ tab }: { tab: AdsTab }) {
       if(controller.signal.aborted)return;
       const byKey=Object.fromEntries([...records,...migrated].map(record=>[record.taskKey,record]));
       const synchronized=Object.values(byKey);
-      const completed=synchronized.filter(record=>record.status==='COMPLETED').map(record=>record.taskKey);
+      const completed=synchronized.filter(record=>record.status==='VERIFIED').map(record=>record.taskKey);
       setManualRecords(byKey);
       setManualDone(completed);
       window.localStorage.setItem('manual-ad-todos:v1',JSON.stringify(completed));
-      setManualRecordMessage(migrated.length?`已将 ${migrated.length} 条本机完成记录迁移到服务器审计链`:'服务器审计记录已同步');
+      setManualRecordMessage(migrated.length?`已将 ${migrated.length} 条旧版勾选记录迁移为待验收任务；补充证据后才能关闭`:'服务器闭环记录已同步');
     }
 
-    void syncManualRecords().catch(reason=>{
+    async function syncZombieRecords(){
+      const response=await fetch('/api/ads/zombie-resolutions/',{signal:controller.signal});
+      const body=await response.json() as {records?:ZombieResolution[];error?:string};
+      if(!response.ok)throw new Error(body.error||'Zombie 处置记录读取失败');
+      if(controller.signal.aborted)return;
+      setZombieResolutions(Object.fromEntries((body.records||[]).map(record=>[record.resolutionKey,record])));
+    }
+
+    void Promise.all([syncManualRecords(),syncZombieRecords()]).catch(reason=>{
       if(reason.name!=='AbortError')setManualRecordMessage('服务器记录读取失败，当前显示本机缓存');
     });
     return()=>controller.abort();
@@ -702,11 +935,13 @@ function Ads({ tab }: { tab: AdsTab }) {
   async function queueSelected(){if(!data?.runKey)return;const rows=optimizationListings.filter(row=>API_AD_ACTION_TYPES.has(row.action.type)&&selectedRecommendations.includes(`${row.campaignId}:${row.listing}`));if(!rows.length)return;setBatchBusy(true);setBatchMessage('');try{const results=await Promise.all(rows.map(async row=>{const response=await fetch('/api/ads/actions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({runKey:data.runKey,listing:row.listing,campaignId:row.campaignId,actionType:row.action.type,before:row.action.before,proposed:row.action.proposed})});const body=await response.json() as {error?:string};if(!response.ok)throw new Error(`${row.listing}: ${body.error||'加入失败'}`);return row;}));await reloadQueue();setSelectedRecommendations([]);setBatchMessage(`已加入 ${results.length} 项到 API 执行批次。`);}catch(reason){setBatchMessage(reason instanceof Error?reason.message:'批量加入失败');}finally{setBatchBusy(false);}}
   async function prepareSelected(){const actions=apiQueuedActions.filter(action=>selectedQueue.includes(action.id)&&isBulkApprovable(action));if(!actions.length&&!approvedActions.length)return;setBatchBusy(true);setBatchMessage('');try{await Promise.all(actions.map(async action=>{const response=await fetch('/api/ads/actions',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id:action.id,status:'APPROVED'})});const body=await response.json() as {error?:string};if(!response.ok)throw new Error(`${action.listing}: ${body.error||'确认失败'}`);}));const body=await postExecution(true);setSelectedQueue([]);setBatchMessage(body.message||`已确认并预检 ${actions.length+approvedActions.length} 项。`);}catch(reason){setBatchMessage(reason instanceof Error?reason.message:'确认并预检失败');}finally{setBatchBusy(false);}}
   async function executeValidated(){if(!validatedActions.length||!window.confirm(`将正式修改 ${validatedActions.length} 项 Wayfair 广告。是否继续？`))return;setBatchBusy(true);setBatchMessage('');try{const body=await postExecution(false);setBatchMessage(body.message||'执行完成，逐项结果已更新。');}catch(reason){setBatchMessage(reason instanceof Error?reason.message:'广告执行失败');}finally{setBatchBusy(false);}}
-  async function saveManualCompletion(id:string,parentSku:string,task:ManualAdTask,completed:boolean,draft=manualDraftFor(id,task)){const response=await fetch('/api/ads/manual-completions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({taskKey:id,parentSku,taskId:task.id,campaignId:task.campaignId,adGroup:task.adGroup,title:task.title,completed,...draft})});const body=await response.json() as {record?:ManualCompletionRecord;error?:string};if(!response.ok||!body.record)throw new Error(body.error||'手动执行记录保存失败');return body.record;}
-  async function toggleManualTask(id:string,parentSku:string,task:ManualAdTask){const completed=!manualDone.includes(id);const previous=manualDone;const next=completed?[...previous,id]:previous.filter(item=>item!==id);setManualDone(next);window.localStorage.setItem('manual-ad-todos:v1',JSON.stringify(next));setManualRecordMessage('正在保存服务器闭环记录…');try{const record=await saveManualCompletion(id,parentSku,task,completed);setManualRecords(value=>({...value,[id]:record}));setManualRecordMessage(completed?'已回传并计入闭环任务':'已重新打开并保留闭环事件');}catch(reason){setManualDone(previous);window.localStorage.setItem('manual-ad-todos:v1',JSON.stringify(previous));setManualRecordMessage(reason instanceof Error?reason.message:'手动执行记录保存失败');}}
-  async function submitManualAcceptance(id:string,parentSku:string,task:ManualAdTask){const previous=manualDone;const next=[...new Set([...previous,id])];setManualDone(next);window.localStorage.setItem('manual-ad-todos:v1',JSON.stringify(next));setManualRecordMessage('正在提交验收并回传 Wayfair 落地证据…');try{const record=await saveManualCompletion(id,parentSku,task,true);setManualRecords(value=>({...value,[id]:record}));setSelectedManualTasks(value=>value.filter(key=>key!==id));setManualRecordMessage('验收已提交，Wayfair 证据已计入闭环任务');}catch(reason){setManualDone(previous);window.localStorage.setItem('manual-ad-todos:v1',JSON.stringify(previous));setManualRecordMessage(reason instanceof Error?reason.message:'提交验收失败');}}
-  async function submitSelectedManualAcceptances(){const selectedTasks=MANUAL_AD_TASK_GROUPS.flatMap(group=>group.tasks.map(task=>({group,task,taskKey:manualTaskKey(group.sku,task.id)}))).filter(item=>selectedManualTasks.includes(item.taskKey)&&!manualDone.includes(item.taskKey));if(!selectedTasks.length){setManualRecordMessage('没有可批量提交验收的任务');return;}const previous=manualDone;const next=[...new Set([...previous,...selectedTasks.map(item=>item.taskKey)])];setManualDone(next);window.localStorage.setItem('manual-ad-todos:v1',JSON.stringify(next));setManualRecordMessage(`正在批量提交 ${selectedTasks.length} 条验收…`);try{const records=await Promise.all(selectedTasks.map(item=>saveManualCompletion(item.taskKey,item.group.sku,item.task,true)));setManualRecords(value=>({...value,...Object.fromEntries(records.map(record=>[record.taskKey,record]))}));setSelectedManualTasks([]);setManualRecordMessage(`已批量提交 ${records.length} 条验收并计入闭环任务`);}catch(reason){setManualDone(previous);window.localStorage.setItem('manual-ad-todos:v1',JSON.stringify(previous));setManualRecordMessage(reason instanceof Error?reason.message:'批量提交验收失败');}}
-  function updateZombieResolution(key:string,patch:Partial<ZombieResolution>){setZombieResolutions(value=>{const next={...value,[key]:{method:value[key]?.method||'',done:value[key]?.done||false,...patch}};window.localStorage.setItem(ZOMBIE_RESOLUTION_STORAGE_KEY,JSON.stringify(next));return next;});}
+  function patchManualDraft(id:string,patch:Partial<ManualCompletionRecord>){setManualDrafts(value=>({...value,[id]:{...value[id],...patch}}));}
+  async function postManualTask(id:string,parentSku:string,task:ManualAdTask,status:ManualCompletionRecord['status']){const draft=manualDraftFor(id,task);const response=await fetch('/api/ads/manual-completions/',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({taskKey:id,parentSku,taskId:task.id,campaignId:task.campaignId,adGroup:task.adGroup,title:task.title,status,owner:draft.owner||'广告运营',executionResult:draft.executionResult||`Campaign ${task.campaignId} 已在 Wayfair 平台按规则执行。`,evidence:draft.evidence||'Wayfair Partner Home 回读截图 / Advertising API fresh read-back',acceptanceCriteria:draft.acceptanceCriteria||task.rule,acceptedBy:draft.acceptedBy||'AI运营负责人',reviewDueAt:draft.reviewDueAt||shiftDate(dateText(new Date()),7)})});const body=await response.json() as {record?:ManualCompletionRecord;error?:string};if(!response.ok||!body.record)throw new Error(body.error||'手动任务保存失败');return body.record;}
+  async function saveManualTask(id:string,parentSku:string,task:ManualAdTask,status:ManualCompletionRecord['status']){setManualRecordMessage('正在写入统一任务账本…');try{const record=await postManualTask(id,parentSku,task,status);setManualRecords(value=>({...value,[id]:record}));setManualDrafts(value=>{const next={...value};delete next[id];return next;});setManualDone(value=>status==='VERIFIED'?[...new Set([...value,id])]:value.filter(item=>item!==id));setSelectedManualTasks(value=>status==='VERIFIED'?value.filter(key=>key!==id):value);setManualRecordMessage(status==='VERIFIED'?'执行证据和验收已写入统一任务账本':status==='REOPENED'?'任务已重开，历史事件保留':'任务状态已更新');}catch(reason){setManualRecordMessage(reason instanceof Error?reason.message:'手动任务保存失败');}}
+  async function submitManualAcceptance(id:string,parentSku:string,task:ManualAdTask){await saveManualTask(id,parentSku,task,'VERIFIED');}
+  async function submitSelectedManualAcceptances(){const selectedTasks=visibleManualGroups.flatMap(group=>group.tasks.map(task=>({group,task,taskKey:manualTaskKey(group.sku,task.id)}))).filter(item=>selectedManualTasks.includes(item.taskKey)&&manualRecords[item.taskKey]?.status!=='VERIFIED'&&!manualDone.includes(item.taskKey));if(!selectedTasks.length){setManualRecordMessage('没有可批量提交验收的任务');return;}setManualRecordMessage(`正在批量提交 ${selectedTasks.length} 条验收…`);try{const records=await Promise.all(selectedTasks.map(item=>postManualTask(item.taskKey,item.group.sku,item.task,'VERIFIED')));setManualRecords(value=>({...value,...Object.fromEntries(records.map(record=>[record.taskKey,record]))}));setManualDrafts(value=>{const next={...value};for(const record of records)delete next[record.taskKey];return next;});setManualDone(value=>[...new Set([...value,...records.map(record=>record.taskKey)])]);setSelectedManualTasks([]);setManualRecordMessage(`已批量提交 ${records.length} 条验收并写入统一任务账本`);}catch(reason){setManualRecordMessage(reason instanceof Error?reason.message:'批量提交验收失败');}}
+  function updateZombieResolution(key:string,patch:Partial<ZombieResolution>){setZombieResolutions(value=>{const next={...value,[key]:{...value[key],...patch} as ZombieResolution};window.localStorage.setItem(ZOMBIE_RESOLUTION_STORAGE_KEY,JSON.stringify(next));return next;});}
+  async function saveZombieResolution(item:ZombieCampaignFinding,status:ZombieResolution['status']){const key=zombieResolutionKey(item);const current=zombieResolutions[key];const methods=ZOMBIE_METHOD_OPTIONS[item.actionType];try{const response=await fetch('/api/ads/zombie-resolutions/',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({resolutionKey:key,campaignId:item.campaignId,listing:item.listing,actionType:item.actionType,method:current?.method||methods[0],owner:current?.owner||'广告运营',status,executionResult:current?.executionResult||'',evidence:current?.evidence||'',acceptanceCriteria:current?.acceptanceCriteria||`${current?.method||methods[0]} 已在 Wayfair 平台生效`,acceptedBy:current?.acceptedBy||''})});const body=await response.json() as {record?:ZombieResolution;error?:string};if(!response.ok||!body.record)throw new Error(body.error||'Zombie 处置保存失败');setZombieResolutions(value=>({...value,[key]:body.record as ZombieResolution}));setManualRecordMessage(status==='VERIFIED'?'Zombie 处置已提交证据并通过验收':'Zombie 处置进度已写入服务器');}catch(reason){setManualRecordMessage(reason instanceof Error?reason.message:'Zombie 处置保存失败');}}
   const visibleHistory=(data?.history||[]).filter(x=>x.date>=requested.start&&x.date<=requested.end);
   const dailySpendMax=Math.max(1,...visibleHistory.map(x=>x.spend));
   const liveSafetyKeys=new Set((data?.liveSafetyFindings||[]).map(row=>`${row.campaignId}:${row.listing}`));
@@ -726,12 +961,12 @@ function Ads({ tab }: { tab: AdsTab }) {
   const allSelectableActionsSelected=isBulkActionSelectionComplete({selectableRecommendationKeys,selectableQueueIds,selectedRecommendationKeys:selectedRecommendations,selectedQueueIds:selectedQueue});
   function toggleAllSelectableActions(){const next=nextBulkActionSelection({selectableRecommendationKeys,selectableQueueIds,selectedRecommendationKeys:selectedRecommendations,selectedQueueIds:selectedQueue});setSelectedRecommendations(next.recommendationKeys);setSelectedQueue(next.queueIds);}
   const manualOpenCount=MANUAL_AD_TASK_COUNT-manualDone.length;
-  const visibleManualGroups=MANUAL_AD_TASK_GROUPS.map(group=>({...group,tasks:group.tasks.filter(task=>{const done=manualDone.includes(manualTaskKey(group.sku,task.id));return manualFilter==='ALL'||(manualFilter==='READY'&&!done)||(manualFilter==='OPEN'&&!done)||(manualFilter==='DONE'&&done);} )})).filter(group=>group.tasks.length);
+  const visibleManualGroups=MANUAL_AD_TASK_GROUPS.map(group=>({...group,tasks:group.tasks.filter(task=>{const taskKey=manualTaskKey(group.sku,task.id);const done=manualRecords[taskKey]?.status==='VERIFIED'||manualDone.includes(taskKey);return manualFilter==='ALL'||(manualFilter==='READY'&&!done)||(manualFilter==='OPEN'&&!done)||(manualFilter==='DONE'&&done);} )})).filter(group=>group.tasks.length);
   const visibleManualTaskKeys=visibleManualGroups.flatMap(group=>group.tasks.map(task=>manualTaskKey(group.sku,task.id)));
-  const selectableManualTaskKeys=visibleManualTaskKeys.filter(key=>!manualDone.includes(key));
+  const selectableManualTaskKeys=visibleManualTaskKeys.filter(key=>manualRecords[key]?.status!=='VERIFIED'&&!manualDone.includes(key));
   const allManualSelectableSelected=selectableManualTaskKeys.length>0&&selectableManualTaskKeys.every(key=>selectedManualTasks.includes(key));
   function toggleAllManualSelectable(){setSelectedManualTasks(allManualSelectableSelected?selectedManualTasks.filter(key=>!selectableManualTaskKeys.includes(key)):[...new Set([...selectedManualTasks,...selectableManualTaskKeys])]);}
-  const resolvedZombieCount=zombieFindings.filter(row=>zombieResolutions[zombieResolutionKey(row)]?.done).length;
+  const resolvedZombieCount=zombieFindings.filter(row=>zombieResolutions[zombieResolutionKey(row)]?.status==='VERIFIED').length;
   const keywordCampaigns=(data?.campaigns||[]).filter(row=>/keyword/i.test(row.targetingType)); const productCampaigns=(data?.campaigns||[]).filter(row=>/product/i.test(row.targetingType));
   const keywordSpend=keywordCampaigns.reduce((sum,row)=>sum+row.spend,0); const productSpend=productCampaigns.reduce((sum,row)=>sum+row.spend,0);
   const normalizedManagerQuery=managerQuery.trim().toLowerCase();
@@ -755,6 +990,9 @@ function Ads({ tab }: { tab: AdsTab }) {
   const sortCampaign=(field:string)=>setCampaignSort(value=>nextSort(value,field) as SortState); const sortListing=(field:string)=>setListingSort(value=>nextSort(value,field) as SortState);
   const aiDecisionCurrent=data?.decision.current;
   const aiDecisionPrevious=data?.decision.previous;
+  const decisionModel=data?.decisionModel;
+  const modelTodo=data?.modelTodo||[];
+  const campaignControl=data?.campaignControl;
   const headerRange=tab==='review'?null:tab==='ai'?data?.decisionRange:requested;
   const pageTitle=tab==='manager'?'广告管理器':tab==='listings'?'父体 SKU 广告表现':tab==='manual'?'手动优化 To-Do':tab==='review'?'优化记录与复盘':'AI 优化';
   const pageCount=tab==='manager'?`${data?.campaigns.length||0} 个 Campaign`:tab==='listings'?`${data?.listings.length||0} 个父体 SKU`:tab==='manual'?`${resolvedZombieCount} / ${zombieFindings.length} 诊断已完成 · ${manualDone.length} / ${MANUAL_AD_TASK_COUNT} 已闭环 · ${manualOpenCount} 可验收`:tab==='review'?'完整审计链':`${ready} 项建议 · ${validatedActions.length} 项待执行`;
@@ -783,12 +1021,26 @@ function Ads({ tab }: { tab: AdsTab }) {
       <section className="keyword-allocation-grid">{AD_BUDGET_ALLOCATION.map(item=>{const actual=item.id==='keyword'?keywordSpend:item.id==='product'?productSpend:null;return <article className={`card allocation-${item.id}`} key={item.id}><span>{item.share}</span><strong>${item.budget}</strong><h3>{item.label}</h3><p>{item.note}</p><small>{actual==null?'按计划释放':`所选周期已花 ${money2(actual)}`}</small></article>})}</section>
       <section className="card allocation-ledger"><div className="section-head"><div><span>LISTING × AD TYPE</span><h2>头部 Listing 分配</h2></div><b>Keyword $750 · Product $650 · B2B $150</b></div><div className="allocation-table"><div className="allocation-row head"><span>Listing</span><span>Keyword</span><span>Product</span><span>B2B</span><span>合计</span><span>分配理由</span></div>{KEYWORD_LISTING_ALLOCATION.map(item=><article className="allocation-row" key={item.listing}><strong>{item.listing}</strong><b>{money(item.keyword)}</b><b>{money(item.product)}</b><b>{money(item.b2b)}</b><strong>{money(item.total)}</strong><p>{item.reason}</p></article>)}</div><p className="allocation-note">其余容量：Canada $50，结构扩容 / 机动 $200；低效 Product 达到迁移 Gate 后，最多 $150 转给已过 Gate 的 Keyword。</p></section>
       <section className="card zombie-resolution-card"><div className="section-head"><div><span>MANUAL DIAGNOSIS</span><h2>Campaign / 资格诊断</h2></div><b>{resolvedZombieCount} / {zombieFindings.length} 已完成 · 硬僵尸 {zombieAudit.hard} · 准僵尸 {zombieAudit.near}</b></div>
-        <p className="allocation-note">这里只记录处理方式和完成状态，不加入 API 或人工执行清单。</p>
-        <div className="zombie-resolution-table"><div className="zombie-resolution-row head"><span>Campaign / Listing</span><span>成熟期证据</span><span>处理方式</span><span>是否完成</span></div>{zombieFindings.map(item=>{const key=zombieResolutionKey(item);const resolution=zombieResolutions[key];const methods=ZOMBIE_METHOD_OPTIONS[item.actionType];const method=resolution?.method||methods[0];const done=Boolean(resolution?.done);return <article className={`zombie-resolution-row ${done?'done':''}`} key={key}><div><span><em>{item.severity}</em><strong>{item.campaignName||`Campaign ${item.campaignId}`}</strong></span><small>ID {item.campaignId} · {item.listing} · {item.targetingType||'Targeting 未知'}</small></div><p><b>{item.metric.impressions} 曝光 · {money2(item.metric.spend)} · {item.metric.orders} 单</b><small>{item.linkStatus} · Bid {money2(item.bid)} · {item.label}</small></p><label>处理方式<select aria-label={`${item.listing} 处理方式`} value={method} onChange={event=>updateZombieResolution(key,{method:event.target.value})}>{methods.map(option=><option value={option} key={option}>{option}</option>)}</select></label><label className="zombie-done-toggle"><input type="checkbox" checked={done} onChange={event=>updateZombieResolution(key,{method,done:event.target.checked})}/><span>{done?'已完成':'待处理'}</span></label></article>})}{!loading&&!zombieFindings.length?<p className="empty-state">未发现满足规则的硬僵尸或准僵尸 Campaign。</p>:null}</div>
+        <p className="allocation-note">处置进入统一任务账本；只有提交执行结果、平台证据并由验收人确认后，才计为完成。</p>
+        <div className="zombie-resolution-table">{zombieFindings.map(item=>{const key=zombieResolutionKey(item);const resolution=zombieResolutions[key];const methods=ZOMBIE_METHOD_OPTIONS[item.actionType];const method=resolution?.method||methods[0];const done=resolution?.status==='VERIFIED';return <article className={`zombie-resolution-row ${done?'done':''}`} key={key}>
+          <div><span><em>{item.severity}</em><strong>{item.campaignName||`Campaign ${item.campaignId}`}</strong></span><small>ID {item.campaignId} · {item.listing} · {item.targetingType||'Targeting 未知'} · 是否完成：{done?'已完成':'待处理'}</small></div>
+          <p><b>{item.metric.impressions} 曝光 · {money2(item.metric.spend)} · {item.metric.orders} 单</b><small>{item.linkStatus} · Bid {money2(item.bid)} · {item.label}</small></p>
+          <div className="zombie-method-fields"><label>处理方式<select aria-label={`${item.listing} 处理方式`} value={method} onChange={event=>updateZombieResolution(key,{method:event.target.value})}>{methods.map(option=><option value={option} key={option}>{option}</option>)}</select></label><label>负责人<input value={resolution?.owner||''} placeholder="广告运营" onChange={event=>updateZombieResolution(key,{owner:event.target.value})}/></label></div>
+          <div className="zombie-closure-form"><label>执行结果<input value={resolution?.executionResult||''} placeholder="平台实际状态或数值" onChange={event=>updateZombieResolution(key,{executionResult:event.target.value})}/></label><label>执行证据<input value={resolution?.evidence||''} placeholder="Partner Home 证据说明" onChange={event=>updateZombieResolution(key,{evidence:event.target.value})}/></label><label>验收人<input value={resolution?.acceptedBy||''} placeholder="负责人姓名" onChange={event=>updateZombieResolution(key,{acceptedBy:event.target.value})}/></label><div><button className="ghost" onClick={()=>saveZombieResolution(item,done?'REOPENED':'EXECUTING')}>{done?'重新打开':'保存进度'}</button><button className="primary" disabled={!resolution?.executionResult||!resolution?.evidence||!resolution?.acceptedBy} onClick={()=>saveZombieResolution(item,'VERIFIED')}>提交验收</button></div></div>
+        </article>})}{!loading&&!zombieFindings.length?<p className="empty-state">未发现满足规则的硬僵尸或准僵尸 Campaign。</p>:null}</div>
       </section>
-      <section className="card manual-todo-card"><div className="section-head"><div><span>OPERATOR CHECKLIST</span><h2>手动优化 To-Do List · 按父体 SKU</h2></div><b>闭环任务 · {manualDone.length} / {MANUAL_AD_TASK_COUNT} 已验收</b></div>{manualRecordMessage&&<p className="manual-record-message">{manualRecordMessage}</p>}<div className="manual-acceptance-tools"><label><input type="checkbox" checked={allManualSelectableSelected} onChange={toggleAllManualSelectable}/>选择当前可验收</label><label>筛选<select value={manualFilter} onChange={event=>{setManualFilter(event.target.value);setSelectedManualTasks([]);}}><option value="ALL">全部任务</option><option value="READY">可验收</option><option value="OPEN">未验收</option><option value="DONE">已验收</option></select></label><span>已选择 {selectedManualTasks.length} · 可验收 {selectableManualTaskKeys.length}</span><button className="primary" disabled={!selectedManualTasks.length} onClick={submitSelectedManualAcceptances}>批量提交验收 ({selectedManualTasks.length})</button></div><div className="manual-todo-list">{visibleManualGroups.map(group=>{const completed=group.tasks.filter(task=>manualDone.includes(manualTaskKey(group.sku,task.id))).length;return <details className={`manual-sku-group${completed===group.tasks.length?' done':''}`} open key={group.sku}><summary><span><small>PARENT SKU</small><strong>{group.sku}</strong></span><span><b>{completed} / {group.tasks.length} 已验收</b><progress max={group.tasks.length} value={completed}/></span></summary><div className="manual-sku-actions">{group.tasks.map((task,index)=>{const taskId=manualTaskKey(group.sku,task.id);const done=manualDone.includes(taskId);const record=manualRecords[taskId];const draft=manualDraftFor(taskId,task);return <article className={`manual-todo-row${done?' done':''}`} key={taskId}><label className="manual-todo-check" title={done?'标记为未完成':'标记为已完成'}><input aria-label={`${group.sku} · ${task.adGroup}：${done?'标记为未完成':'标记为已完成'}`} type="checkbox" checked={done} onChange={()=>toggleManualTask(taskId,group.sku,task)}/></label><span className="manual-todo-priority"><i>{String(index+1).padStart(2,'0')}</i><em>{task.priority}</em><small>{task.group}</small><b>Campaign ID: {task.campaignId}</b><small>{done?'VERIFIED':'OPEN'}</small><label className="manual-select"><input type="checkbox" disabled={done} checked={selectedManualTasks.includes(taskId)} onChange={event=>setSelectedManualTasks(value=>event.target.checked?[...new Set([...value,taskId])]:value.filter(key=>key!==taskId))}/>验收</label></span><div className="manual-todo-content"><strong>{task.title}</strong><p>{task.detail}</p>{done&&record?.completedAt?<small className="manual-audit-time">验收时间：{new Date(record.completedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})} · {record.closedLoopStatus}</small>:null}<dl className="manual-task-details"><div><dt>广告组</dt><dd>{task.adGroup}</dd></div><div><dt>Campaign ID</dt><dd>{task.campaignId}</dd></div><div><dt>具体 SKU</dt><dd>{task.sku}</dd></div><div><dt>广告类型</dt><dd>{task.adType}</dd></div><div><dt>关键词</dt><dd>{task.keywords}</dd></div><div><dt>匹配</dt><dd>{task.match}</dd></div><div><dt>起始 Bid</dt><dd>{task.bid}</dd></div><div><dt>预算</dt><dd>{task.budget}</dd></div><div className="rule"><dt>执行 / 验收规则</dt><dd>{task.rule}</dd></div></dl><div className="manual-acceptance-form"><label>负责人<input value={draft.owner} onChange={event=>updateManualDraft(taskId,task,{owner:event.target.value})}/></label><label>执行结果<input value={draft.executionResult} onChange={event=>updateManualDraft(taskId,task,{executionResult:event.target.value})}/></label><label>执行证据<input value={draft.wayfairEvidence} onChange={event=>updateManualDraft(taskId,task,{wayfairEvidence:event.target.value})}/></label><label>验收人<input value={draft.receiver} onChange={event=>updateManualDraft(taskId,task,{receiver:event.target.value})}/></label><label>成熟复盘日<input type="date" value={draft.reviewDate} onChange={event=>updateManualDraft(taskId,task,{reviewDate:event.target.value})}/></label><button className="primary" onClick={()=>submitManualAcceptance(taskId,group.sku,task)}>提交验收</button></div></div></article>})}</div></details>})}{!loading&&!visibleManualGroups.length?<p className="empty-state">当前筛选没有手动优化任务。</p>:null}</div></section>
+      <section className="card manual-todo-card"><div className="section-head"><div><span>OPERATOR CHECKLIST</span><h2>手动优化 To-Do List · 按父体 SKU</h2></div><b>统一任务账本 / 服务器审计记录 · {manualDone.length} / {MANUAL_AD_TASK_COUNT} 已验收</b></div>{manualRecordMessage&&<p className="manual-record-message">{manualRecordMessage}</p>}<div className="manual-acceptance-tools"><label><input type="checkbox" checked={allManualSelectableSelected} onChange={toggleAllManualSelectable}/>选择当前可验收</label><label>筛选<select value={manualFilter} onChange={event=>{setManualFilter(event.target.value);setSelectedManualTasks([]);}}><option value="ALL">全部任务</option><option value="READY">可验收</option><option value="OPEN">未验收</option><option value="DONE">已验收</option></select></label><span>已选择 {selectedManualTasks.length} · 可验收 {selectableManualTaskKeys.length}</span><button className="primary" disabled={!selectedManualTasks.length} onClick={submitSelectedManualAcceptances}>批量提交验收 ({selectedManualTasks.length})</button></div><div className="manual-todo-list">{visibleManualGroups.map(group=>{const completed=group.tasks.filter(task=>{const taskKey=manualTaskKey(group.sku,task.id);return manualRecords[taskKey]?.status==='VERIFIED'||manualDone.includes(taskKey);}).length;return <details className={`manual-sku-group${completed===group.tasks.length?' done':''}`} open key={group.sku}><summary><span><small>PARENT SKU</small><strong>{group.sku}</strong></span><span><b>{completed} / {group.tasks.length} 已验收</b><progress max={group.tasks.length} value={completed}/></span></summary><div className="manual-sku-actions">{group.tasks.map((task,index)=>{const taskId=manualTaskKey(group.sku,task.id);const record=manualRecords[taskId];const draft=manualDraftFor(taskId,task);const done=record?.status==='VERIFIED'||manualDone.includes(taskId);const progressStatus:ManualCompletionRecord['status']=done||record?.status==='PENDING_ACCEPTANCE'?'REOPENED':'IN_PROGRESS';return <article className={`manual-todo-row${done?' done':''}`} key={taskId}><span className="manual-todo-priority"><i>{String(index+1).padStart(2,'0')}</i><em>{task.priority}</em><small>{task.group}</small><b>Campaign ID: {task.campaignId}</b><strong>{record?.status||'OPEN'}</strong><label className="manual-select"><input type="checkbox" disabled={done} checked={selectedManualTasks.includes(taskId)} onChange={event=>setSelectedManualTasks(value=>event.target.checked?[...new Set([...value,taskId])]:value.filter(key=>key!==taskId))}/>验收</label></span><div className="manual-todo-content"><strong>{task.title}</strong><p>{task.detail}</p>{done&&record?.completedAt?<small className="manual-audit-time">验收时间：{new Date(record.completedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})}</small>:null}<dl className="manual-task-details"><div><dt>广告组</dt><dd>{task.adGroup}</dd></div><div><dt>Campaign ID</dt><dd>{task.campaignId}</dd></div><div><dt>具体 SKU</dt><dd>{task.sku}</dd></div><div><dt>广告类型</dt><dd>{task.adType}</dd></div><div><dt>关键词</dt><dd>{task.keywords}</dd></div><div><dt>匹配</dt><dd>{task.match}</dd></div><div><dt>起始 Bid</dt><dd>{task.bid}</dd></div><div><dt>预算</dt><dd>{task.budget}</dd></div><div className="rule"><dt>执行 / 验收规则</dt><dd>{task.rule}</dd></div></dl><div className="manual-task-closure"><label>负责人<input value={draft.owner||''} placeholder="广告运营" onChange={event=>patchManualDraft(taskId,{owner:event.target.value})}/></label><label>执行结果<input value={draft.executionResult||''} placeholder="填写平台实际数值或状态" onChange={event=>patchManualDraft(taskId,{executionResult:event.target.value})}/></label><label>执行证据<input value={draft.evidence||''} placeholder="填写 Partner Home 证据说明" onChange={event=>patchManualDraft(taskId,{evidence:event.target.value})}/></label><label>验收人<input value={draft.acceptedBy||''} placeholder="负责人姓名" onChange={event=>patchManualDraft(taskId,{acceptedBy:event.target.value})}/></label><label>成熟复盘日<input type="date" value={draft.reviewDueAt||''} onChange={event=>patchManualDraft(taskId,{reviewDueAt:event.target.value})}/></label><div><button className="ghost" onClick={()=>saveManualTask(taskId,group.sku,task,progressStatus)}>{done||record?.status==='PENDING_ACCEPTANCE'?'重新打开':'保存进度'}</button><button className="primary" disabled={!draft.executionResult||!draft.evidence||!draft.acceptedBy||record?.status==='REOPENED'} onClick={()=>submitManualAcceptance(taskId,group.sku,task)}>提交验收</button></div></div></div></article>})}</div></details>})}{!loading&&!visibleManualGroups.length?<p className="empty-state">当前筛选没有手动优化任务。</p>:null}</div></section>
     </div>}
     {tab==='ai'&&<>
+    <div className="card model-shadow-card"><div className="section-head"><div><span>MODEL FIRST · READ ONLY</span><h2>广告决策模型 · Shadow</h2></div><b>{decisionModel?`${decisionModel.version} · ${decisionModel.summary.actionableInShadow} 个 Canary 候选 · ${decisionModel.summary.blocked} 个阻断`:'等待成熟数据'}</b></div>
+      {campaignControl&&<><div className="ai-decision-context live-safety-context"><span>已回读执行口径</span><b>Wallet Daily Cap {money2(campaignControl.walletDailyCap)}</b><em>活跃 Campaign Cap 合计 {money2(campaignControl.activeCampaignDailyCap)} · 安全余量 {money2(campaignControl.walletHeadroom)}。Campaign 级暂停必须先检查混投关系，不得因单个零预算 Listing 误伤整组。</em></div>
+      <div className="ai-workbench-metrics"><span><small>Campaign 597350</small><b>Active · {money2(campaignControl.correctedCampaign.dailyCap)}/day</b><em>纠偏后保持活跃</em></span><span><small>商品隔离</small><b>DMOM1025 / LFC-3W</b><em>产品行 Paused，不暂停整组</em></span><span><small>L28 Retail ROAS</small><b>{campaignControl.correctedCampaign.last28RetailRoas.toFixed(2)}×</b><em>{money2(campaignControl.correctedCampaign.last28Spend)} 花费 · {money2(campaignControl.correctedCampaign.last28Revenue)} Revenue</em></span><span><small>继续 Paused</small><b>{campaignControl.pausedCampaignIds.join(' · ')}</b><em>已执行状态，不再生成重复暂停任务</em></span></div></>}
+      <div className="ai-decision-context"><span>长期目标</span><b>最大化预期增量广告后贡献</b><em>当前阶段先学习增量响应。模型只读取成熟数据；因果置信度为 C0，所以只展示归因场景假设，不计算真实增量 ROI 或成功概率，也不会进入广告 API 执行队列。</em></div>
+      <div className="ai-workbench-metrics"><span><small>模型单元</small><b>{decisionModel?.summary.units||0}</b><em>Campaign × Listing</em></span><span><small>Shadow Canary</small><b>{decisionModel?.summary.actionableInShadow||0}</b><em>仅生成实验设计</em></span><span><small>输入阻断</small><b>{decisionModel?.summary.blocked||0}</b><em>成本 / 映射 / 库存 / 链接</em></span><span><small>模型最优预算</small><b>{decisionModel?.optimalBudget.status==='UNKNOWN'?'尚不可估计':money(decisionModel?.optimalBudget.amount||0)}</b><em>等待真实干预响应曲线</em></span></div>
+      <p className="ai-workbench-note">实验最大损失：组合 {money2(decisionModel?.riskPolicy?.portfolioMaxLoss||0)}，单日增量 {money2(decisionModel?.riskPolicy?.portfolioMaxDailyIncrementalLoss||0)}；守住 8 月贡献代理下限 {money2(decisionModel?.riskPolicy?.monthlyContributionFloor||0)}。最早 {decisionModel?.riskPolicy?.earliestStart||'-'} 启动，{decisionModel?.riskPolicy?.earliestMatureReview||'-'} 首评。该下限基于收入目标、当前采购毛利率与基础广告计划，不等同于含退货、物流及扣款后的净利润。</p>
+      <p className="ai-workbench-note">指标口径分开：成熟 WSC ROAS 衡量平台归因销售效率；每 $100 广告花费订单数衡量获单效率；增量营销 ROI 只有在可识别的新增投入与增量贡献同时存在时才计算。贡献利润仍是经营贡献代理，不是店铺净利润。</p>
+      <div className="action-list rich model-shadow-list"><div className="action-head"><span>Listing / Campaign</span><span>模型任务</span><span>置信度</span><span>归因场景假设</span><span>边界</span></div>{modelTodo.map(item=>{const delta=item.attributedScenarioDelta;return <article key={item.id}><div><strong>{item.listing}</strong><small>Campaign {item.campaignId}</small><small>{item.identity.site} · {item.identity.isB2B ? 'B2B' : 'B2C'} · {item.identity.targetingType}</small><small>{item.executionPlan?`8月目标 ${item.executionPlan.listingTargetOrders} Orders · 授权广告池 ${money2(item.executionPlan.listingPlannedAdBudget)}`:'8月计划未映射'}</small></div><div><b>{item.title}</b><small>{item.detail}</small></div><p><b>{item.confidence.data} / {item.confidence.predictive} / {item.confidence.causal}</b><br/>真实增量为正概率：不可估计</p><p>{delta&&delta.orders!=null&&delta.spend!=null&&delta.wsc!=null?<><b>归因订单 {delta.orders>=0?'+':''}{delta.orders.toFixed(2)}</b><br/>花费场景 {delta.spend>=0?'+':''}{money2(delta.spend)}<br/>归因 WSC {delta.wsc>=0?'+':''}{money2(delta.wsc)}<br/>贡献场景 {delta.contributionProxy==null?'不可估计':`${delta.contributionProxy>=0?'+':''}${money2(delta.contributionProxy)}`}</>:<b>等待输入</b>}</p><div className="recommendation-execution"><em className="neutral">Shadow only</em><small>{item.blockers.length?item.blockers.join(' · '):'需先完成预注册、功效分析和人工审批'}</small></div></article>})}{!loading&&!modelTodo.length?<p className="empty-state">当前没有可生成的模型任务。</p>:null}</div>
+    </div>
     <section className="card action-ledger ai-api-workbench"><div className="section-head"><div><span>ADVERTISING API</span><h2>AI API 执行工作台</h2></div><b>{queueLoading?'读取中':`${ready} 项建议 · ${apiQueuedActions.length} 项已入批次 · 成功 ${executedActions.length} · 失败 ${failedActions.length}`}</b></div>
       <div className="ai-decision-context"><span>建议与动作依据</span><b>成熟周 {data?.decisionRange.start||'-'} → {data?.decisionRange.end||'-'}</b><em>成熟数据负责评估；Campaign × Listing 分开计算，不用父体汇总混淆多个 Campaign。</em></div>
       <div className="ai-decision-context live-safety-context"><span>实时安全窗</span><b>{data?.liveSafetyRange?.start||'-'} → {data?.liveSafetyRange?.end||'-'}</b><em>4日异常只报警；持续7日达到真实成熟CVR样本门槛才进入辩论，未成熟数据绝不直接调参。</em></div>
@@ -811,7 +1063,7 @@ function Review({ embedded = false, onOpenPlan }: { embedded?: boolean; onOpenPl
   const selected=allReports[Math.min(report,allReports.length-1)];const spreadsheet=selected.file.endsWith('.xlsx');
   async function uploadReport(file:File|null){if(!file)return;setUploading(true);setUploadMessage('');try{const form=new FormData();form.set('file',file);const response=await fetch('/api/reports',{method:'POST',body:form});const body=await response.json() as UploadedReport&{error?:string};if(!response.ok)throw new Error(body.error||'报告上传失败');setUploads(value=>{const next=[body,...value];writeClientCache('reports:list',next);return next;});setReport(REPORTS.length);setUploadMessage('报告已保存并加入资料库。');}catch(error){setUploadMessage(error instanceof Error?error.message:'报告上传失败');}finally{setUploading(false);}}
   return <>{!embedded&&<Hero eyebrow="MONTHLY REVIEW · FULL REPORTS" title="月度复盘" text="直接阅读完整原报告，不再用四个摘要框代替正文" side={<label className="hero-button upload-report">{uploading?'上传中…':'补充复盘资料'}<input type="file" accept=".html,.htm,.pdf,.xlsx" disabled={uploading} onChange={e=>uploadReport(e.target.files?.[0]||null)}/></label>} />}
-    <section className="review-context" aria-label="复盘与计划月份导航"><button aria-label="查看6月月度复盘" onClick={()=>setReport(REPORTS.findIndex(item=>item.title==='2026年6月月度复盘总览'))}><span>复盘事实月</span><b>2026-06 · 已归档</b></button><i>→</i><button aria-label="返回7月执行计划" onClick={()=>onOpenPlan('july')}><span>当前经营月</span><b>2026-07 · 128 Orders执行中</b></button><i>→</i><button aria-label="查看8月准备计划" onClick={()=>onOpenPlan('august')}><span>下一计划月</span><b>2026-08 · 150 Units准备中</b></button></section>
+    <section className="review-context" aria-label="复盘与计划月份导航"><button aria-label="查看6月月度复盘" onClick={()=>setReport(REPORTS.findIndex(item=>item.title==='2026年6月月度复盘总览'))}><span>复盘事实月</span><b>2026-06 · 已归档</b></button><i>→</i><button aria-label="返回7月执行计划" onClick={()=>onOpenPlan('july')}><span>当前经营月</span><b>2026-07 · 128 Orders执行中</b></button><i>→</i><button aria-label="查看8月推广计划" onClick={()=>onOpenPlan('august')}><span>下一计划月</span><b>2026-08 · 150 Orders推广准备</b></button></section>
     {uploadMessage&&<div className="upload-message">{uploadMessage}</div>}
     <div className="review-grid full-reader"><aside className="card report-list"><div><span>复盘资料</span><h2>完整复盘资料</h2><b>{allReports.length}</b></div>{allReports.map((x,i)=><button className={report===i?'active':''} onClick={()=>setReport(i)} key={`${x.uploaded?'upload':'builtin'}:${x.file}`}><strong>{x.title}</strong><small>{x.kind} · {x.date||'2026/07/15'}</small></button>)}</aside><article className="card report-reader"><header><div><span>{selected.kind} · 完整原报告</span><h2>{selected.title}</h2><p>{selected.summary}</p></div><div className="report-actions">{embedded&&<label className="compact-upload">{uploading?'上传中…':'补充复盘资料'}<input type="file" accept=".html,.htm,.pdf,.xlsx" disabled={uploading} onChange={e=>uploadReport(e.target.files?.[0]||null)}/></label>}<a href={selected.assetUrl} target="_blank" rel="noreferrer">{spreadsheet?'下载原表格':'在新窗口打开'}</a></div></header>{spreadsheet?<div className="sheet-download"><b>执行清单为 XLSX 原表格</b><p>点击右上角下载完整文件；同一内容的可读版请在左侧打开“SKU广告重构执行清单”。</p><a href={selected.assetUrl} download>下载 {selected.file}</a></div>:<iframe key={selected.assetUrl} title={selected.title} src={selected.assetUrl} sandbox={selected.uploaded?'':'allow-same-origin allow-scripts allow-popups'} />}</article></div>
   </>;
@@ -890,12 +1142,73 @@ function NewProductSopWorkspace() {
 }
 
 function SkuOperatingPerformance() {
-  const [query,setQuery]=useState('');const [category,setCategory]=useState('ALL');const [sort,setSort]=useState<SortState>({key:'revenue',direction:'desc'});
+  const retained=readClientCache<ProductOperatingAudit>('product-operating-audit:2026-07-27.v2',CLIENT_CACHE_RETENTION_MS);
+  const [audit,setAudit]=useState<ProductOperatingAudit|null>(retained);
+  const [auditError,setAuditError]=useState('');
+  const [query,setQuery]=useState('');
+  const [tier,setTier]=useState('ALL');
+  const [category,setCategory]=useState('ALL');
+  const [sort,setSort]=useState<SortState>({key:'revenue',direction:'desc'});
+  useEffect(()=>{
+    const controller=new AbortController();
+    fetch('/api/products/operating-audit',{signal:controller.signal})
+      .then(async response=>{const body=await response.json() as ProductOperatingAudit&{error?:string};if(!response.ok)throw new Error(body.error||'产品运营审计读取失败');return body;})
+      .then(body=>{setAudit(body);writeClientCache('product-operating-audit:2026-07-27.v2',body);})
+      .catch(reason=>{if(reason.name!=='AbortError')setAuditError(reason.message||'产品运营审计读取失败');});
+    return()=>controller.abort();
+  },[]);
   const categories=Array.from(new Set(LEGACY_OPERATING_DATA.skus.map(item=>item["Class Name"]).filter(Boolean))).sort();
   const needle=query.trim().toLowerCase();
-  const rows=sortRows(LEGACY_OPERATING_DATA.skus.filter(item=>(category==='ALL'||item["Class Name"]===category)&&(!needle||[item["Wayfair Sku"],item["Supplier Part Number"],item["Product Name"],item.cn_name].some(value=>String(value||'').toLowerCase().includes(needle)))),sort,{sku:(item:LegacySku)=>item["Wayfair Sku"],name:(item:LegacySku)=>item.cn_name||item["Product Name"],category:(item:LegacySku)=>item["Class Name"],grade:(item:LegacySku)=>item.grade,revenue:(item:LegacySku)=>item["Total Revenue"],cvr:(item:LegacySku)=>item.CVR,sessions:(item:LegacySku)=>item.Sessions,rating:(item:LegacySku)=>item.rating,tag:(item:LegacySku)=>item.tag_pct,wsc:(item:LegacySku)=>item.wsc,cogs:(item:LegacySku)=>item.cogs,margin:(item:LegacySku)=>item.my_margin,space:(item:LegacySku)=>item.wf_space}) as LegacySku[];
+  const roleRows=(audit?.roles||[]).filter(row=>(tier==='ALL'||row.tier===tier)&&(!needle||[row.listing,row.tier,row.role,...row.parts,...row.conflictParts].some(value=>String(value||'').toLowerCase().includes(needle))));
+  const legacyRows=sortRows(LEGACY_OPERATING_DATA.skus.filter(item=>(category==='ALL'||item["Class Name"]===category)&&(!needle||[item["Wayfair Sku"],item["Supplier Part Number"],item["Product Name"],item.cn_name].some(value=>String(value||'').toLowerCase().includes(needle)))),sort,{sku:(item:LegacySku)=>item["Wayfair Sku"],name:(item:LegacySku)=>item.cn_name||item["Product Name"],category:(item:LegacySku)=>item["Class Name"],grade:(item:LegacySku)=>item.grade,revenue:(item:LegacySku)=>item["Total Revenue"],cvr:(item:LegacySku)=>item.CVR,sessions:(item:LegacySku)=>item.Sessions,rating:(item:LegacySku)=>item.rating,tag:(item:LegacySku)=>item.tag_pct,wsc:(item:LegacySku)=>item.wsc,cogs:(item:LegacySku)=>item.cogs,margin:(item:LegacySku)=>item.my_margin,space:(item:LegacySku)=>item.wf_space}) as LegacySku[];
   const onSort=(field:string)=>setSort(value=>nextSort(value,field) as SortState);
-  return <section className="card legacy-data-card"><div className="section-head"><div><span>2026-06 经营基线</span><h2>SKU 经营表现</h2></div><b>{rows.length} / {LEGACY_OPERATING_DATA.skus.length} 个 Part</b></div><div className="legacy-filters"><label>搜索<input value={query} onChange={event=>setQuery(event.target.value)} placeholder="SKU、Supplier Part 或名称"/></label><label>类目<select value={category} onChange={event=>setCategory(event.target.value)}><option value="ALL">全部类目</option>{categories.map(item=><option value={item} key={item}>{item}</option>)}</select></label></div><div className="legacy-table-scroll"><div className="legacy-table sku-economics-table"><div className="legacy-row head"><SortHeader label="产品 / Part" field="sku" sort={sort} onSort={onSort}/><SortHeader label="中文名" field="name" sort={sort} onSort={onSort}/><SortHeader label="类目" field="category" sort={sort} onSort={onSort}/><SortHeader label="级" field="grade" sort={sort} onSort={onSort}/><SortHeader label="营收" field="revenue" sort={sort} onSort={onSort}/><SortHeader label="CVR · 访问" field="cvr" sort={sort} onSort={onSort}/><SortHeader label="评分 · 评论" field="rating" sort={sort} onSort={onSort}/><SortHeader label="Tag%" field="tag" sort={sort} onSort={onSort}/><SortHeader label="WSC" field="wsc" sort={sort} onSort={onSort}/><SortHeader label="拿货" field="cogs" sort={sort} onSort={onSort}/><SortHeader label="毛利率" field="margin" sort={sort} onSort={onSort}/><SortHeader label="空间" field="space" sort={sort} onSort={onSort}/></div>{rows.map((item,index)=><article className="legacy-row" key={`${item["Supplier Part Number"]}:${index}`}><span><b>{item["Wayfair Sku"]}</b><small>{item["Supplier Part Number"]}</small></span><span><b>{item.cn_name||'—'}</b><small>{item["Product Name"]}</small></span><span>{item["Class Name"]}</span><em className={`grade grade-${String(item.grade||'c').toLowerCase()}`}>{item.grade||'—'}</em><b>{money(item["Total Revenue"])}</b><span><b>{(item.CVR*100).toFixed(2)}%</b><small>{item.Sessions} 访</small></span><span><b>{item.rating||'—'}</b><small>{item.review_count||0} 条</small></span><b>{item.tag_pct.toFixed(0)}%</b><b>{money2(item.wsc)}</b><b>{money2(item.cogs)}</b><span className={item.my_margin>=.2?'good':'bad'}><b>{(item.my_margin*100).toFixed(1)}%</b><small>{money2(item.my_profit)}</small></span><b className={item.wf_space>=.2?'good':'bad'}>{(item.wf_space*100).toFixed(0)}%</b></article>)}</div></div></section>;
+  const june=audit?.account.find(row=>row.period==='Jun');
+  const july=audit?.account.find(row=>row.period==='Jul26');
+  const dailyRevenueDelta=june&&july?july.revenuePerDay/june.revenuePerDay-1:null;
+  const dailyContributionDelta=june&&july?july.contributionPerDay/june.contributionPerDay-1:null;
+  return <div className="product-audit-workspace">
+    <section className="card product-audit-summary">
+      <div className="section-head"><div><span>父体 LISTING 运营角色 · 不授权动作</span><h2>SKU 经营表现 · 当前运营角色与利润审计</h2></div><b>{audit?.version||'读取中'}</b></div>
+      {auditError?<p className="inventory-message bad">{auditError}</p>:null}
+      <div className="product-audit-meta">
+        <span><b>指标完整截止</b>{audit?.performanceThrough||'—'}</span>
+        <span><b>角色证据截止</b>{audit?.roleEvidenceThrough||'—'}</span>
+        <span><b>角色版本</b>{audit?.version||'—'}</span>
+        <span><b>成本更新时间</b>{audit?.costUpdatedAt?new Date(audit.costUpdatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'—'}</span>
+        <span><b>审核负责人</b>{audit?.review.owner||'—'}</span>
+      </div>
+      <div className="product-audit-account">
+        <article><small>采购价差毛利率</small><b>{july?`${(july.procurementMargin*100).toFixed(2)}%`:'—'}</b><span>6月 {june?`${(june.procurementMargin*100).toFixed(2)}%`:'—'}</span></article>
+        <article><small>日均收入</small><b>{july?money(july.revenuePerDay):'—'}</b><span>{dailyRevenueDelta==null?'—':`${(dailyRevenueDelta*100).toFixed(1)}% vs 6月`}</span></article>
+        <article><small>日均已知费用后贡献代理</small><b>{july?money(july.contributionPerDay):'—'}</b><span>{dailyContributionDelta==null?'—':`${(dailyContributionDelta*100).toFixed(1)}% vs 6月`}</span></article>
+        <article><small>成熟广告覆盖缺口</small><b>{audit?money(audit.adCoverage.unallocatedSpend):'—'}</b><span>{audit?`${(audit.adCoverage.listingCoverageRate*100).toFixed(1)}% 已分到 Listing`:'—'}</span></article>
+      </div>
+      <div className="product-audit-contract"><b>只读动作约束</b><p>{audit?.executionRule||'G4 默认 HOLD；审计视图不生成任何执行动作。'}</p><small>{audit?.profitDefinition||'采购价差毛利及已知费用后贡献上限不是净利润。'}</small></div>
+    </section>
+    <section className="card product-audit-card">
+      <div className="legacy-filters"><label>搜索<input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Listing、Part 或运营角色"/></label><label>角色层级<select value={tier} onChange={event=>setTier(event.target.value)}><option value="ALL">全部角色</option>{['G1','G2','G3','G4-D','G4-R','GX'].map(value=><option value={value} key={value}>{value}</option>)}</select></label></div>
+      <div className="product-audit-table"><div className="product-audit-row head"><span>Listing / Part</span><span>运营角色</span><span>动作约束</span><span>成熟证据</span><span>采购价差毛利</span><span>Listing广告</span><span>已知费用后贡献上限</span><span>运营说明</span></div>
+        {roleRows.map(row=><article className={`product-audit-row ${row.tier==='GX'?'isolated':''}`} key={row.listing}>
+          <span><b>{row.listing}</b><small>{row.parts.length?row.parts.join(' / '):'未绑定 Part（隔离）'}</small>{row.conflictParts.length?<em>冲突候选，不归属：{row.conflictParts.join(' / ')}</em>:null}</span>
+          <span><i className={`product-audit-tier tier-${row.tier.replace(/[^a-z0-9]/gi,'').toLowerCase()}`}>{row.tier}</i><b>{row.role}</b><small>置信度 {row.confidence}</small></span>
+          <span><strong className={row.actionGuardrail==='HARD_STOP_REQUIRED'?'bad':'neutral'}>{row.actionGuardrail}</strong><small>平台状态 {row.platformStatus}</small><small>最近执行结果 {row.lastExecutionResult||'无'}</small></span>
+          <span><b>{row.mature56Units} 件 / 56日</b><small>{row.julyVsJuneDaily==null?'动量 N/A':`7月日销 ${(row.julyVsJuneDaily*100).toFixed(1)}%`}</small><small>{audit?.matureWindow.start} → {audit?.matureWindow.end} · T-14成熟</small></span>
+          <span><b>{row.matureMargin==null?'N/A':`${(row.matureMargin*100).toFixed(1)}%`}</b><small>未扣退货/物流/扣款/活动费</small></span>
+          <span><b>{row.listingAdSpend>0&&row.listingRoas!=null?`${row.listingRoas.toFixed(2)}×`:'N/A'}</b><small>保本 {row.breakEvenRoas==null?'N/A':`${row.breakEvenRoas.toFixed(2)}×`}</small><em>广告覆盖缺口 {audit?money(audit.adCoverage.unallocatedSpend):'—'}</em></span>
+          <span className={row.knownContributionUpperBound<0?'bad':'good'}><b>{money(row.knownContributionUpperBound)}</b><small>非净利润 · 非广告增量利润</small></span>
+          <span><p>{row.operatorNote}</p><small>角色证据截止 {audit?.roleEvidenceThrough||'—'} · 成本 {audit?.costUpdatedAt?.slice(0,10)||'—'}</small></span>
+        </article>)}
+        {!audit&&!auditError?<p className="empty-state">正在读取产品运营审计…</p>:null}
+        {audit&&!roleRows.length?<p className="empty-state">没有符合筛选条件的父体 Listing。</p>:null}
+      </div>
+    </section>
+    <details className="card legacy-data-card">
+      <summary><span>历史基线 · 仅作证据</span><b>2026-06旧收入层级 · 旧 A/B/C/D 不用于当前动作</b><small>DRCI1007 曾为 A 级，但因平台合并仍属于永久剔除，证明旧收入层级不能作为动作授权。</small></summary>
+      <div className="section-head"><div><span>2026-06旧收入层级</span><h2>历史 Part 经营表现</h2></div><b>{legacyRows.length} / {LEGACY_OPERATING_DATA.skus.length} 个 Part</b></div>
+      <div className="legacy-filters"><label>类目<select value={category} onChange={event=>setCategory(event.target.value)}><option value="ALL">全部类目</option>{categories.map(item=><option value={item} key={item}>{item}</option>)}</select></label></div>
+      <div className="legacy-table-scroll"><div className="legacy-table sku-economics-table"><div className="legacy-row head"><SortHeader label="产品 / Part" field="sku" sort={sort} onSort={onSort}/><SortHeader label="中文名" field="name" sort={sort} onSort={onSort}/><SortHeader label="类目" field="category" sort={sort} onSort={onSort}/><SortHeader label="旧收入层级" field="grade" sort={sort} onSort={onSort}/><SortHeader label="营收" field="revenue" sort={sort} onSort={onSort}/><SortHeader label="CVR · 访问" field="cvr" sort={sort} onSort={onSort}/><SortHeader label="评分 · 评论" field="rating" sort={sort} onSort={onSort}/><SortHeader label="Tag%" field="tag" sort={sort} onSort={onSort}/><SortHeader label="WSC" field="wsc" sort={sort} onSort={onSort}/><SortHeader label="旧拿货成本" field="cogs" sort={sort} onSort={onSort}/><SortHeader label="旧毛利率" field="margin" sort={sort} onSort={onSort}/><SortHeader label="空间" field="space" sort={sort} onSort={onSort}/></div>{legacyRows.map((item,index)=><article className="legacy-row" key={`${item["Supplier Part Number"]}:${index}`}><span><b>{item["Wayfair Sku"]}</b><small>{item["Supplier Part Number"]}</small></span><span><b>{item.cn_name||'—'}</b><small>{item["Product Name"]}</small></span><span>{item["Class Name"]}</span><em>{item.grade||'—'}</em><b>{money(item["Total Revenue"])}</b><span><b>{(item.CVR*100).toFixed(2)}%</b><small>{item.Sessions} 访</small></span><span><b>{item.rating||'—'}</b><small>{item.review_count||0} 条</small></span><b>{item.tag_pct.toFixed(0)}%</b><b>{money2(item.wsc)}</b><b>{money2(item.cogs)}</b><span><b>{(item.my_margin*100).toFixed(1)}%</b><small>{money2(item.my_profit)}</small></span><b>{(item.wf_space*100).toFixed(0)}%</b></article>)}</div></div>
+    </details>
+  </div>;
 }
 
 function MonthlyOperatingHistory() {
@@ -906,14 +1219,51 @@ function MonthlyOperatingHistory() {
 
 function PlanningWorkspace({ tab, onTabChange }: { tab: PlanningTab; onTabChange: (tab: PlanningTab) => void }) {
   const [planSection,setPlanSection]=useState<PlanSection>('july');
-  return <><Hero eyebrow="" title={tab==='plan'?'运营计划':tab==='history'?'历史月度':'复盘资料'} text="" />
-    {tab==='plan'?<Plan embedded tab={planSection} onTabChange={setPlanSection} onOpenReview={()=>onTabChange('review')}/>:tab==='history'?<MonthlyOperatingHistory/>:<Review embedded onOpenPlan={section=>{setPlanSection(section);onTabChange('plan');}}/>}
+  function openPlanSection(section:PlanSection){setPlanSection(section);onTabChange(section==='august'?'august':'plan');}
+  return <><Hero eyebrow="" title={tab==='august'?'8月推广计划':tab==='plan'?'运营计划':tab==='history'?'历史月度':'复盘资料'} text="" />
+    {tab==='august'?<Plan embedded tab="august" onTabChange={openPlanSection} onOpenReview={()=>onTabChange('review')}/>:tab==='plan'?<Plan embedded tab={planSection} onTabChange={openPlanSection} onOpenReview={()=>onTabChange('review')}/>:tab==='history'?<MonthlyOperatingHistory/>:<Review embedded onOpenPlan={openPlanSection}/>}
   </>;
 }
 
 function ProductWorkspace({ tab }: { tab: ProductTab }) {
   return <><Hero eyebrow="" title={tab==='inventory'?'库存更新':tab==='launch'?'推新 SOP':tab==='performance'?'SKU 经营':'商品数据'} text="" />
     {tab==='inventory'?<Inventory embedded/>:tab==='launch'?<NewProductSopWorkspace/>:tab==='performance'?<SkuOperatingPerformance/>:<Catalog embedded/>}
+  </>;
+}
+
+const OPERATION_STATUS_LABELS:Record<string,string>={
+  DISCOVERED:'待分派',ASSIGNED:'已分派',PENDING_APPROVAL:'待审批',PREFLIGHTED:'已预检',
+  EXECUTING:'执行中',PENDING_ACCEPTANCE:'待验收',VERIFIED:'已验证',
+  PENDING_REVIEW:'待复盘',CLOSED:'已闭环',FAILED:'失败',ROLLED_BACK:'已回滚',REOPENED:'已重开',
+};
+
+function TaskCenter() {
+  const [records,setRecords]=useState<OperationRecord[]>([]);
+  const [status,setStatus]=useState('ACTIVE');
+  const [query,setQuery]=useState('');
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  useEffect(()=>{
+    const controller=new AbortController();
+    fetch('/api/operations/',{signal:controller.signal})
+      .then(async response=>{const body=await response.json() as {records?:OperationRecord[];error?:string};if(!response.ok)throw new Error(body.error||'闭环任务读取失败');return body.records||[];})
+      .then(setRecords)
+      .catch(reason=>{if(reason.name!=='AbortError')setError(reason.message||'闭环任务读取失败');})
+      .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    return()=>controller.abort();
+  },[]);
+  const needle=query.trim().toLowerCase();
+  const visible=records.filter(record=>(status==='ALL'||(status==='ACTIVE'?!['CLOSED','ROLLED_BACK'].includes(record.status):record.status===status))&&(!needle||[record.title,record.objectId,record.owner,record.sourceType].some(value=>String(value||'').toLowerCase().includes(needle))));
+  const pendingAcceptance=records.filter(record=>record.status==='PENDING_ACCEPTANCE').length;
+  const pendingReview=records.filter(record=>record.status==='PENDING_REVIEW').length;
+  const closed=records.filter(record=>record.status==='CLOSED').length;
+  return <><Hero eyebrow="" title="闭环任务" text="" />
+    <section className="card task-center-summary"><div><span>统一任务账本</span><h2>从发现到验收与复盘</h2><p>所有新动作都通过 operation ID 关联业务对象、负责人、证据、验收和复盘；复选框不再代表完成。</p></div><article><small>待验收</small><b>{pendingAcceptance}</b></article><article><small>待复盘</small><b>{pendingReview}</b></article><article><small>已闭环</small><b>{closed}</b></article></section>
+    <section className="card task-center-board">
+      <div className="task-center-tools"><label>搜索<input value={query} onChange={event=>setQuery(event.target.value)} placeholder="对象、负责人或任务"/></label><label>状态<select value={status} onChange={event=>setStatus(event.target.value)}><option value="ACTIVE">全部未闭环</option><option value="ALL">全部</option>{Object.entries(OPERATION_STATUS_LABELS).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label><b>{visible.length} 条</b></div>
+      {error?<p className="inventory-message bad">{error}</p>:null}
+      <div className="task-center-list">{visible.map(record=><article className="task-card" key={record.operationId}><header><span className={`operation-status status-${record.status.toLowerCase()}`}>{OPERATION_STATUS_LABELS[record.status]||record.status}</span><b>{record.title}</b><time>{new Date(record.updatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})}</time></header><div className="task-card-grid"><span><small>业务对象</small><b>{record.objectType} · {record.objectId}</b></span><span><small>负责人</small><b>{record.owner}</b></span><span><small>来源</small><b>{record.sourceType}</b></span><span><small>Operation ID</small><b>{record.operationId}</b></span></div><p><b>下一动作：</b>{record.proposedAction}</p>{record.executionResult?<p><b>执行结果：</b>{record.executionResult}</p>:null}<footer><span>证据 {record.evidence?.length||0} 项</span><span>验收人 {record.acceptedBy||'待补充'}</span><span>复盘 {record.reviewVerdict||record.reviewDueAt||'待安排'}</span></footer></article>)}{!loading&&!visible.length?<p className="empty-state">当前筛选没有任务。执行或记录第一项动作后会进入统一账本。</p>:null}{loading?<p className="empty-state">正在读取统一任务账本…</p>:null}</div>
+    </section>
   </>;
 }
 
@@ -943,12 +1293,34 @@ function Help() {
 
 export default function OpsCenter() {
   const [view,setView]=useState<View>('dashboard');
+  const [dailyTab,setDailyTab]=useState<DailyTab>('operating');
   const [adsTab,setAdsTab]=useState<AdsTab>('manager');
   const [planningTab,setPlanningTab]=useState<PlanningTab>('plan');
   const [productTab,setProductTab]=useState<ProductTab>('inventory');
+  useEffect(()=>{
+    function restoreNavigation(){
+      const state=navigationStateFromSearch(window.location.search);
+      setView(state.view as View);
+      if(state.view==='daily'&&state.tab)setDailyTab(state.tab as DailyTab);
+      if(state.view==='planning'&&state.tab)setPlanningTab(state.tab as PlanningTab);
+      if(state.view==='ads'&&state.tab)setAdsTab(state.tab as AdsTab);
+      if(state.view==='products'&&state.tab)setProductTab(state.tab as ProductTab);
+    }
+    restoreNavigation();
+    window.addEventListener('popstate',restoreNavigation);
+    return()=>window.removeEventListener('popstate',restoreNavigation);
+  },[]);
   useEffect(()=>{window.scrollTo(0,0);const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view]);
-  const activeSub: SubView | null=view==='ads'?adsTab:view==='planning'?planningTab:view==='products'?productTab:null;
-  function navigateSub(next:SubView){if(view==='ads'&&(next==='manager'||next==='listings'||next==='ai'||next==='manual'||next==='review'))setAdsTab(next);if(view==='planning'&&(next==='plan'||next==='review'||next==='history'))setPlanningTab(next);if(view==='products'&&(next==='inventory'||next==='catalog'||next==='launch'||next==='performance'))setProductTab(next);}
-  const page=useMemo(()=>({dashboard:<Dashboard/>,daily:<Daily/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={setPlanningTab}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view],[view,adsTab,planningTab,productTab]);
-  return <div className="app app-shell"><ShellHeader active={view} activeSub={activeSub} onNavigate={setView} onSubNavigate={navigateSub}/><div className="content-shell"><main>{page}</main><footer><span>Wayfair AI 运营中台</span><span>个人测试阶段</span></footer></div></div>;
+  const activeSub: SubView | null=view==='daily'?dailyTab:view==='ads'?adsTab:view==='planning'?planningTab:view==='products'?productTab:null;
+  function updateLocation(nextView:View,nextTab:SubView|null=null){window.history.pushState({},'',navigationSearch({view:nextView,tab:nextTab}));}
+  function navigateView(next:View){setView(next);const nextTab=next==='daily'?dailyTab:next==='ads'?adsTab:next==='planning'?planningTab:next==='products'?productTab:null;updateLocation(next,nextTab);}
+  function navigateSub(next:SubView){
+    if(view==='daily'&&(next==='operating'||next==='email'))setDailyTab(next);
+    if(view==='ads'&&(next==='manager'||next==='listings'||next==='ai'||next==='manual'||next==='review'))setAdsTab(next);
+    if(view==='planning'&&(next==='plan'||next==='august'||next==='review'||next==='history'))setPlanningTab(next);
+    if(view==='products'&&(next==='inventory'||next==='catalog'||next==='launch'||next==='performance'))setProductTab(next);
+    updateLocation(view,next);
+  }
+  const page=({dashboard:<Dashboard/>,tasks:<TaskCenter/>,daily:<DailyWorkspace tab={dailyTab}/>,ads:<Ads tab={adsTab}/>,planning:<PlanningWorkspace tab={planningTab} onTabChange={navigateSub}/>,products:<ProductWorkspace tab={productTab}/>,sources:<Sources/>,help:<Help/>})[view];
+  return <div className="app app-shell"><ShellHeader active={view} activeSub={activeSub} onNavigate={navigateView} onSubNavigate={navigateSub}/><div className="content-shell"><main>{page}</main><footer><span>Wayfair AI 运营中台</span><span>个人测试阶段</span></footer></div></div>;
 }

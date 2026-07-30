@@ -21,8 +21,19 @@ CREATE INDEX IF NOT EXISTS order_items_part_number_idx ON order_items(part_numbe
 CREATE TABLE IF NOT EXISTS sku_costs (
   part_number TEXT PRIMARY KEY,
   unit_cost_cents INTEGER NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'UNVERIFIED' CHECK (currency IN ('USD', 'UNVERIFIED')),
+  currency_certified_at TEXT,
+  currency_certification_source TEXT,
   source TEXT NOT NULL DEFAULT 'manual',
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  CHECK (
+    currency = 'UNVERIFIED'
+    OR (
+      currency = 'USD'
+      AND currency_certified_at IS NOT NULL
+      AND currency_certification_source IS NOT NULL
+    )
+  )
 );
 
 CREATE TABLE IF NOT EXISTS sync_state (
@@ -109,14 +120,6 @@ CREATE TABLE IF NOT EXISTS ad_manual_completions (
   campaign_id TEXT NOT NULL DEFAULT '',
   ad_group TEXT NOT NULL DEFAULT '',
   title TEXT NOT NULL DEFAULT '',
-  owner TEXT NOT NULL DEFAULT '运营负责人',
-  assignee TEXT NOT NULL DEFAULT '广告 Agent',
-  execution_channel TEXT NOT NULL DEFAULT 'Wayfair Partner Home',
-  execution_result TEXT NOT NULL DEFAULT '',
-  wayfair_evidence TEXT NOT NULL DEFAULT '',
-  receiver TEXT NOT NULL DEFAULT '',
-  review_date TEXT NOT NULL DEFAULT '',
-  closed_loop_status TEXT NOT NULL DEFAULT 'ASSIGNED',
   status TEXT NOT NULL DEFAULT 'OPEN',
   completed_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL

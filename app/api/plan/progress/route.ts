@@ -12,8 +12,17 @@ import {
 import {
   AUGUST_PROMOTION_EVENTS,
   AUGUST_PROMOTION_PLAN,
+  AUGUST_PROMOTION_PORTFOLIO,
+  AUGUST_QUANTITY_PROMOTION,
   promotionReviewSummary,
+  syncPromotionsToSalesPlan,
 } from "../../../../lib/august-promotion.mjs";
+import {
+  AUGUST_SALES_MILESTONES,
+  AUGUST_SALES_PLAN,
+  AUGUST_SALES_PLAN_ROWS,
+  summarizeAugustSalesPlan,
+} from "../../../../lib/august-sales-plan.mjs";
 import { cachedAdSpend } from "../../../../lib/wayfair-ads";
 import { eventCycleForDate } from "../../../../lib/event-cycle.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
@@ -125,8 +134,15 @@ export async function GET() {
         plan: AUGUST_PLAN,
         listings: AUGUST_PLAN_LISTINGS.filter((item) => Number(item.augustUnits || 0) > 0).map((item) => ({ ...item, actualUnits: 0 })),
         milestones: WEEKLY_MILESTONES,
+        salesPlan: AUGUST_SALES_PLAN,
+        salesPlanRows: syncPromotionsToSalesPlan(AUGUST_SALES_PLAN_ROWS),
+        salesPlanSummary: summarizeAugustSalesPlan(AUGUST_SALES_PLAN_ROWS),
+        salesMilestones: AUGUST_SALES_MILESTONES,
+        promotionPlanStatus: "SYNCED_AFTER_SUBMISSION",
         promotionEvents: AUGUST_PROMOTION_EVENTS,
         promotionPlan: AUGUST_PROMOTION_PLAN,
+        quantityPromotion: AUGUST_QUANTITY_PROMOTION,
+        promotionPortfolio: AUGUST_PROMOTION_PORTFOLIO,
         promotionSummary: promotionReviewSummary(AUGUST_PROMOTION_PLAN),
       },
     });

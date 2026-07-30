@@ -1,4 +1,5 @@
 import { validateManualCompletion } from "@/lib/manual-ad-completions.mjs";
+import { upsertOperation } from "@/lib/operation-ledger.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
 function sameOrigin(request: Request) {
@@ -14,27 +15,25 @@ async function ensureTables(db: D1Database) {
     campaign_id TEXT NOT NULL DEFAULT '',
     ad_group TEXT NOT NULL DEFAULT '',
     title TEXT NOT NULL DEFAULT '',
-    owner TEXT NOT NULL DEFAULT '运营负责人',
-    assignee TEXT NOT NULL DEFAULT '广告 Agent',
-    execution_channel TEXT NOT NULL DEFAULT 'Wayfair Partner Home',
-    execution_result TEXT NOT NULL DEFAULT '',
-    wayfair_evidence TEXT NOT NULL DEFAULT '',
-    receiver TEXT NOT NULL DEFAULT '',
-    review_date TEXT NOT NULL DEFAULT '',
-    closed_loop_status TEXT NOT NULL DEFAULT 'ASSIGNED',
     status TEXT NOT NULL DEFAULT 'OPEN',
+    operation_id TEXT,
+    owner TEXT NOT NULL DEFAULT '待分派',
+    execution_result TEXT,
+    evidence TEXT,
+    acceptance_criteria TEXT,
+    accepted_by TEXT,
+    review_due_at TEXT,
     completed_at TEXT,
     updated_at TEXT NOT NULL
   )`).run();
   await Promise.all([
-    "ALTER TABLE ad_manual_completions ADD COLUMN owner TEXT NOT NULL DEFAULT '运营负责人'",
-    "ALTER TABLE ad_manual_completions ADD COLUMN assignee TEXT NOT NULL DEFAULT '广告 Agent'",
-    "ALTER TABLE ad_manual_completions ADD COLUMN execution_channel TEXT NOT NULL DEFAULT 'Wayfair Partner Home'",
-    "ALTER TABLE ad_manual_completions ADD COLUMN execution_result TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE ad_manual_completions ADD COLUMN wayfair_evidence TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE ad_manual_completions ADD COLUMN receiver TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE ad_manual_completions ADD COLUMN review_date TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE ad_manual_completions ADD COLUMN closed_loop_status TEXT NOT NULL DEFAULT 'ASSIGNED'",
+    "ALTER TABLE ad_manual_completions ADD COLUMN operation_id TEXT",
+    "ALTER TABLE ad_manual_completions ADD COLUMN owner TEXT NOT NULL DEFAULT '待分派'",
+    "ALTER TABLE ad_manual_completions ADD COLUMN execution_result TEXT",
+    "ALTER TABLE ad_manual_completions ADD COLUMN evidence TEXT",
+    "ALTER TABLE ad_manual_completions ADD COLUMN acceptance_criteria TEXT",
+    "ALTER TABLE ad_manual_completions ADD COLUMN accepted_by TEXT",
+    "ALTER TABLE ad_manual_completions ADD COLUMN review_due_at TEXT",
   ].map(async (sql) => {
     try {
       await db.prepare(sql).run();
@@ -64,15 +63,14 @@ export async function GET() {
       campaign_id AS "campaignId",
       ad_group AS "adGroup",
       title,
-      owner,
-      assignee,
-      execution_channel AS "executionChannel",
-      execution_result AS "executionResult",
-      wayfair_evidence AS "wayfairEvidence",
-      receiver,
-      review_date AS "reviewDate",
-      closed_loop_status AS "closedLoopStatus",
       status,
+      operation_id AS "operationId",
+      owner,
+      execution_result AS "executionResult",
+      evidence,
+      acceptance_criteria AS "acceptanceCriteria",
+      accepted_by AS "acceptedBy",
+      review_due_at AS "reviewDueAt",
       completed_at AS "completedAt",
       updated_at AS "updatedAt"
       FROM ad_manual_completions ORDER BY updated_at DESC`).all();
@@ -89,31 +87,63 @@ export async function POST(request: Request) {
     await ensureTables(env.DB);
     const record = validateManualCompletion(await request.json());
     const now = new Date().toISOString();
-    const completedAt = record.status === "COMPLETED" ? now : null;
+    const operationStatus = {
+      OPEN: "DISCOVERED",
+      IN_PROGRESS: "EXECUTING",
+      PENDING_ACCEPTANCE: "PENDING_ACCEPTANCE",
+      VERIFIED: "VERIFIED",
+      REOPENED: "REOPENED",
+      FAILED: "FAILED",
+    }[record.status] || "DISCOVERED";
+    await upsertOperation(env.DB, {
+      operationId: record.operationId,
+      sourceType: "MANUAL_AD",
+      sourceId: record.taskKey,
+      objectType: "PARENT_SKU",
+      objectId: record.parentSku,
+      title: record.title || record.taskId,
+      owner: record.owner,
+      status: operationStatus,
+      proposedAction: record.title || record.taskId,
+      beforeState: { campaignId: record.campaignId, adGroup: record.adGroup },
+      intendedAfterState: { acceptanceCriteria: record.acceptanceCriteria },
+      executionResult: record.executionResult,
+      evidence: record.evidence,
+      acceptanceCriteria: record.acceptanceCriteria,
+      acceptedBy: record.acceptedBy,
+      reviewDueAt: record.reviewDueAt,
+    }, "MANUAL_TASK_UPDATED");
+    const completedAt = record.status === "VERIFIED" ? now : null;
     await env.DB.batch([
       env.DB.prepare(`INSERT INTO ad_manual_completions(
-        task_key,parent_sku,task_id,campaign_id,ad_group,title,owner,assignee,execution_channel,execution_result,wayfair_evidence,receiver,review_date,closed_loop_status,status,completed_at,updated_at
-      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        task_key,parent_sku,task_id,campaign_id,ad_group,title,status,operation_id,owner,
+        execution_result,evidence,acceptance_criteria,accepted_by,review_due_at,completed_at,updated_at
+      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       ON CONFLICT(task_key) DO UPDATE SET
         parent_sku=excluded.parent_sku,
         task_id=excluded.task_id,
         campaign_id=excluded.campaign_id,
         ad_group=excluded.ad_group,
         title=excluded.title,
-        owner=excluded.owner,
-        assignee=excluded.assignee,
-        execution_channel=excluded.execution_channel,
-        execution_result=excluded.execution_result,
-        wayfair_evidence=excluded.wayfair_evidence,
-        receiver=excluded.receiver,
-        review_date=excluded.review_date,
-        closed_loop_status=excluded.closed_loop_status,
         status=excluded.status,
+        operation_id=excluded.operation_id,
+        owner=excluded.owner,
+        execution_result=excluded.execution_result,
+        evidence=excluded.evidence,
+        acceptance_criteria=excluded.acceptance_criteria,
+        accepted_by=excluded.accepted_by,
+        review_due_at=excluded.review_due_at,
         completed_at=excluded.completed_at,
         updated_at=excluded.updated_at`)
-        .bind(record.taskKey, record.parentSku, record.taskId, record.campaignId, record.adGroup, record.title, record.owner, record.assignee, record.executionChannel, record.executionResult, record.wayfairEvidence, record.receiver, record.reviewDate, record.closedLoopStatus, record.status, completedAt, now),
+        .bind(
+          record.taskKey, record.parentSku, record.taskId, record.campaignId,
+          record.adGroup, record.title, record.status, record.operationId, record.owner,
+          record.executionResult || null, record.evidence || null,
+          record.acceptanceCriteria, record.acceptedBy || null,
+          record.reviewDueAt || null, completedAt, now,
+        ),
       env.DB.prepare("INSERT INTO ad_manual_completion_events(id,task_key,event_type,payload,created_at) VALUES(?,?,?,?,?)")
-        .bind(crypto.randomUUID(), record.taskKey, record.status === "COMPLETED" ? "CLOSED_LOOP_RECORDED" : "REOPENED", JSON.stringify(record), now),
+        .bind(crypto.randomUUID(), record.taskKey, record.status, JSON.stringify(record), now),
     ]);
     return Response.json({ record: { ...record, completedAt, updatedAt: now } });
   } catch (error) {

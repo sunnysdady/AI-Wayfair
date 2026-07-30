@@ -6,13 +6,13 @@ export type ManualCompletionInput = {
   adGroup?: unknown;
   title?: unknown;
   completed?: unknown;
+  status?: unknown;
   owner?: unknown;
-  assignee?: unknown;
-  executionChannel?: unknown;
   executionResult?: unknown;
-  wayfairEvidence?: unknown;
-  receiver?: unknown;
-  reviewDate?: unknown;
+  evidence?: unknown;
+  acceptanceCriteria?: unknown;
+  acceptedBy?: unknown;
+  reviewDueAt?: unknown;
 };
 
 export type ManualCompletion = {
@@ -22,15 +22,14 @@ export type ManualCompletion = {
   campaignId: string;
   adGroup: string;
   title: string;
+  operationId: string;
+  status: "OPEN" | "IN_PROGRESS" | "PENDING_ACCEPTANCE" | "VERIFIED" | "REOPENED" | "FAILED";
   owner: string;
-  assignee: string;
-  executionChannel: string;
   executionResult: string;
-  wayfairEvidence: string;
-  receiver: string;
-  reviewDate: string;
-  closedLoopStatus: "CLOSED_LOOP_RECORDED" | "ASSIGNED";
-  status: "COMPLETED" | "OPEN";
+  evidence: string;
+  acceptanceCriteria: string;
+  acceptedBy: string;
+  reviewDueAt: string;
 };
 
 export type ManualCompletionTask = {
@@ -51,13 +50,11 @@ export function manualCompletionPayload(
   campaignId: string;
   adGroup: string;
   title: string;
-  completed: true;
-  owner: string;
-  assignee: string;
-  executionChannel: string;
+  status: "PENDING_ACCEPTANCE";
+  owner: "待分派";
   executionResult: string;
-  receiver: string;
-  reviewDate: string;
+  evidence: string;
+  acceptanceCriteria: string;
 } | null;
 
 export function validateManualCompletion(input?: ManualCompletionInput): ManualCompletion;

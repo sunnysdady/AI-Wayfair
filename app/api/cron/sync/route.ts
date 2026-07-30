@@ -10,6 +10,18 @@ function authorized(request: Request, secret: string | undefined) {
     && request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
+function manuallyAuthorized(request: Request, env: Env) {
+  if (!env.APP_ACCESS_USER || !env.APP_ACCESS_PASSWORD) return false;
+  return request.headers.get("authorization") === `Basic ${Buffer.from(
+    `${env.APP_ACCESS_USER}:${env.APP_ACCESS_PASSWORD}`,
+  ).toString("base64")}`;
+}
+
+function sameOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  return origin === new URL(request.url).origin;
+}
+
 function syncOrigin(request: Request, configured: string | undefined) {
   const candidate = configured || new URL(request.url).origin;
   const url = new URL(candidate);
@@ -46,12 +58,7 @@ function boundedInteger(value: string | undefined, fallback: number, maximum: nu
     : fallback;
 }
 
-export async function GET(request: Request) {
-  const env = await getRuntimeBindings();
-  if (!authorized(request, env.CRON_SECRET)) {
-    return Response.json({ error: "定时同步授权无效" }, { status: 401 });
-  }
-
+async function runSync(request: Request, env: Env, manualFull = false) {
   const db = env.DB;
   await ensureSyncTables(db);
   const now = new Date();
@@ -88,10 +95,13 @@ export async function GET(request: Request) {
       syncOutlook: outlookConfigured
         ? () => syncOutlookDaily({ env, db, now })
         : undefined,
+      mode: manualFull ? "manual-full" : undefined,
       catalogPageBudget: boundedInteger(
-        env.CATALOG_SYNC_PAGE_BUDGET,
-        10,
-        100,
+        manualFull
+          ? env.CATALOG_MANUAL_SYNC_PAGE_BUDGET
+          : env.CATALOG_SYNC_PAGE_BUDGET,
+        manualFull ? 100 : 10,
+        manualFull ? 500 : 100,
       ),
       catalogPageDelayMs: boundedInteger(
         env.CATALOG_SYNC_PAGE_DELAY_MS,
@@ -143,4 +153,23 @@ export async function GET(request: Request) {
       .bind("layered-sync")
       .run();
   }
+}
+
+export async function GET(request: Request) {
+  const env = await getRuntimeBindings();
+  if (!authorized(request, env.CRON_SECRET)) {
+    return Response.json({ error: "定时同步授权无效" }, { status: 401 });
+  }
+  return runSync(request, env);
+}
+
+export async function POST(request: Request) {
+  const env = await getRuntimeBindings();
+  if (!sameOrigin(request)) {
+    return Response.json({ error: "全站点同步请求来源无效" }, { status: 403 });
+  }
+  if (!manuallyAuthorized(request, env)) {
+    return Response.json({ error: "全站点同步需要已登录的运营账号" }, { status: 401 });
+  }
+  return runSync(request, env, true);
 }

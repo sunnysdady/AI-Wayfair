@@ -19,7 +19,7 @@ test("keeps daily email details inside the operations center without clipping ro
   assert.match(daily, /aria-modal="true"/);
   assert.match(daily, /aria-labelledby="email-preview-title"/);
   assert.match(daily, /email-finance-summary/);
-  assert.match(daily, /汇款金额/);
+  assert.match(daily, /实际汇款/);
   assert.match(daily, /关联发票/);
   assert.match(daily, /aria-label="日报 JSON"/);
   assert.match(daily, /onClick=\{importDailyBrief\}/);
