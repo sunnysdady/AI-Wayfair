@@ -27,18 +27,6 @@ function sameOrigin(request: Request) {
   return origin === new URL(request.url).origin;
 }
 
-function manuallyAuthorized(request: Request, env: Env) {
-  if (!env.APP_ACCESS_USER || !env.APP_ACCESS_PASSWORD) return false;
-  return request.headers.get("authorization") === `Basic ${Buffer.from(
-    `${env.APP_ACCESS_USER}:${env.APP_ACCESS_PASSWORD}`,
-  ).toString("base64")}`;
-}
-
-function sameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  return origin === new URL(request.url).origin;
-}
-
 function syncOrigin(request: Request, configured: string | undefined) {
   const candidate = configured || new URL(request.url).origin;
   const url = new URL(candidate);
