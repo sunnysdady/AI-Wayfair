@@ -1,7 +1,11 @@
 import { WAYFAIR_ADVERTISING_AUDIENCE, buildCampaignUpdates, executeCampaignUpdates } from "@/lib/ad-action-queue.mjs";
 import { validateAdActionFreshness } from "@/lib/ad-action-freshness.mjs";
+import { syncAdActionOperation } from "@/lib/ad-operation-link.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+import { sameOrigin } from "@/lib/http-origin.mjs";
 import { assertLiveOperation } from "@/lib/operating-safety.mjs";
+import { validateAugustRunForExecution } from "@/lib/august-execution-policy.mjs";
+import { validateAugustAdActionsAgainstPlan } from "@/lib/august-sales-plan.mjs";
 
 type QueueRow = {
   id: string; run_key: string; listing: string; campaign_id: string; action_type: string;
@@ -88,11 +92,6 @@ async function ensureTables(db: D1Database) {
   await db.prepare("CREATE TABLE IF NOT EXISTS ad_execution_locks (run_key TEXT PRIMARY KEY NOT NULL, acquired_at TEXT NOT NULL)").run();
 }
 
-function sameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  return !origin || origin === new URL(request.url).origin;
-}
-
 async function token(env: Env) {
   if (!env.WAYFAIR_AD_CLIENT_ID || !env.WAYFAIR_AD_CLIENT_SECRET) throw new Error("Advertising API 凭证未配置");
   const response = await fetch("https://sso.auth.wayfair.com/oauth/token", {
@@ -141,6 +140,8 @@ async function record(db: D1Database, actionIds: string[], eventType: string, pa
       db.prepare("UPDATE ad_action_queue SET status=?,updated_at=? WHERE id=?").bind(status, now, actionId),
       db.prepare("INSERT INTO ad_action_events(id,action_id,event_type,payload,created_at) VALUES(?,?,?,?,?)").bind(crypto.randomUUID(), actionId, eventType, JSON.stringify(payload), now),
     ]);
+    const action = await db.prepare("SELECT id,run_key,listing,campaign_id,action_type,before_payload,proposed_payload FROM ad_action_queue WHERE id=?").bind(actionId).first<QueueRow>();
+    if (action) await syncAdActionOperation(db, action, eventType, payload as Record<string, unknown>);
   }
 }
 
@@ -153,9 +154,26 @@ export async function POST(request: Request) {
     await env.DB.prepare("UPDATE ad_action_queue SET status='FAILED',updated_at=? WHERE status='EXECUTING' AND updated_at<?").bind(new Date().toISOString(), staleExecution).run();
     const body = await request.json() as { runKey?: string; dryRun?: boolean; confirmation?: string };
     if (!body.runKey || !/^weekly:\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/.test(body.runKey)) return Response.json({ error: "周执行批次格式无效" }, { status: 400 });
+    const augustCutover = validateAugustRunForExecution({
+      runKey: body.runKey,
+      asOf: todayShanghai(),
+    });
+    if (!augustCutover.allowed && augustCutover.reason === "SUPERSEDED_BY_AUTHORIZED_AUGUST_PLAN") {
+      return Response.json(
+        { error: "八月执行口径已冻结该跨月旧批次，请使用8月新批次重新预检。" },
+        { status: 409 },
+      );
+    }
     const requiredStatus = body.dryRun === false ? "VALIDATED" : "APPROVED";
     const result = await env.DB.prepare("SELECT * FROM ad_action_queue WHERE run_key=? AND status=? AND action_type IN ('SET_LISTING_BID','SET_LISTING_ACTIVE') ORDER BY campaign_id,listing").bind(body.runKey, requiredStatus).all<QueueRow>();
     const actions = result.results || [];
+    const augustPlanGate = validateAugustAdActionsAgainstPlan(actions);
+    if (!augustPlanGate.ok) {
+      return Response.json(
+        { error: `${augustPlanGate.listing} 该Listing的8月授权广告预算为$0，禁止启用或提高Bid。` },
+        { status: 409 },
+      );
+    }
     const operatorError = await validateOperatorGate(env.DB, body.runKey, actions);
     if (operatorError) return Response.json({ error: `运营辩论预检未通过：${operatorError}` }, { status: 409 });
     const freshnessError = await validateLatestReportState(env.DB, actions);

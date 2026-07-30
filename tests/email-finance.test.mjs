@@ -15,6 +15,10 @@ test("uses structured remittance fields for the finance preview", () => {
       paymentDate: "2026-07-20",
       paymentMethod: "ACH",
       invoiceIds: ["INV-1001", "INV-1002"],
+      grossAmount: 19000,
+      allowanceAmount: -500,
+      epdAmount: -159.45,
+      serviceFeeAmount: -100,
     },
   });
 
@@ -24,6 +28,10 @@ test("uses structured remittance fields for the finance preview", () => {
   assert.equal(details.paymentDate, "2026-07-20");
   assert.equal(details.paymentMethod, "ACH");
   assert.deepEqual(details.invoiceIds, ["INV-1001", "INV-1002"]);
+  assert.equal(details.grossAmountLabel, "$19,000.00");
+  assert.equal(details.allowanceAmountLabel, "−$500.00");
+  assert.equal(details.epdAmountLabel, "−$159.45");
+  assert.equal(details.serviceFeeAmountLabel, "−$100.00");
 });
 
 test("extracts only the remittance id from legacy summaries and never invents an amount", () => {

@@ -1,0 +1,2411 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="YB店2026年8月运营指南：目标、护栏、职责、周计划、每日动作与学习闭环。">
+  <title>YB店｜2026年8月运营指南</title>
+  <style>
+    :root {
+      --navy: #0b2545;
+      --blue: #2e74b5;
+      --blue-2: #1f5f9a;
+      --pale: #e8eef5;
+      --pale-blue: #edf5fb;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #d8dee8;
+      --paper: #ffffff;
+      --canvas: #f3f5f8;
+      --amber: #a45c08;
+      --amber-bg: #fff4df;
+      --red: #a92d27;
+      --red-bg: #fff0ef;
+      --green: #26734d;
+      --green-bg: #e9f6ef;
+      --shadow: 0 18px 55px rgba(11, 37, 69, 0.10);
+      --radius: 16px;
+      --content: 1180px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 78px;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, #eef2f7 0, #f7f8fa 520px, var(--canvas) 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; }
+    button, input { font: inherit; }
+
+    :focus-visible {
+      outline: 3px solid rgba(46, 116, 181, 0.35);
+      outline-offset: 3px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid rgba(216, 222, 232, 0.92);
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(18px);
+    }
+
+    .topbar-inner {
+      width: min(calc(100% - 32px), var(--content));
+      min-height: 64px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-width: max-content;
+      font-weight: 750;
+      letter-spacing: -0.01em;
+      text-decoration: none;
+    }
+
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      color: white;
+      background: var(--navy);
+      border-radius: 8px 8px 8px 2px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .nav::-webkit-scrollbar { display: none; }
+
+    .nav a {
+      padding: 8px 10px;
+      color: var(--muted);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 650;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .nav a:hover, .nav a[aria-current="true"] {
+      color: var(--navy);
+      background: var(--pale);
+    }
+
+    .shell {
+      width: min(calc(100% - 32px), var(--content));
+      margin: 0 auto;
+    }
+
+    .hero {
+      padding: 64px 0 36px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      align-items: end;
+      gap: 48px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--blue-2);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 24px;
+      height: 2px;
+      background: currentColor;
+    }
+
+    h1, h2, h3, h4, p { margin-top: 0; }
+
+    h1 {
+      max-width: 820px;
+      margin: 18px 0 20px;
+      color: var(--navy);
+      font-size: clamp(42px, 6vw, 76px);
+      line-height: 1.02;
+      letter-spacing: -0.055em;
+    }
+
+    .hero-lead {
+      max-width: 760px;
+      margin-bottom: 0;
+      color: #435066;
+      font-size: 18px;
+    }
+
+    .hero-note {
+      padding: 24px;
+      color: white;
+      background: var(--navy);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-note small {
+      display: block;
+      margin-bottom: 12px;
+      color: #a9c9e8;
+      font-weight: 750;
+      letter-spacing: 0.08em;
+    }
+
+    .hero-note strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 24px;
+      line-height: 1.25;
+    }
+
+    .hero-note p {
+      margin: 0;
+      color: #d8e7f5;
+      font-size: 14px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 28px;
+    }
+
+    .button {
+      min-height: 42px;
+      padding: 10px 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid var(--navy);
+      color: white;
+      background: var(--navy);
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 750;
+      text-decoration: none;
+    }
+
+    .button.secondary {
+      color: var(--navy);
+      background: transparent;
+      border-color: #afbac8;
+    }
+
+    .button:hover { transform: translateY(-1px); }
+
+    .metric-band {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      border: 1px solid var(--line);
+      background: var(--paper);
+      border-radius: var(--radius);
+      box-shadow: 0 10px 30px rgba(11, 37, 69, 0.05);
+      overflow: hidden;
+    }
+
+    .metric {
+      min-height: 116px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-right: 1px solid var(--line);
+    }
+
+    .metric:last-child { border-right: 0; }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .metric strong {
+      color: var(--navy);
+      font-size: 25px;
+      letter-spacing: -0.035em;
+    }
+
+    main { padding-bottom: 96px; }
+
+    .section {
+      padding-top: 88px;
+    }
+
+    .section-heading {
+      margin-bottom: 30px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      align-items: end;
+      gap: 40px;
+    }
+
+    .section-kicker {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--blue-2);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: 0.12em;
+    }
+
+    h2 {
+      margin-bottom: 0;
+      color: var(--navy);
+      font-size: clamp(30px, 4vw, 46px);
+      line-height: 1.12;
+      letter-spacing: -0.04em;
+    }
+
+    .section-heading p {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      border-radius: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th {
+      padding: 13px 16px;
+      color: var(--navy);
+      background: var(--pale);
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid #e8ebf0;
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .guardrails {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      border-top: 1px solid var(--line);
+    }
+
+    .guardrail {
+      min-height: 164px;
+      padding: 26px 28px 26px 0;
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .guardrail:nth-child(odd) {
+      margin-right: 28px;
+      border-right: 1px solid var(--line);
+    }
+
+    .guardrail-index {
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: 0.06em;
+    }
+
+    .guardrail h3 {
+      margin-bottom: 6px;
+      color: var(--navy);
+      font-size: 17px;
+    }
+
+    .guardrail p {
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .guardrail small {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .roles-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .role-panel {
+      padding: 34px;
+    }
+
+    .role-panel + .role-panel {
+      border-left: 1px solid var(--line);
+      background: #fbfcfd;
+    }
+
+    .role-title {
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .role-title h3 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 25px;
+    }
+
+    .role-label {
+      padding: 5px 9px;
+      color: var(--blue-2);
+      background: var(--pale-blue);
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .role-panel ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .role-panel li {
+      padding: 13px 0;
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: 9px;
+      border-bottom: 1px solid #e8ebf0;
+    }
+
+    .role-panel li:last-child { border-bottom: 0; }
+    .role-panel li span { color: var(--green); font-weight: 900; }
+    .role-panel li p { margin: 0; font-size: 14px; }
+
+    .boundary-note {
+      margin-top: 16px;
+      padding: 14px 18px;
+      color: #653e09;
+      background: var(--amber-bg);
+      border-left: 4px solid #d48b25;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .weeks {
+      border-top: 1px solid var(--line);
+    }
+
+    .week-block {
+      padding: 30px 0;
+      display: grid;
+      grid-template-columns: 350px minmax(0, 1fr);
+      gap: 44px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .week-block > header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .week-block h3 {
+      margin: 10px 0 0;
+      color: var(--navy);
+      font-size: 25px;
+      line-height: 1.25;
+    }
+
+    .week-target {
+      min-width: 68px;
+      color: var(--blue);
+      text-align: right;
+    }
+
+    .week-target strong {
+      display: block;
+      font-size: 32px;
+      line-height: 1;
+    }
+
+    .week-target span {
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: 0.08em;
+    }
+
+    .week-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr 0.85fr;
+      gap: 30px;
+    }
+
+    .week-body h4 {
+      margin-bottom: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+    }
+
+    .week-body p {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .gate-note {
+      padding-left: 20px;
+      border-left: 3px solid var(--blue);
+    }
+
+    .daily-toolbar {
+      position: sticky;
+      top: 64px;
+      z-index: 10;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(14px);
+      border-radius: 12px;
+    }
+
+    .filters {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .filters::-webkit-scrollbar { display: none; }
+
+    .filter-button {
+      min-width: 44px;
+      padding: 7px 11px;
+      color: var(--muted);
+      background: #f6f7f9;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .filter-button[aria-pressed="true"] {
+      color: white;
+      background: var(--navy);
+    }
+
+    .search-box {
+      min-width: 280px;
+      padding: 8px 11px;
+      color: var(--ink);
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .result-count {
+      min-width: max-content;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .day-header {
+      margin-top: 14px;
+      padding: 10px 18px;
+      display: grid;
+      grid-template-columns: 200px 1fr 1fr 0.8fr;
+      gap: 18px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+
+    .day-list {
+      border-top: 1px solid var(--line);
+    }
+
+    .day-row {
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 200px 1fr 1fr 0.8fr;
+      gap: 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.34);
+    }
+
+    .day-row[hidden] { display: none; }
+
+    .day-row.is-current {
+      background: var(--pale-blue);
+      box-shadow: inset 4px 0 0 var(--blue);
+    }
+
+    .day-meta {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .day-date time {
+      display: block;
+      color: var(--navy);
+      font-size: 22px;
+      font-weight: 850;
+      letter-spacing: -0.03em;
+    }
+
+    .day-date span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+    }
+
+    .day-numbers {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .day-numbers strong {
+      color: var(--blue-2);
+      font-size: 14px;
+    }
+
+    .day-cell h4 {
+      display: none;
+      margin-bottom: 5px;
+      color: var(--blue-2);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+    }
+
+    .day-cell p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .record-cell p { color: #4f5b6f; }
+
+    .no-results {
+      padding: 42px;
+      color: var(--muted);
+      text-align: center;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .learning-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      border-top: 1px solid var(--line);
+    }
+
+    .learning-rule {
+      min-height: 190px;
+      padding: 28px 28px 28px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .learning-rule:nth-child(odd) {
+      margin-right: 28px;
+      border-right: 1px solid var(--line);
+    }
+
+    .learning-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      color: var(--blue-2);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+
+    .learning-rule h3 {
+      margin: 12px 0 7px;
+      color: var(--navy);
+      font-size: 20px;
+    }
+
+    .learning-rule p {
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    .learning-rule small { color: var(--muted); }
+
+    .loop {
+      margin-top: 34px;
+      padding: 26px;
+      color: white;
+      background: var(--navy);
+      border-radius: var(--radius);
+    }
+
+    .loop h3 { margin-bottom: 20px; font-size: 20px; }
+
+    .loop-track {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 8px;
+    }
+
+    .loop-step {
+      position: relative;
+      padding: 13px 10px;
+      color: #dbe9f5;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .loop-step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -10px;
+      color: #75a9d4;
+      z-index: 1;
+    }
+
+    .source-note {
+      margin-top: 52px;
+      padding-top: 24px;
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 30px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .source-note h3 {
+      color: var(--navy);
+      font-size: 14px;
+    }
+
+    .source-note ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .page-footer {
+      padding: 28px 0 42px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+    }
+
+    @media (max-width: 980px) {
+      .hero-grid, .section-heading { grid-template-columns: 1fr; }
+      .hero-grid { gap: 28px; }
+      .hero-note { max-width: 560px; }
+      .metric-band { grid-template-columns: repeat(3, 1fr); }
+      .metric:nth-child(3) { border-right: 0; }
+      .metric:nth-child(-n+3) { border-bottom: 1px solid var(--line); }
+      .week-block { grid-template-columns: 1fr; gap: 22px; }
+      .week-body { grid-template-columns: 1fr; }
+      .day-header { display: none; }
+      .day-row {
+        grid-template-columns: 170px 1fr 1fr;
+      }
+      .record-cell {
+        grid-column: 2 / -1;
+        padding-top: 12px;
+        border-top: 1px dashed var(--line);
+      }
+      .day-cell h4 { display: block; }
+      .loop-track { grid-template-columns: repeat(3, 1fr); }
+      .loop-step:not(:last-child)::after { display: none; }
+    }
+
+    @media (max-width: 720px) {
+      html { scroll-padding-top: 122px; }
+      .topbar-inner {
+        width: 100%;
+        min-height: 0;
+        padding: 10px 16px 8px;
+        display: block;
+      }
+      .brand { margin-bottom: 7px; }
+      .nav { margin: 0 -16px; padding: 0 16px; }
+      .shell { width: min(calc(100% - 24px), var(--content)); }
+      .hero { padding-top: 42px; }
+      h1 { font-size: 46px; }
+      .hero-lead { font-size: 16px; }
+      .metric-band { grid-template-columns: repeat(2, 1fr); }
+      .metric:nth-child(n) {
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+      .metric:nth-child(even) { border-right: 0; }
+      .metric:nth-last-child(-n+2) { border-bottom: 0; }
+      .section { padding-top: 66px; }
+      .section-heading { gap: 14px; }
+      .guardrails, .roles-grid, .learning-grid { grid-template-columns: 1fr; }
+      .guardrail:nth-child(odd), .learning-rule:nth-child(odd) {
+        margin-right: 0;
+        border-right: 0;
+      }
+      .role-panel { padding: 26px 20px; }
+      .role-panel + .role-panel {
+        border-top: 1px solid var(--line);
+        border-left: 0;
+      }
+      .daily-toolbar {
+        top: 106px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+      }
+      .filters { grid-column: 1 / -1; }
+      .search-box { min-width: 0; width: 100%; }
+      .day-row {
+        padding: 20px 2px;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        background: transparent;
+      }
+      .day-row.is-current {
+        padding: 20px 14px;
+        border-radius: 10px;
+      }
+      .record-cell {
+        grid-column: auto;
+        padding-top: 12px;
+      }
+      .loop-track { grid-template-columns: repeat(2, 1fr); }
+      .source-note { grid-template-columns: 1fr; gap: 6px; }
+      .table-wrap table { min-width: 720px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; }
+    }
+
+    @media print {
+      @page { size: A4; margin: 12mm; }
+      body { background: white; font-size: 9.5pt; }
+      .topbar, .actions, .daily-toolbar { display: none !important; }
+      .shell { width: 100%; }
+      .hero { padding: 0 0 20px; }
+      .hero-grid, .section-heading { grid-template-columns: 1fr; gap: 12px; }
+      h1 { font-size: 34pt; }
+      .hero-note { color: var(--ink); background: var(--pale); box-shadow: none; }
+      .hero-note small, .hero-note p { color: var(--muted); }
+      .metric-band { grid-template-columns: repeat(6, 1fr); box-shadow: none; }
+      .metric { min-height: 74px; padding: 10px; }
+      .metric strong { font-size: 16pt; }
+      .section { padding-top: 28px; }
+      .guardrail, .learning-rule, .week-block, .day-row { break-inside: avoid; }
+      .day-header { display: grid; }
+      .day-row {
+        padding: 8px 6px;
+        grid-template-columns: 115px 1fr 1fr 0.8fr;
+        gap: 8px;
+      }
+      .day-date time { font-size: 12pt; }
+      .day-cell p { font-size: 8pt; }
+      .day-cell h4 { display: none; }
+      .record-cell { grid-column: auto; padding-top: 0; border-top: 0; }
+      .loop { color: var(--ink); background: var(--pale); }
+      .loop-step { color: var(--ink); border-color: var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top">
+        <span class="brand-mark">YB</span>
+        <span>8月运营手册</span>
+      </a>
+      <nav class="nav" aria-label="章节导航">
+        <a href="#targets">目标与护栏</a>
+        <a href="#roles">职责分工</a>
+        <a href="#weeks">周计划</a>
+        <a href="#daily">每日执行</a>
+        <a href="#sku">SKU分解</a>
+        <a href="#learning">学习升级</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="shell" id="top">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">v1.0 · 2026-08</span>
+          <h1 id="page-title">8月运营指南</h1>
+          <p class="hero-lead">150 Units目标、经营护栏、人机分工、逐日节奏与持续学习SOP。本页把“目标—护栏—动作—记录—复盘—升级”压缩到同一套月度执行系统中。</p>
+          <div class="actions">
+            <a class="button" href="#daily">查看每日动作</a>
+            <a class="button secondary" href="./YB店_2026年8月运营记录与学习台账.xlsx">打开记录台账</a>
+            <button class="button secondary" type="button" id="printButton">打印 / 导出 PDF</button>
+          </div>
+        </div>
+        <aside class="hero-note" aria-label="当前执行提示">
+          <small>EXECUTION STATUS</small>
+          <strong id="statusTitle">准备期：8月1日启动</strong>
+          <p id="statusBody">先完成归因主键、库存、价格、促销、广告基础设置复核；8月1日起按日留档。</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="metric-band" aria-label="核心指标">
+      <div class="metric"><span>月销量目标</span><strong>150 Units</strong></div>
+      <div class="metric"><span>周目标节奏</span><strong>30 / 35 / 40 / 45</strong></div>
+      <div class="metric"><span>广告基础预算</span><strong>$1,800</strong></div>
+      <div class="metric"><span>广告硬上限</span><strong>$2,500</strong></div>
+      <div class="metric"><span>毛利率底线</span><strong>≥ 20%</strong></div>
+      <div class="metric"><span>履约率底线</span><strong>≥ 95%</strong></div>
+    </section>
+
+    <main>
+      <section class="section" id="targets" aria-labelledby="targets-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">01 / OBJECTIVES</span>
+            <h2 id="targets-title">目标与护栏</h2>
+          </div>
+          <p>目标负责回答“要去哪里”，护栏负责回答“什么情况下不能继续加速”。所有扩量动作都必须同时满足利润、履约、库存和评分条件。</p>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>目标项</th><th>8月目标</th><th>口径</th></tr>
+            </thead>
+            <tbody>
+      <tr>
+        <td><strong>主目标</strong></td>
+        <td>150 Units</td>
+        <td>按 Product Management 的 Units Sold 验收，不与广告归因订单重复相加</td>
+      </tr>
+      <tr>
+        <td><strong>基线与增量</strong></td>
+        <td>6月基线90 Units；净增60 Units</td>
+        <td>用来判断增长质量，不作为放宽护栏的理由</td>
+      </tr>
+      <tr>
+        <td><strong>周目标</strong></td>
+        <td>30 / 35 / 40 / 45 Units</td>
+        <td>W1 8/1–8/7；W2 8/8–8/14；W3 8/15–8/21；W4 8/22–8/31</td>
+      </tr>
+      <tr>
+        <td><strong>营收参考</strong></td>
+        <td>约 $16.8K+</td>
+        <td>参考目标，不替代真实毛利与履约验收</td>
+      </tr>
+      <tr>
+        <td><strong>广告预算</strong></td>
+        <td>$1,800基础池；$2,500硬上限</td>
+        <td>两道各$350 Gate，未达条件宁可不花完</td>
+      </tr>
+      <tr>
+        <td><strong>平台广告贡献</strong></td>
+        <td>约76 Attributed Orders</td>
+        <td>仅用于判断广告贡献；月度Units仍只计一次</td>
+      </tr>
+      <tr>
+        <td><strong>Conditional Offers</strong></td>
+        <td>约20笔成交</td>
+        <td>至少观察14天；无净增或折后毛利不足即结束</td>
+      </tr></tbody>
+          </table>
+        </div>
+
+        <div class="guardrails" aria-label="运营护栏">
+          
+      <article class="guardrail">
+        <span class="guardrail-index">G01</span>
+        <div>
+          <h3>G1 商品状态</h3>
+          <p>放量前必须 Live；无未解决的 Rejected / Wayfair Reviewing</p>
+          <small>未通过：不启用Offer、不扩广告</small>
+        </div>
+      </article>
+      <article class="guardrail">
+        <span class="guardrail-index">G02</span>
+        <div>
+          <h3>G2 评分</h3>
+          <p>≥4.2可放量；4.0–4.19仅限额；&lt;4停止</p>
+          <small>DRCI1007永久退出目标、预算、关键词和Offer池</small>
+        </div>
+      </article>
+      <article class="guardrail">
+        <span class="guardrail-index">G03</span>
+        <div>
+          <h3>G3 库存</h3>
+          <p>确认YB归属；未来14天可售库存≥1.2×Part目标；无Backorder/Discontinued</p>
+          <small>核心库存&lt;14天：停止放量并迁移目标</small>
+        </div>
+      </article>
+      <article class="guardrail">
+        <span class="guardrail-index">G04</span>
+        <div>
+          <h3>G4 履约</h3>
+          <p>Fill Rate≥95%；目标送达&lt;5天</p>
+          <small>缺货、取消或延迟上升：同日暂停对应广告/Offer</small>
+        </div>
+      </article>
+      <article class="guardrail">
+        <span class="guardrail-index">G05</span>
+        <div>
+          <h3>G5 毛利</h3>
+          <p>折后真实毛利≥20%</p>
+          <small>低于20%：不以广告或折扣换单量</small>
+        </div>
+      </article>
+      <article class="guardrail">
+        <span class="guardrail-index">G06</span>
+        <div>
+          <h3>G6 广告</h3>
+          <p>保留线WSC ROAS≥3.2×；放量线≥4.0×</p>
+          <small>2.5–3.19×黄灯；&lt;2.5×连续7天减20%或暂停</small>
+        </div>
+      </article>
+      <article class="guardrail">
+        <span class="guardrail-index">G07</span>
+        <div>
+          <h3>G7 点击止损</h3>
+          <p>新增组≥20点击仍0单才暂停</p>
+          <small>不足20点击且0单：锁Cap继续观察，不提前误杀</small>
+        </div>
+      </article>
+      <article class="guardrail">
+        <span class="guardrail-index">G08</span>
+        <div>
+          <h3>G8 费率与日耗</h3>
+          <p>预测广告费率≤15%；日耗不得超过Daily Cap的120%</p>
+          <small>超线：冻结Gate；非赢家当日降Cap</small>
+        </div>
+      </article>
+      <article class="guardrail">
+        <span class="guardrail-index">G09</span>
+        <div>
+          <h3>G9 归因</h3>
+          <p>Offer兑换→其余SP归因→自然单，逐单唯一归因</p>
+          <small>缺Order ID或重复归因：不得写入已验证结论</small>
+        </div>
+      </article>
+      <article class="guardrail">
+        <span class="guardrail-index">G10</span>
+        <div>
+          <h3>G10 变更控制</h3>
+          <p>一次只改一个变量；执行前保存参数快照</p>
+          <small>每个动作必须有Operation ID、证据、验收人与复盘日</small>
+        </div>
+      </article>
+        </div>
+      </section>
+
+      <section class="section" id="roles" aria-labelledby="roles-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">02 / OWNERSHIP</span>
+            <h2 id="roles-title">职责分工</h2>
+          </div>
+          <p>AI负责分析、提醒、草案和记录结构；店铺负责人负责后台操作、库存与现金承诺、最终审批，以及所有外部动作。</p>
+        </div>
+
+        <div class="roles-grid">
+          <article class="role-panel">
+            <div class="role-title">
+              <h3>AI / Codex 负责</h3>
+              <span class="role-label">分析与控制塔</span>
+            </div>
+            <ul>
+        <li>
+          <span aria-hidden="true">✓</span>
+          <p>每日08:45前汇总上一日Units、广告、库存、履约、Promotion与Offer数据，检查缺失和口径冲突。</p>
+        </li>
+        <li>
+          <span aria-hidden="true">✓</span>
+          <p>每日09:15前更新节奏、月末预测、红黄绿灯和异常原因，生成带证据的闭环任务草案。</p>
+        </li>
+        <li>
+          <span aria-hidden="true">✓</span>
+          <p>每日16:00做第二次异常扫描；只给出可逆建议、预期影响、风险和回退条件，不直接改变后台。</p>
+        </li>
+        <li>
+          <span aria-hidden="true">✓</span>
+          <p>每周五生成周Scorecard、预算Gate建议、SKU目标迁移建议、实验结论和下周任务。</p>
+        </li>
+        <li>
+          <span aria-hidden="true">✓</span>
+          <p>维护决策日志、实验观察窗、规则版本与学习候选；未经完整证据不把偶然波动升级成SOP。</p>
+        </li>
+        <li>
+          <span aria-hidden="true">✓</span>
+          <p>月底完成数据冻结、归因去重、目标/利润/履约复盘，并起草9月SOP vNext。</p>
+        </li></ul>
+          </article>
+          <article class="role-panel">
+            <div class="role-title">
+              <h3>你负责</h3>
+              <span class="role-label">业务审批与执行</span>
+            </div>
+            <ul>
+        <li>
+          <span aria-hidden="true">✓</span>
+          <p>每日09:30确认AI日报中的数据真实性、库存归属、毛利口径与优先级，并指定实际执行人。</p>
+        </li>
+        <li>
+          <span aria-hidden="true">✓</span>
+          <p>在Wayfair后台执行或批准Campaign、Daily Cap、Bid、Promotion、Offer、Listing和库存相关动作。</p>
+        </li>
+        <li>
+          <span aria-hidden="true">✓</span>
+          <p>对预算Gate、SKU目标迁移、折扣、价格、库存承诺和任何不可逆动作做最终审批。</p>
+        </li>
+        <li>
+          <span aria-hidden="true">✓</span>
+          <p>执行前保存截图/参数，执行后回填Operation ID、结果证据、执行人、验收人与复盘日。</p>
+        </li>
+        <li>
+          <span aria-hidden="true">✓</span>
+          <p>处理供应链、合规、图片、标题、评论、后台资格等需要账号权限或跨团队协同的事项。</p>
+        </li>
+        <li>
+          <span aria-hidden="true">✓</span>
+          <p>每周五参加20分钟决策会；月底批准规则升级、保留、回退或退休。</p>
+        </li></ul>
+          </article>
+        </div>
+        <div class="boundary-note">
+          边界：AI不会自行修改Wayfair后台、广告预算、价格、库存或促销；涉及资金、客户承诺、SKU退出与外部发布的动作，必须由你明确审批。
+        </div>
+      </section>
+
+      <section class="section" id="weeks" aria-labelledby="weeks-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">03 / WEEKLY RHYTHM</span>
+            <h2 id="weeks-title">四周推进节奏</h2>
+          </div>
+          <p>周目标递增，但预算不是自动递增。每周先达成数据完整和护栏，再通过闸门决定是否扩量。</p>
+        </div>
+        <div class="weeks">
+      <article class="week-block" id="w1">
+        <header>
+          <div>
+            <span class="eyebrow">W1 · 8/1–8/7</span>
+            <h3>基线启动与数据可信</h3>
+          </div>
+          <div class="week-target">
+            <strong>30</strong>
+            <span>Units</span>
+          </div>
+        </header>
+        <div class="week-body">
+          <div>
+            <h4>AI / CODEX</h4>
+            <p>建立每日台账；核验归因、预算节奏和首周预测；定位曝光→CTR→CVR卡点。</p>
+          </div>
+          <div>
+            <h4>店铺负责人</h4>
+            <p>只启用$1,800基础池节奏；核库存/状态；启动合格Offer；不提前解锁增量预算。</p>
+          </div>
+          <div class="gate-note">
+            <h4>闸门 / 决策点</h4>
+            <p>8/7验收：30 Units、平台广告单≥15、无核心缺货；为Gate 1形成建议，不自动放行。</p>
+          </div>
+        </div>
+      </article>
+      <article class="week-block" id="w2">
+        <header>
+          <div>
+            <span class="eyebrow">W2 · 8/8–8/14</span>
+            <h3>验证赢家与活动切换影响</h3>
+          </div>
+          <div class="week-target">
+            <strong>35</strong>
+            <span>Units</span>
+          </div>
+        </header>
+        <div class="week-body">
+          <div>
+            <h4>AI / CODEX</h4>
+            <p>完成7/29–8/11活动周期拆解；跟踪Offer净增；输出Gate 1与输赢组证据。</p>
+          </div>
+          <div>
+            <h4>店铺负责人</h4>
+            <p>仅在W1证据满足时审批Gate 1 $350；赢家Cap最多+20%，输家回退20%或暂停。</p>
+          </div>
+          <div class="gate-note">
+            <h4>闸门 / 决策点</h4>
+            <p>8/14验收：累计65、账号ROAS≥3.5×、赢家≥4×、预测广告费率≤15%、库存达标。</p>
+          </div>
+        </div>
+      </article>
+      <article class="week-block" id="w3">
+        <header>
+          <div>
+            <span class="eyebrow">W3 · 8/15–8/21</span>
+            <h3>集中资源与14天实验决策</h3>
+          </div>
+          <div class="week-target">
+            <strong>40</strong>
+            <span>Units</span>
+          </div>
+        </header>
+        <div class="week-body">
+          <div>
+            <h4>AI / CODEX</h4>
+            <p>评估Offer 14天净增；检查前三Listing预算占比；给出Gate 2和目标迁移建议。</p>
+          </div>
+          <div>
+            <h4>店铺负责人</h4>
+            <p>达标才审批Gate 2 $350；放大赢家Eligible Parts，不加深折扣；处理低评分/状态风险。</p>
+          </div>
+          <div class="gate-note">
+            <h4>闸门 / 决策点</h4>
+            <p>8/21验收：累计105、前三Listing占预算≥60%、核心库存≥14天、毛利和履约均过线。</p>
+          </div>
+        </div>
+      </article>
+      <article class="week-block" id="w4">
+        <header>
+          <div>
+            <span class="eyebrow">W4 · 8/22–8/31</span>
+            <h3>受控冲刺、关账与规则升级</h3>
+          </div>
+          <div class="week-target">
+            <strong>45</strong>
+            <span>Units</span>
+          </div>
+        </header>
+        <div class="week-body">
+          <div>
+            <h4>AI / CODEX</h4>
+            <p>每日更新150预测与缺口来源；限制追单动作；8/31完成归因、利润、履约与学习复盘。</p>
+          </div>
+          <div>
+            <h4>店铺负责人</h4>
+            <p>只给达标赢家冲刺；不救缺货/低评分SKU；冻结高风险变更；完成证据和验收。</p>
+          </div>
+          <div class="gate-note">
+            <h4>闸门 / 决策点</h4>
+            <p>8/31验收：150 Units、花费≤$2,500、毛利≥20%、Fill Rate≥95%，形成9月SOP vNext。</p>
+          </div>
+        </div>
+      </article></div>
+      </section>
+
+      <section class="section" id="daily" aria-labelledby="daily-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">04 / DAILY EXECUTION</span>
+            <h2 id="daily-title">8月每日执行表</h2>
+          </div>
+          <p>每天只要求完成三件事：AI给出动作与证据、你执行与审批、双方把关键数据和决定留档。</p>
+        </div>
+
+        <div class="daily-toolbar" aria-label="每日计划筛选">
+          <div class="filters" role="group" aria-label="按周筛选">
+            <button class="filter-button" type="button" data-filter="ALL" aria-pressed="true">全部</button>
+            <button class="filter-button" type="button" data-filter="W1" aria-pressed="false">W1</button>
+            <button class="filter-button" type="button" data-filter="W2" aria-pressed="false">W2</button>
+            <button class="filter-button" type="button" data-filter="W3" aria-pressed="false">W3</button>
+            <button class="filter-button" type="button" data-filter="W4" aria-pressed="false">W4</button>
+          </div>
+          <input class="search-box" id="dailySearch" type="search" placeholder="搜索动作、日期或记录项…" aria-label="搜索每日动作">
+          <span class="result-count" id="resultCount" aria-live="polite">31 天</span>
+        </div>
+
+        <div class="day-header" aria-hidden="true">
+          <span>日期 / 目标</span><span>AI / CODEX</span><span>店铺负责人</span><span>必须留档</span>
+        </div>
+        <div class="day-list" id="dayList">
+          
+      <article class="day-row is-next"
+        data-week="W1"
+        data-date="08/01"
+        data-search="08/01 六 w1 启动基线：核对数据源时间、归因字段、预算池与offer状态；生成day 1风险清单。 确认核心part为live且库存≥14天；仅开启已审批基础池与合格offer；保存上线前截图。 数据源清单、campaign快照、offer id、operation id">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-01">08/01</time>
+            <span>周六 · W1</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>4</strong></span>
+            <span>累计 <strong>4</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>启动基线：核对数据源时间、归因字段、预算池与Offer状态；生成Day 1风险清单。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>确认核心Part为Live且库存≥14天；仅开启已审批基础池与合格Offer；保存上线前截图。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>数据源清单、Campaign快照、Offer ID、Operation ID</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W1"
+        data-date="08/02"
+        data-search="08/02 日 w1 检查首日units/广告/offer是否重复归因；标记缺失order id和异常日耗。 补齐order id、owed amount、库存与毛利；非赢家日耗&gt;120%则降cap。 首日对账、异常处理证据">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-02">08/02</time>
+            <span>周日 · W1</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>4</strong></span>
+            <span>累计 <strong>8</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>检查首日Units/广告/Offer是否重复归因；标记缺失Order ID和异常日耗。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>补齐Order ID、Owed Amount、库存与毛利；非赢家日耗&gt;120%则降Cap。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>首日对账、异常处理证据</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W1"
+        data-date="08/03"
+        data-search="08/03 一 w1 生成w1资源分配建议与未来14天库存缺口。 周一分配会：确认dmom1021/1022/1019优先级、执行人和库存承诺。 周任务单、库存承诺、负责人">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-03">08/03</time>
+            <span>周一 · W1</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>4</strong></span>
+            <span>累计 <strong>12</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>生成W1资源分配建议与未来14天库存缺口。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>周一分配会：确认DMOM1021/1022/1019优先级、执行人和库存承诺。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>周任务单、库存承诺、负责人</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W1"
+        data-date="08/04"
+        data-search="08/04 二 w1 诊断dmom1021曝光→ctr→cvr与keyword/product贡献。 只调整一个已审批变量；保存前后bid/cap和商品状态截图。 dmom1021实验卡">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-04">08/04</time>
+            <span>周二 · W1</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>4</strong></span>
+            <span>累计 <strong>16</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>诊断DMOM1021曝光→CTR→CVR与Keyword/Product贡献。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>只调整一个已审批变量；保存前后Bid/Cap和商品状态截图。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>DMOM1021实验卡</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W1"
+        data-date="08/05"
+        data-search="08/05 三 w1 核对dmom1022带连字符part映射、广告归属和缺口。 后台确认live part与yb库存归属；未确认不得放量。 映射证据、库存节点">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-05">08/05</time>
+            <span>周三 · W1</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>4</strong></span>
+            <span>累计 <strong>20</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>核对DMOM1022带连字符Part映射、广告归属和缺口。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>后台确认Live Part与YB库存归属；未确认不得放量。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>映射证据、库存节点</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W1"
+        data-date="08/06"
+        data-search="08/06 四 w1 评估dmom1019 keyword效率及product发现流量是否挤占预算。 保留高效词；零单组达到20点击才暂停；不足样本锁cap观察。 关键词决策日志">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-06">08/06</time>
+            <span>周四 · W1</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>25</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>评估DMOM1019 Keyword效率及Product发现流量是否挤占预算。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>保留高效词；零单组达到20点击才暂停；不足样本锁Cap观察。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>关键词决策日志</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W1"
+        data-date="08/07"
+        data-search="08/07 五 w1 输出w1 scorecard、150预测、gate 1建议和未闭环任务。 20分钟周会：验收30 units与广告/库存护栏；审批继续、回退或延后gate 1。 w1周报、审批记录、复盘日">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-07">08/07</time>
+            <span>周五 · W1</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>30</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>输出W1 Scorecard、150预测、Gate 1建议和未闭环任务。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>20分钟周会：验收30 Units与广告/库存护栏；审批继续、回退或延后Gate 1。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>W1周报、审批记录、复盘日</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W2"
+        data-date="08/08"
+        data-search="08/08 六 w2 按w1证据生成gate 1执行清单；不满足时输出恢复路径。 满足全部条件才批准最多$350；赢家cap单次最多+20%。 gate 1签字、参数快照">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-08">08/08</time>
+            <span>周六 · W2</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>35</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>按W1证据生成Gate 1执行清单；不满足时输出恢复路径。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>满足全部条件才批准最多$350；赢家Cap单次最多+20%。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>Gate 1签字、参数快照</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W2"
+        data-date="08/09"
+        data-search="08/09 日 w2 检查offer成交、aov、owed amount和毛利，不用单日成交判定增量。 核对eligible parts与真实组合发货成本；毛利&lt;20%立即结束对应offer。 offer利润核验">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-09">08/09</time>
+            <span>周日 · W2</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>40</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>检查Offer成交、AOV、Owed Amount和毛利，不用单日成交判定增量。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>核对Eligible Parts与真实组合发货成本；毛利&lt;20%立即结束对应Offer。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>Offer利润核验</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W2"
+        data-date="08/10"
+        data-search="08/10 一 w2 重算各sku剩余目标、月末预测与资源迁移建议。 周一分配会：赢家+20%上限，输家-20%或暂停；确认14天库存。 w2资源分配单">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-10">08/10</time>
+            <span>周一 · W2</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>45</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>重算各SKU剩余目标、月末预测与资源迁移建议。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>周一分配会：赢家+20%上限，输家-20%或暂停；确认14天库存。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>W2资源分配单</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W2"
+        data-date="08/11"
+        data-search="08/11 二 w2 完成7/29–8/11活动切换观察：分拆sessions、cvr、units、利润率。 确认波动是否来自活动周期、价格、库存或广告；禁止把回落直接归因于活动结束。 活动周期分析结论">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-11">08/11</time>
+            <span>周二 · W2</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>50</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>完成7/29–8/11活动切换观察：分拆Sessions、CVR、Units、利润率。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>确认波动是否来自活动周期、价格、库存或广告；禁止把回落直接归因于活动结束。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>活动周期分析结论</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W2"
+        data-date="08/12"
+        data-search="08/12 三 w2 识别dmom1018/1025/1026的转化修复优先级与最小测试。 处理主图、标题、评论与状态问题；修复前不扩广告。 listing修复证据">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-12">08/12</time>
+            <span>周三 · W2</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>55</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>识别DMOM1018/1025/1026的转化修复优先级与最小测试。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>处理主图、标题、评论与状态问题；修复前不扩广告。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>Listing修复证据</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W2"
+        data-date="08/13"
+        data-search="08/13 四 w2 核验promotion/offer/广告叠加后的真实折扣与预测费率。 确认折扣、wsc、cogs、运费口径；超15%广告费率或毛利&lt;20%冻结放量。 利润与费率核验">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-13">08/13</time>
+            <span>周四 · W2</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>60</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>核验Promotion/Offer/广告叠加后的真实折扣与预测费率。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>确认折扣、WSC、COGS、运费口径；超15%广告费率或毛利&lt;20%冻结放量。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>利润与费率核验</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W2"
+        data-date="08/14"
+        data-search="08/14 五 w2 输出w2 scorecard、gate 2候选、offer 14天中期结论。 周会验收累计65与全部护栏；决定是否进入w3集中放量。 w2周报、gate 2候选">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-14">08/14</time>
+            <span>周五 · W2</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>65</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>输出W2 Scorecard、Gate 2候选、Offer 14天中期结论。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>周会验收累计65与全部护栏；决定是否进入W3集中放量。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>W2周报、Gate 2候选</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W3"
+        data-date="08/15"
+        data-search="08/15 六 w3 基于累计65、roas、库存、费率生成gate 2执行卡。 全部达标才批准最多$350；未达标则保持现有预算并修复卡点。 gate 2签字、参数快照">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-15">08/15</time>
+            <span>周六 · W3</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>70</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>基于累计65、ROAS、库存、费率生成Gate 2执行卡。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>全部达标才批准最多$350；未达标则保持现有预算并修复卡点。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>Gate 2签字、参数快照</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W3"
+        data-date="08/16"
+        data-search="08/16 日 w3 审计前三listing广告花费占比和边际回报。 确保dmom1021/1022/1019合计占预算≥60%，但不挤占库存不足的sku。 预算集中度审计">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-16">08/16</time>
+            <span>周日 · W3</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>75</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>审计前三Listing广告花费占比和边际回报。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>确保DMOM1021/1022/1019合计占预算≥60%，但不挤占库存不足的SKU。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>预算集中度审计</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W3"
+        data-date="08/17"
+        data-search="08/17 一 w3 重算剩余70 units的sku责任、库存覆盖与预测。 周一分配会：批准目标迁移；任何迁移必须同时改预算和offer资格。 目标迁移记录">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-17">08/17</time>
+            <span>周一 · W3</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>6</strong></span>
+            <span>累计 <strong>81</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>重算剩余70 Units的SKU责任、库存覆盖与预测。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>周一分配会：批准目标迁移；任何迁移必须同时改预算和Offer资格。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>目标迁移记录</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W3"
+        data-date="08/18"
+        data-search="08/18 二 w3 完成offer 14天净增判断，区分成交、aov与真实增量。 继续有净增且毛利达标的offer；结束无增量或侵蚀毛利的offer。 offer 14天实验结论">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-18">08/18</time>
+            <span>周二 · W3</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>6</strong></span>
+            <span>累计 <strong>87</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>完成Offer 14天净增判断，区分成交、AOV与真实增量。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>继续有净增且毛利达标的Offer；结束无增量或侵蚀毛利的Offer。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>Offer 14天实验结论</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W3"
+        data-date="08/19"
+        data-search="08/19 三 w3 审查dmom1017/1000评分、状态、点击和转化是否达到测试门槛。 状态未清零或评分风险未缓解则保持限额/暂停，并推进整改。 长尾sku处置证据">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-19">08/19</time>
+            <span>周三 · W3</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>6</strong></span>
+            <span>累计 <strong>93</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>审查DMOM1017/1000评分、状态、点击和转化是否达到测试门槛。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>状态未清零或评分风险未缓解则保持限额/暂停，并推进整改。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>长尾SKU处置证据</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W3"
+        data-date="08/20"
+        data-search="08/20 四 w3 扫描fill rate、取消、延迟、缺货与集中库存风险。 处理供应链异常；有履约恶化的sku同日停广告/offer并迁移目标。 履约异常单">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-20">08/20</time>
+            <span>周四 · W3</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>6</strong></span>
+            <span>累计 <strong>99</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>扫描Fill Rate、取消、延迟、缺货与集中库存风险。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>处理供应链异常；有履约恶化的SKU同日停广告/Offer并迁移目标。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>履约异常单</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W3"
+        data-date="08/21"
+        data-search="08/21 五 w3 输出w3 scorecard、月末45 units冲刺边界和8月暂不提报组复核。 周会验收累计105；复核promotion候选/暂不提报清单；批准w4边界。 w3周报、promotion复核">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-21">08/21</time>
+            <span>周五 · W3</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>6</strong></span>
+            <span>累计 <strong>105</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>输出W3 Scorecard、月末45 Units冲刺边界和8月暂不提报组复核。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>周会验收累计105；复核Promotion候选/暂不提报清单；批准W4边界。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>W3周报、Promotion复核</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W4"
+        data-date="08/22"
+        data-search="08/22 六 w4 生成10天冲刺计划，按sku拆剩余45 units与每日缺口。 只给过全部护栏的赢家冲刺；明确不得救的缺货/低评分组。 w4冲刺责任表">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-22">08/22</time>
+            <span>周六 · W4</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>4</strong></span>
+            <span>累计 <strong>109</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>生成10天冲刺计划，按SKU拆剩余45 Units与每日缺口。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>只给过全部护栏的赢家冲刺；明确不得救的缺货/低评分组。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>W4冲刺责任表</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W4"
+        data-date="08/23"
+        data-search="08/23 日 w4 检查周末订单、库存消耗、delivery与异常日耗。 补库存/履约证据；非赢家不因周末短期波动加预算。 周末健康检查">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-23">08/23</time>
+            <span>周日 · W4</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>4</strong></span>
+            <span>累计 <strong>113</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>检查周末订单、库存消耗、Delivery与异常日耗。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>补库存/履约证据；非赢家不因周末短期波动加预算。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>周末健康检查</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W4"
+        data-date="08/24"
+        data-search="08/24 一 w4 按剩余33 units重算资源与预计关账结果。 最后一次常规周一分配：批准赢家cap与目标迁移，锁定低风险动作。 最终资源分配单">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-24">08/24</time>
+            <span>周一 · W4</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>118</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>按剩余33 Units重算资源与预计关账结果。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>最后一次常规周一分配：批准赢家Cap与目标迁移，锁定低风险动作。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>最终资源分配单</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W4"
+        data-date="08/25"
+        data-search="08/25 二 w4 筛选≥20点击0单、7天roas&lt;2.5×和费率超线组。 执行止损：减20%或暂停；保留截图、结果和回退条件。 广告止损记录">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-25">08/25</time>
+            <span>周二 · W4</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>4</strong></span>
+            <span>累计 <strong>122</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>筛选≥20点击0单、7天ROAS&lt;2.5×和费率超线组。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>执行止损：减20%或暂停；保留截图、结果和回退条件。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>广告止损记录</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W4"
+        data-date="08/26"
+        data-search="08/26 三 w4 核对promotion、价格、offer叠加和单sku贡献毛利。 停止侵蚀毛利的叠加；不为追150降低20%毛利护栏。 价格/促销利润表">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-26">08/26</time>
+            <span>周三 · W4</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>4</strong></span>
+            <span>累计 <strong>126</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>核对Promotion、价格、Offer叠加和单SKU贡献毛利。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>停止侵蚀毛利的叠加；不为追150降低20%毛利护栏。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>价格/促销利润表</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W4"
+        data-date="08/27"
+        data-search="08/27 四 w4 更新剩余19 units缺口来源，给出自然/广告/offer唯一归因预测。 处理可逆卡点；禁止新建无观察窗的大测试。 关账预测、风险清单">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-27">08/27</time>
+            <span>周四 · W4</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>131</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>更新剩余19 Units缺口来源，给出自然/广告/Offer唯一归因预测。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>处理可逆卡点；禁止新建无观察窗的大测试。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>关账预测、风险清单</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W4"
+        data-date="08/28"
+        data-search="08/28 五 w4 输出最后周会包：当前累计、预测、预算余量、库存与关闭建议。 周会决定最后3天动作；冻结高风险listing、深折扣和大幅bid变更。 最终周会决议">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-28">08/28</time>
+            <span>周五 · W4</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>4</strong></span>
+            <span>累计 <strong>135</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>输出最后周会包：当前累计、预测、预算余量、库存与关闭建议。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>周会决定最后3天动作；冻结高风险Listing、深折扣和大幅Bid变更。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>最终周会决议</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W4"
+        data-date="08/29"
+        data-search="08/29 六 w4 监控赢家边际效率与履约，不创建新学习结论。 仅执行预先批准的小幅可逆动作；异常优先保利润与履约。 周末执行证据">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-29">08/29</time>
+            <span>周六 · W4</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>4</strong></span>
+            <span>累计 <strong>139</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>监控赢家边际效率与履约，不创建新学习结论。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>仅执行预先批准的小幅可逆动作；异常优先保利润与履约。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>周末执行证据</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W4"
+        data-date="08/30"
+        data-search="08/30 日 w4 准备关账：缺失数据、重复归因、未验收任务和规则候选清单。 补齐证据和验收人；确认8/31数据冻结范围。 关账预检清单">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-30">08/30</time>
+            <span>周日 · W4</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>5</strong></span>
+            <span>累计 <strong>144</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>准备关账：缺失数据、重复归因、未验收任务和规则候选清单。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>补齐证据和验收人；确认8/31数据冻结范围。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>关账预检清单</p>
+        </div>
+      </article>
+      <article class="day-row"
+        data-week="W4"
+        data-date="08/31"
+        data-search="08/31 一 w4 冻结8月数据；完成150 units、预算、利润、履约、归因和实验复盘；起草9月sop vnext。 完成后台最终核对与验收；批准规则升级/保留/回退/退休，并签署9月目标输入。 月度复盘、规则版本、9月输入清单">
+        <header class="day-meta">
+          <div class="day-date">
+            <time datetime="2026-08-31">08/31</time>
+            <span>周一 · W4</span>
+          </div>
+          <div class="day-numbers">
+            <span>当日 <strong>6</strong></span>
+            <span>累计 <strong>150</strong></span>
+          </div>
+        </header>
+        <div class="day-cell">
+          <h4>AI / Codex</h4>
+          <p>冻结8月数据；完成150 Units、预算、利润、履约、归因和实验复盘；起草9月SOP vNext。</p>
+        </div>
+        <div class="day-cell">
+          <h4>店铺负责人</h4>
+          <p>完成后台最终核对与验收；批准规则升级/保留/回退/退休，并签署9月目标输入。</p>
+        </div>
+        <div class="day-cell record-cell">
+          <h4>必须留档</h4>
+          <p>月度复盘、规则版本、9月输入清单</p>
+        </div>
+      </article>
+          <div class="no-results" id="noResults" hidden>没有符合当前筛选条件的每日动作。</div>
+        </div>
+      </section>
+
+      <section class="section" id="sku" aria-labelledby="sku-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">05 / SKU ALLOCATION</span>
+            <h2 id="sku-title">SKU目标分解</h2>
+          </div>
+          <p>月度150 Units必须落到SKU。DRCI1007执行永久退出，不得通过促销、降价或广告重新激活。</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>SKU</th><th>8月目标</th><th>广告预算</th><th>策略</th><th>护栏</th></tr>
+            </thead>
+            <tbody>
+      <tr>
+        <td><strong>DMOM1021</strong></td>
+        <td>50</td>
+        <td>$700</td>
+        <td>第一主力；Keyword收割、Product发现、B2B承接</td>
+        <td>评分4.46；确认LFC-2B/2W库存覆盖</td>
+      </tr>
+      <tr>
+        <td><strong>DMOM1022</strong></td>
+        <td>30</td>
+        <td>$340</td>
+        <td>第二主力；确认后放量</td>
+        <td>核带连字符Live Part与库存映射</td>
+      </tr>
+      <tr>
+        <td><strong>DMOM1019</strong></td>
+        <td>21</td>
+        <td>$290</td>
+        <td>Keyword优先；Product仅保留发现流量</td>
+        <td>评分4.8；Keyword历史ROAS 4.84×</td>
+      </tr>
+      <tr>
+        <td><strong>DMOM1003</strong></td>
+        <td>18</td>
+        <td>$140</td>
+        <td>季节性测试池；严格控制集中风险</td>
+        <td>4T-Kayak仅1个有货ID</td>
+      </tr>
+      <tr>
+        <td><strong>DMOM1018</strong></td>
+        <td>9</td>
+        <td>$30</td>
+        <td>自然单为主；广告只做修复后小测</td>
+        <td>现有CVR弱，不追量</td>
+      </tr>
+      <tr>
+        <td><strong>DMOM1017</strong></td>
+        <td>6</td>
+        <td>$10</td>
+        <td>严格限额并催评</td>
+        <td>评分4.0且仅1评</td>
+      </tr>
+      <tr>
+        <td><strong>DMOM1000</strong></td>
+        <td>6</td>
+        <td>$10</td>
+        <td>状态修复后小测</td>
+        <td>Reviewing/Rejected未清零前不启Offer</td>
+      </tr>
+      <tr>
+        <td><strong>DMOM1025</strong></td>
+        <td>4</td>
+        <td>$0</td>
+        <td>自然观察与修复</td>
+        <td>评分4.0；近28天广告0单</td>
+      </tr>
+      <tr>
+        <td><strong>DMOM1026</strong></td>
+        <td>4</td>
+        <td>$0</td>
+        <td>自然观察</td>
+        <td>评论仅3条、当前转化弱</td>
+      </tr>
+      <tr>
+        <td><strong>DMOM1016</strong></td>
+        <td>2</td>
+        <td>$0</td>
+        <td>自然替补池</td>
+        <td>5T-wangge有货信号稳定</td>
+      </tr>
+      <tr>
+        <td><strong>DRCI1007</strong></td>
+        <td>0</td>
+        <td>$0</td>
+        <td>永久退出</td>
+        <td>不得重新加入目标、广告、关键词或Offer池</td>
+      </tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="learning" aria-labelledby="learning-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">06 / LEARNING SYSTEM</span>
+            <h2 id="learning-title">记录、学习与SOP升级</h2>
+          </div>
+          <p>每次动作必须留下“假设、改动、结果、结论、下一步”。没有记录的经验不能进入SOP，没有复测的结论不能成为规则。</p>
+        </div>
+
+        <div class="learning-grid">
+      <article class="learning-rule">
+        <div class="learning-meta">
+          <span>LEARNING RULE</span>
+          <strong>L01</strong>
+        </div>
+        <h3>L1 数据先行</h3>
+        <p>数据完整率≥95%，来源、窗口、口径和更新时间齐全</p>
+        <small>不满足只标记“待验证”，不得形成规则</small>
+      </article>
+      <article class="learning-rule">
+        <div class="learning-meta">
+          <span>LEARNING RULE</span>
+          <strong>L02</strong>
+        </div>
+        <h3>L2 单变量</h3>
+        <p>一个Operation只改变一个关键变量</p>
+        <small>多变量同时变化时只能记录相关性，不能归因</small>
+      </article>
+      <article class="learning-rule">
+        <div class="learning-meta">
+          <span>LEARNING RULE</span>
+          <strong>L03</strong>
+        </div>
+        <h3>L3 观察窗</h3>
+        <p>广告至少7天或20点击；Offer至少14天；活动周期采用同口径日均</p>
+        <small>未成熟不得提前判定输赢</small>
+      </article>
+      <article class="learning-rule">
+        <div class="learning-meta">
+          <span>LEARNING RULE</span>
+          <strong>L04</strong>
+        </div>
+        <h3>L4 证据链</h3>
+        <p>前快照→审批→执行→后结果→验收→成熟复盘</p>
+        <small>任一缺失则状态不得进入“已验证”</small>
+      </article>
+      <article class="learning-rule">
+        <div class="learning-meta">
+          <span>LEARNING RULE</span>
+          <strong>L05</strong>
+        </div>
+        <h3>L5 升级门槛</h3>
+        <p>连续2个观察周期方向一致，或1个完整月证据充分且人工批准</p>
+        <small>才可从“候选规则”升级为“SOP规则”</small>
+      </article>
+      <article class="learning-rule">
+        <div class="learning-meta">
+          <span>LEARNING RULE</span>
+          <strong>L06</strong>
+        </div>
+        <h3>L6 回退机制</h3>
+        <p>任何规则必须写触发条件、停止条件、回退动作和适用范围</p>
+        <small>护栏被突破时自动降级为待复核</small>
+      </article>
+      <article class="learning-rule">
+        <div class="learning-meta">
+          <span>LEARNING RULE</span>
+          <strong>L07</strong>
+        </div>
+        <h3>L7 版本管理</h3>
+        <p>规则ID + 版本 + 生效日 + 证据Operation ID + 批准人</p>
+        <small>旧版本保留，不覆盖历史</small>
+      </article></div>
+
+        <div class="loop">
+          <h3>月度闭环：把8月执行结果升级成下一月的默认做法</h3>
+          <div class="loop-track" aria-label="SOP学习闭环">
+            <div class="loop-step">目标拆解</div>
+            <div class="loop-step">设定护栏</div>
+            <div class="loop-step">每日执行</div>
+            <div class="loop-step">证据留档</div>
+            <div class="loop-step">周度复盘</div>
+            <div class="loop-step">提炼规则</div>
+            <div class="loop-step">小范围复测</div>
+            <div class="loop-step">版本升级</div>
+            <div class="loop-step">下月复用</div>
+          </div>
+        </div>
+
+        <aside class="source-note">
+          <h3>资料与口径</h3>
+          <ul><li>outputs/YB店_2026-06/YB店_8月150单完整增长Playbook.html</li><li>outputs/YB店_2026-06/YB店_SKU广告重构执行清单_2026-07-15.html</li><li>outputs/2026-07-27_august_promotion/YB店_2026年8月_Promotion提报报告_手机版.html</li><li>outputs/closed-loop-implementation-2026-07-28/Wayfair_闭环P0_实施与审计报告_2026-07-28.html</li><li>AI_Wayfair系统复盘与优化方案_2026-07-20.md</li></ul>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      YB店｜2026年8月运营指南 · v1.0 · 配套台账：YB店_2026年8月运营记录与学习台账.xlsx
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      const buttons = [...document.querySelectorAll(".filter-button")];
+      const rows = [...document.querySelectorAll(".day-row")];
+      const searchInput = document.getElementById("dailySearch");
+      const count = document.getElementById("resultCount");
+      const noResults = document.getElementById("noResults");
+      let activeWeek = "ALL";
+
+      const applyFilters = () => {
+        const query = searchInput.value.trim().toLowerCase();
+        let visible = 0;
+        rows.forEach((row) => {
+          const weekMatch = activeWeek === "ALL" || row.dataset.week === activeWeek;
+          const textMatch = !query || row.dataset.search.includes(query);
+          const show = weekMatch && textMatch;
+          row.hidden = !show;
+          if (show) visible += 1;
+        });
+        count.textContent = visible + " 天";
+        noResults.hidden = visible !== 0;
+      };
+
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => {
+          activeWeek = button.dataset.filter;
+          buttons.forEach((item) =>
+            item.setAttribute("aria-pressed", String(item === button)),
+          );
+          applyFilters();
+        });
+      });
+      searchInput.addEventListener("input", applyFilters);
+      document.getElementById("printButton").addEventListener("click", () => window.print());
+
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const day = String(now.getDate()).padStart(2, "0");
+      const currentKey = month === 8 && year === 2026 ? "08/" + day : null;
+      const currentRow = currentKey
+        ? document.querySelector('.day-row[data-date="' + currentKey + '"]')
+        : null;
+      const statusTitle = document.getElementById("statusTitle");
+      const statusBody = document.getElementById("statusBody");
+
+      if (currentRow) {
+        rows.forEach((row) => row.classList.remove("is-next"));
+        currentRow.classList.add("is-current");
+        statusTitle.textContent = "今日执行：" + currentKey;
+        const ownerText = currentRow.querySelectorAll(".day-cell p")[1]?.textContent || "";
+        statusBody.textContent = ownerText;
+      } else if (year > 2026 || (year === 2026 && month > 8)) {
+        statusTitle.textContent = "8月已结束：进入关账与SOP升级";
+        statusBody.textContent = "完成月度复盘、证据归档、经验提炼和下月参数重置。";
+      }
+
+      const navLinks = [...document.querySelectorAll(".nav a")];
+      const sections = navLinks
+        .map((link) => document.querySelector(link.getAttribute("href")))
+        .filter(Boolean);
+      if ("IntersectionObserver" in window) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            const active = entries
+              .filter((entry) => entry.isIntersecting)
+              .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+            if (!active) return;
+            navLinks.forEach((link) =>
+              link.setAttribute(
+                "aria-current",
+                String(link.getAttribute("href") === "#" + active.target.id),
+              ),
+            );
+          },
+          { rootMargin: "-25% 0px -60% 0px", threshold: [0.01, 0.25] },
+        );
+        sections.forEach((section) => observer.observe(section));
+      }
+    })();
+  </script>
+</body>
+</html>

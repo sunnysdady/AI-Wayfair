@@ -1,0 +1,118 @@
+[
+  {
+    "id": "mature-profitable-canary",
+    "description": "Mature profitable evidence may produce only a shadow canary while causal confidence is C0.",
+    "expectedAction": "CANARY_BUDGET_10",
+    "input": {
+      "identity": {
+        "site": "wayfair.com",
+        "currency": "USD",
+        "isB2B": false,
+        "campaignId": "MATURE-1",
+        "targetingType": "PRODUCT",
+        "listing": "DMOM1021",
+        "targetId": "listing:DMOM1021"
+      },
+      "metrics": {
+        "clicks": 120,
+        "spend": 130,
+        "orders": 8,
+        "wsc": 1200
+      },
+      "economics": {
+        "marginRate": 0.35,
+        "marginKnown": true,
+        "mode": "ORDER_ACTUAL"
+      },
+      "readiness": {
+        "attributionMature": true,
+        "mappingComplete": true,
+        "mappingVerified": true,
+        "inventoryKnown": true,
+        "inventoryCoverDays": 90,
+        "inventoryFresh": true,
+        "linkPass": true,
+        "linkEvidenceVerified": true,
+        "cooldownUntil": null
+      }
+    }
+  },
+  {
+    "id": "tiny-sample-hold",
+    "description": "One order from five clicks is shrunk and cannot trigger scale.",
+    "expectedAction": "HOLD",
+    "expectedBlocker": "MINIMUM_EVIDENCE",
+    "input": {
+      "identity": {
+        "site": "wayfair.com",
+        "currency": "USD",
+        "isB2B": false,
+        "campaignId": "TINY-1",
+        "targetingType": "PRODUCT",
+        "listing": "TINY-SKU",
+        "targetId": "listing:TINY-SKU"
+      },
+      "metrics": {
+        "clicks": 5,
+        "spend": 3,
+        "orders": 1,
+        "wsc": 200
+      },
+      "economics": {
+        "marginRate": 0.35,
+        "marginKnown": true,
+        "mode": "ORDER_ACTUAL"
+      },
+      "readiness": {
+        "attributionMature": true,
+        "mappingComplete": true,
+        "mappingVerified": true,
+        "inventoryKnown": true,
+        "inventoryCoverDays": 90,
+        "inventoryFresh": true,
+        "linkPass": true,
+        "linkEvidenceVerified": true,
+        "cooldownUntil": null
+      }
+    }
+  },
+  {
+    "id": "unknown-margin-hold",
+    "description": "Missing contribution economics blocks optimization.",
+    "expectedAction": "HOLD",
+    "expectedBlocker": "CONTRIBUTION_ECONOMICS_UNKNOWN",
+    "input": {
+      "identity": {
+        "site": "wayfair.com",
+        "currency": "USD",
+        "isB2B": false,
+        "campaignId": "NO-COST-1",
+        "targetingType": "KEYWORD",
+        "listing": "DRCI1007",
+        "targetId": "keyword:filing-cabinet"
+      },
+      "metrics": {
+        "clicks": 90,
+        "spend": 80,
+        "orders": 6,
+        "wsc": 900
+      },
+      "economics": {
+        "marginRate": null,
+        "marginKnown": false,
+        "mode": "UNKNOWN"
+      },
+      "readiness": {
+        "attributionMature": true,
+        "mappingComplete": false,
+        "mappingVerified": false,
+        "inventoryKnown": false,
+        "inventoryCoverDays": null,
+        "inventoryFresh": false,
+        "linkPass": false,
+        "linkEvidenceVerified": false,
+        "cooldownUntil": null
+      }
+    }
+  }
+]

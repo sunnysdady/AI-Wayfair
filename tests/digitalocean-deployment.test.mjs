@@ -24,6 +24,9 @@ test("DigitalOcean deployment separates web, scheduler, migration, and TLS proxy
   assert.match(dockerfile, /FROM node:22-bookworm-slim AS runner/);
   assert.match(dockerfile, /USER node/);
   assert.match(caddy, /reverse_proxy web:3000/);
+  assert.match(caddy, /X-Frame-Options "DENY"/);
+  assert.match(caddy, /Content-Security-Policy "frame-ancestors 'none'"/);
+  assert.match(caddy, /Permissions-Policy "camera=\(\), microphone=\(\), geolocation=\(\)"/);
 });
 
 test("health route is public for infrastructure checks but cron remains secret-protected", async () => {
