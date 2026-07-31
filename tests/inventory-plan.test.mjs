@@ -52,6 +52,44 @@ test("builds one complete active-part by warehouse inventory baseline and fills 
   assert.deepEqual(result.unmappedActiveParts, ["PART-ZERO"]);
 });
 
+test("sums every mapped Lingxing SKU in the same warehouse and treats an absent mapped SKU as zero", () => {
+  const result = buildCompleteInventoryRows(
+    [
+      {
+        rowNumber: 2,
+        lingxingSku: "SKU-OLD",
+        warehouse: "WH-A",
+        productName: "Old model",
+        available: 7,
+        locked: 0,
+        incoming: 3,
+        transferInTransit: 0,
+      },
+      {
+        rowNumber: 3,
+        lingxingSku: "SKU-NEW",
+        warehouse: "WH-A",
+        productName: "New model",
+        available: 11,
+        locked: 0,
+        incoming: 2,
+        transferInTransit: 0,
+      },
+    ],
+    {
+      activePartNumbers: ["PART-A"],
+      skuMappings: [{ supplierPartNumber: "PART-A", lingxingSku: "SKU-OLD|SKU-MISSING|SKU-NEW" }],
+      warehouseMappings: [{ supplierId: 11, warehouse: "WH-A" }],
+    },
+  );
+
+  assert.deepEqual(result.rows.map((row) => row.item), [
+    { discontinued: false, supplierPartNumber: "PART-A", quantityOnHand: 18, quantityOnOrder: 5, supplierId: 11, quantityBackordered: 0 },
+  ]);
+  assert.equal(result.rows[0].source.lingxingSku, "SKU-OLD|SKU-MISSING|SKU-NEW");
+  assert.equal(result.missingCombinations, 1);
+});
+
 test("rejects duplicate active parts and ambiguous warehouse mappings", () => {
   const stockRows = [];
   assert.throws(
