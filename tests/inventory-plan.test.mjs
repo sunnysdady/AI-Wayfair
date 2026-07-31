@@ -6,14 +6,18 @@ import { buildCompleteInventoryRows } from "../lib/inventory-plan.mjs";
 
 test("uses the active Wayfair warehouse IDs exactly once with the correct Lingxing warehouse", () => {
   assert.deepEqual(mapping.warehouseMappings, [
-    { supplierId: 347072, warehouse: "派速捷 LA02仓" },
+    { supplierId: 360344, warehouse: "派速捷 美东南 GA 亚特兰大2仓" },
     { supplierId: 360342, warehouse: "派速捷 LA10仓" },
     { supplierId: 360343, warehouse: "派速捷 XHNJ02仓" },
-    { supplierId: 360344, warehouse: "派速捷 美南HOU04" },
+    { supplierId: 347072, warehouse: "派速捷 美南HOU04" },
     { supplierId: 360346, warehouse: "派速捷 美东南 GA 亚特兰大2仓" },
   ]);
   assert.equal(new Set(mapping.warehouseMappings.map((item) => item.supplierId)).size, 5);
-  assert.equal(new Set(mapping.warehouseMappings.map((item) => item.warehouse)).size, 5);
+  assert.equal(new Set(mapping.warehouseMappings.map((item) => item.warehouse)).size, 4);
+  assert.equal(
+    mapping.skuMappings.find((item) => item.supplierPartNumber === "5T-1830-1200")?.lingxingSku,
+    "B02UR-027BM|B01UR-005BM",
+  );
 });
 
 test("builds one complete active-part by warehouse inventory baseline and fills missing rows with zero", () => {
@@ -90,7 +94,7 @@ test("sums every mapped Lingxing SKU in the same warehouse and treats an absent 
   assert.equal(result.missingCombinations, 1);
 });
 
-test("rejects duplicate active parts and ambiguous warehouse mappings", () => {
+test("rejects duplicate active parts and supplier warehouse IDs", () => {
   const stockRows = [];
   assert.throws(
     () => buildCompleteInventoryRows(stockRows, {
@@ -104,10 +108,7 @@ test("rejects duplicate active parts and ambiguous warehouse mappings", () => {
     () => buildCompleteInventoryRows(stockRows, {
       activePartNumbers: ["PART-A"],
       skuMappings: [],
-      warehouseMappings: [
-        { supplierId: 11, warehouse: "WH-A" },
-        { supplierId: 12, warehouse: "WH-A" },
-      ],
+      warehouseMappings: [{ supplierId: 11, warehouse: "WH-A" }, { supplierId: 11, warehouse: "WH-B" }],
     }),
     /仓库映射/,
   );

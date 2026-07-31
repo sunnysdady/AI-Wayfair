@@ -72,7 +72,7 @@ export async function parseStockWorkbook(file: File) {
   if (missingCombinations) warnings.push({field:"映射",message:`${missingCombinations}个有效商品×仓库组合在本次源文件中没有记录，已按完整 TRUE_UP 补零`});
   if (planned.unmappedActiveParts.length) warnings.push({field:"商品映射",message:`${planned.unmappedActiveParts.length}个 Wayfair 有效商品没有领星 SKU 映射，已在全部仓库保留为零库存：${planned.unmappedActiveParts.join("、")}`});
   const zeroStockRows = items.filter((item)=>item.quantityOnHand===0).length;
-  const mappedSkus = new Set(mapping.skuMappings.map((item)=>item.lingxingSku));
+  const mappedSkus = new Set(mapping.skuMappings.flatMap((item)=>item.lingxingSku.split("|").map((sku)=>sku.trim()).filter(Boolean)));
   const mappedWarehouses = new Set(mapping.warehouseMappings.map((item)=>item.warehouse));
   const summary = {
     totalRows:items.length, validRows:errors.length?0:items.length, errorRows:new Set(errors.map((item)=>item.row)).size,
