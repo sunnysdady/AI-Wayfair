@@ -152,7 +152,7 @@ export async function POST(request: Request) {
     await ensureTables(env.DB);
     const staleExecution = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     await env.DB.prepare("UPDATE ad_action_queue SET status='FAILED',updated_at=? WHERE status='EXECUTING' AND updated_at<?").bind(new Date().toISOString(), staleExecution).run();
-    const body = await request.json() as { runKey?: string; dryRun?: boolean; confirmation?: string };
+    const body = await request.json() as { runKey?: string; dryRun?: boolean; confirmation?: string; actionIds?: string[] };
     if (!body.runKey || !/^weekly:\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/.test(body.runKey)) return Response.json({ error: "周执行批次格式无效" }, { status: 400 });
     const augustCutover = validateAugustRunForExecution({
       runKey: body.runKey,
@@ -165,7 +165,11 @@ export async function POST(request: Request) {
       );
     }
     const requiredStatus = body.dryRun === false ? "VALIDATED" : "APPROVED";
-    const result = await env.DB.prepare("SELECT * FROM ad_action_queue WHERE run_key=? AND status=? AND action_type IN ('SET_LISTING_BID','SET_LISTING_ACTIVE') ORDER BY campaign_id,listing").bind(body.runKey, requiredStatus).all<QueueRow>();
+    const actionIds = [...new Set((body.actionIds || []).filter((id): id is string => typeof id === "string" && id.length > 0))];
+    const scopedActions = actionIds.length
+      ? ` AND id IN (${actionIds.map(() => "?").join(",")})`
+      : "";
+    const result = await env.DB.prepare(`SELECT * FROM ad_action_queue WHERE run_key=? AND status=? AND action_type IN ('SET_LISTING_BID','SET_LISTING_ACTIVE')${scopedActions} ORDER BY campaign_id,listing`).bind(body.runKey, requiredStatus, ...actionIds).all<QueueRow>();
     const actions = result.results || [];
     const augustPlanGate = validateAugustAdActionsAgainstPlan(actions);
     if (!augustPlanGate.ok) {

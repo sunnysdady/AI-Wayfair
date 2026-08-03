@@ -2304,9 +2304,12 @@ function Hero({
 }) {
   void eyebrow;
   void text;
+  const hasUtility = Boolean(side);
   return (
-    <header className="hero page-heading">
-      <h1>{title}</h1>
+    <header
+      className={`hero page-heading page-heading--utility${hasUtility ? "" : " is-empty"}`}
+    >
+      <h1 className="sr-only">{title}</h1>
       {side}
     </header>
   );
@@ -5131,21 +5134,14 @@ function Ads({ tab }: { tab: AdsTab }) {
   const [manualFilter, setManualFilter] = useState("ALL");
   const [selectedManualTasks, setSelectedManualTasks] = useState<string[]>([]);
   const [manualDetailTask, setManualDetailTask] = useState<string | null>(null);
-  const [aiDetailTask, setAiDetailTask] = useState<string | null>(null);
   const [detailTrigger, setDetailTrigger] = useState<HTMLElement | null>(null);
 
   const closeManualDetail = () => {
     setManualDetailTask(null);
     detailTrigger?.focus();
   };
-  const closeAiDetail = () => {
-    setAiDetailTask(null);
-    detailTrigger?.focus();
-  };
-
   useEffect(() => {
     setManualDetailTask(null);
-    setAiDetailTask(null);
     setDetailTrigger(null);
   }, [tab]);
   const [zombieResolutions, setZombieResolutions] = useState<
@@ -5443,7 +5439,7 @@ function Ads({ tab }: { tab: AdsTab }) {
       setBatchBusy(false);
     }
   }
-  async function postExecution(dryRun: boolean) {
+  async function postExecution(dryRun: boolean, actionIds?: string[]) {
     if (!data?.runKey) throw new Error("执行批次尚未生成");
     const response = await fetch("/api/ads/actions/execute", {
       method: "POST",
@@ -5451,6 +5447,7 @@ function Ads({ tab }: { tab: AdsTab }) {
       body: JSON.stringify({
         runKey: data.runKey,
         dryRun,
+        actionIds,
         confirmation: dryRun ? undefined : "执行广告修改",
       }),
     });
@@ -5464,9 +5461,12 @@ function Ads({ tab }: { tab: AdsTab }) {
   }
   async function queueSelected() {
     if (!data?.runKey) return;
-    const rows = optimizationListings.filter(
+    const rows = approvalRows.filter(
       (row) =>
         API_AD_ACTION_TYPES.has(row.action.type) &&
+        selectableRecommendationKeys.includes(
+          `${row.campaignId}:${row.listing}`,
+        ) &&
         selectedRecommendations.includes(`${row.campaignId}:${row.listing}`),
     );
     if (!rows.length) return;
@@ -5506,9 +5506,12 @@ function Ads({ tab }: { tab: AdsTab }) {
   }
   async function prepareSelected() {
     const actions = apiQueuedActions.filter(
-      (action) => selectedQueue.includes(action.id) && isBulkApprovable(action),
+      (action) =>
+        selectedQueue.includes(action.id) &&
+        selectableQueueIds.includes(action.id) &&
+        isBulkApprovable(action),
     );
-    if (!actions.length && !approvedActions.length) return;
+    if (!actions.length) return;
     setBatchBusy(true);
     setBatchMessage("");
     try {
@@ -5524,11 +5527,14 @@ function Ads({ tab }: { tab: AdsTab }) {
             throw new Error(`${action.listing}: ${body.error || "确认失败"}`);
         }),
       );
-      const body = await postExecution(true);
+      const body = await postExecution(
+        true,
+        actions.map((action) => action.id),
+      );
       setSelectedQueue([]);
       setBatchMessage(
         body.message ||
-          `已确认并预检 ${actions.length + approvedActions.length} 项。`,
+          `已确认并预检 ${actions.length} 项。`,
       );
     } catch (reason) {
       setBatchMessage(
@@ -5774,7 +5780,6 @@ function Ads({ tab }: { tab: AdsTab }) {
   const apiListings = optimizationListings.filter((row) =>
     API_AD_ACTION_TYPES.has(row.action.type),
   );
-  const ready = apiListings.length;
   const zombieFindings = data?.zombieFindings || [];
   const zombieAudit = data?.zombieAudit || {
     matureDays: 14,
@@ -5785,17 +5790,11 @@ function Ads({ tab }: { tab: AdsTab }) {
   const apiQueuedActions = queuedActions.filter((action) =>
     API_AD_ACTION_TYPES.has(action.action_type),
   );
-  const approvedActions = apiQueuedActions.filter(
-    (item) => item.status === "APPROVED",
-  );
   const validatedActions = apiQueuedActions.filter(
     (item) => item.status === "VALIDATED",
   );
   const executedActions = apiQueuedActions.filter(
     (item) => item.status === "EXECUTED",
-  );
-  const failedActions = apiQueuedActions.filter(
-    (item) => item.status === "FAILED",
   );
   const queueActionByKey = new Map(
     apiQueuedActions.map((action) => [
@@ -5808,7 +5807,27 @@ function Ads({ tab }: { tab: AdsTab }) {
     { query: actionQuery, recommendation: "ALL", queue: queueFilter },
     queueState,
   ) as AdListing[];
-  const selectableListings = filteredListings.filter(
+  const approvalRows = filteredListings.filter((row) => {
+    const queuedAction = queueActionByKey.get(
+      `${row.campaignId}:${row.listing}:${row.action.type}`,
+    );
+    return Boolean(
+      row.operatorReview?.verdict === "CANDIDATE" &&
+        (!queuedAction || queuedAction.status === "PLANNED"),
+    );
+  });
+  const pendingApprovalCount = apiListings.filter(
+    (row) => {
+      const queuedAction = queueActionByKey.get(
+        `${row.campaignId}:${row.listing}:${row.action.type}`,
+      );
+      return Boolean(
+        row.operatorReview?.verdict === "CANDIDATE" &&
+          (!queuedAction || queuedAction.status === "PLANNED"),
+      );
+    },
+  ).length;
+  const selectableListings = approvalRows.filter(
     (row) =>
       API_AD_ACTION_TYPES.has(row.action.type) &&
       row.operatorReview?.verdict === "CANDIDATE" &&
@@ -5816,7 +5835,7 @@ function Ads({ tab }: { tab: AdsTab }) {
         `${row.campaignId}:${row.listing}:${row.action.type}`,
       ),
   );
-  const selectableQueueActions = filteredListings
+  const selectableQueueActions = approvalRows
     .map((row) =>
       queueActionByKey.get(
         `${row.campaignId}:${row.listing}:${row.action.type}`,
@@ -6020,11 +6039,6 @@ function Ads({ tab }: { tab: AdsTab }) {
     setCampaignSort((value) => nextSort(value, field) as SortState);
   const sortListing = (field: string) =>
     setListingSort((value) => nextSort(value, field) as SortState);
-  const aiDecisionCurrent = data?.decision.current;
-  const aiDecisionPrevious = data?.decision.previous;
-  const decisionModel = data?.decisionModel;
-  const modelTodo = data?.modelTodo || [];
-  const campaignControl = data?.campaignControl;
   const headerRange =
     tab === "review" ? null : tab === "ai" ? data?.decisionRange : requested;
   const pageTitle =
@@ -6046,7 +6060,7 @@ function Ads({ tab }: { tab: AdsTab }) {
           ? `${resolvedZombieCount} / ${zombieFindings.length} 诊断已完成 · ${manualDone.length} / ${MANUAL_AD_TASK_COUNT} 已闭环 · ${manualOpenCount} 可验收`
           : tab === "review"
             ? "完整审计链"
-            : `${ready} 项建议 · ${validatedActions.length} 项待执行`;
+            : `${pendingApprovalCount} 项待审批 · 已执行 ${executedActions.length} 项`;
   return (
     <>
       <Hero
@@ -6703,7 +6717,7 @@ function Ads({ tab }: { tab: AdsTab }) {
                         {item.targetingType || "Targeting 未知"}
                       </small>
                     </div>
-                    <p>
+                    <p className="approval-internal">
                       <b>
                         {item.metric.impressions} 曝光 ·{" "}
                         {money2(item.metric.spend)} · {item.metric.orders} 单
@@ -7149,364 +7163,40 @@ function Ads({ tab }: { tab: AdsTab }) {
       )}
       {tab === "ai" && (
         <>
-          <div className="card model-shadow-card">
+          <section className="card ai-result-card">
             <div className="section-head">
               <div>
-                <span>MODEL FIRST · READ ONLY</span>
-                <h2>AI 优化建议</h2>
+                <span>AI 优化</span>
+                <h2>优化结果</h2>
               </div>
               <b>
-                {decisionModel
-                  ? `${decisionModel.version} · ${decisionModel.summary.actionableInShadow} 个 Canary 候选 · ${decisionModel.summary.blocked} 个阻断`
-                  : "等待成熟数据"}
+                {loading
+                  ? "正在更新结果"
+                  : pendingApprovalCount
+                    ? `${pendingApprovalCount} 项待审批`
+                    : "暂无待审批需求"}
               </b>
             </div>
-            {campaignControl && (
-              <>
-                <div className="ai-decision-context live-safety-context">
-                  <span>已回读执行口径</span>
-                  <b>
-                    Wallet Daily Cap {money2(campaignControl.walletDailyCap)}
-                  </b>
-                  <em>
-                    活跃 Campaign Cap 合计{" "}
-                    {money2(campaignControl.activeCampaignDailyCap)} · 安全余量{" "}
-                    {money2(campaignControl.walletHeadroom)}。Campaign
-                    级暂停必须先检查混投关系，不得因单个零预算 Listing
-                    误伤整组。
-                  </em>
-                </div>
-                <div className="ai-workbench-metrics">
-                  <span>
-                    <small>Campaign 597350</small>
-                    <b>
-                      Active ·{" "}
-                      {money2(campaignControl.correctedCampaign.dailyCap)}/day
-                    </b>
-                    <em>纠偏后保持活跃</em>
-                  </span>
-                  <span>
-                    <small>商品隔离</small>
-                    <b>DMOM1025 / LFC-3W</b>
-                    <em>产品行 Paused，不暂停整组</em>
-                  </span>
-                  <span>
-                    <small>L28 Retail ROAS</small>
-                    <b>
-                      {campaignControl.correctedCampaign.last28RetailRoas.toFixed(
-                        2,
-                      )}
-                      ×
-                    </b>
-                    <em>
-                      {money2(campaignControl.correctedCampaign.last28Spend)}{" "}
-                      花费 ·{" "}
-                      {money2(campaignControl.correctedCampaign.last28Revenue)}{" "}
-                      Revenue
-                    </em>
-                  </span>
-                  <span>
-                    <small>继续 Paused</small>
-                    <b>{campaignControl.pausedCampaignIds.join(" · ")}</b>
-                    <em>已执行状态，不再生成重复暂停任务</em>
-                  </span>
-                </div>
-              </>
-            )}
-            <div className="ai-decision-context">
-              <span>长期目标</span>
-              <b>最大化预期增量广告后贡献</b>
-              <em>
-                当前阶段先学习增量响应。模型只读取成熟数据；因果置信度为
-                C0，所以只展示归因场景假设，不计算真实增量 ROI
-                或成功概率，也不会进入广告 API 执行队列。
-              </em>
-            </div>
-            <div className="ai-workbench-metrics">
-              <span>
-                <small>模型单元</small>
-                <b>{decisionModel?.summary.units || 0}</b>
-                <em>Campaign × Listing</em>
-              </span>
-              <span>
-                <small>Shadow Canary</small>
-                <b>{decisionModel?.summary.actionableInShadow || 0}</b>
-                <em>仅生成实验设计</em>
-              </span>
-              <span>
-                <small>输入阻断</small>
-                <b>{decisionModel?.summary.blocked || 0}</b>
-                <em>成本 / 映射 / 库存 / 链接</em>
-              </span>
-              <span>
-                <small>模型最优预算</small>
-                <b>
-                  {decisionModel?.optimalBudget.status === "UNKNOWN"
-                    ? "尚不可估计"
-                    : money(decisionModel?.optimalBudget.amount || 0)}
-                </b>
-                <em>等待真实干预响应曲线</em>
-              </span>
-            </div>
-            <p className="ai-workbench-note">
-              实验最大损失：组合{" "}
-              {money2(decisionModel?.riskPolicy?.portfolioMaxLoss || 0)}
-              ，单日增量{" "}
-              {money2(
-                decisionModel?.riskPolicy?.portfolioMaxDailyIncrementalLoss ||
-                  0,
-              )}
-              ；守住 8 月贡献代理下限{" "}
-              {money2(decisionModel?.riskPolicy?.monthlyContributionFloor || 0)}
-              。最早 {decisionModel?.riskPolicy?.earliestStart || "-"} 启动，
-              {decisionModel?.riskPolicy?.earliestMatureReview || "-"}{" "}
-              首评。该下限基于收入目标、当前采购毛利率与基础广告计划，不等同于含退货、物流及扣款后的净利润。
+            <p className="ai-result-summary">
+              {loading
+                ? "系统正在按内置规则更新结果。"
+                : pendingApprovalCount
+                  ? `已生成 ${pendingApprovalCount} 项可处理需求，请在下方审批后再进入执行。`
+                  : "暂无新的待审批需求。系统会继续监测，在满足规则时自动生成审批事项。"}
             </p>
-            <p className="ai-workbench-note">
-              指标口径分开：成熟 WSC ROAS 衡量平台归因销售效率；每 $100
-              广告花费订单数衡量获单效率；增量营销 ROI
-              只有在可识别的新增投入与增量贡献同时存在时才计算。贡献利润仍是经营贡献代理，不是店铺净利润。
-            </p>
-            <div className="action-list rich model-shadow-list">
-              <div className="action-head">
-                <span>Listing / Campaign</span>
-                <span>模型任务</span>
-                <span>置信度</span>
-                <span>归因场景假设</span>
-                <span>边界</span>
-              </div>
-              {modelTodo.map((item) => {
-                const delta = item.attributedScenarioDelta;
-                return (
-                  <article key={item.id}>
-                    <div>
-                      <strong>{item.listing}</strong>
-                      <small>Campaign {item.campaignId}</small>
-                      <small>
-                        {item.identity.site} ·{" "}
-                        {item.identity.isB2B ? "B2B" : "B2C"} ·{" "}
-                        {item.identity.targetingType}
-                      </small>
-                      <small>
-                        {item.executionPlan
-                          ? `8月目标 ${item.executionPlan.listingTargetOrders} Orders · 授权广告池 ${money2(item.executionPlan.listingPlannedAdBudget)}`
-                          : "8月计划未映射"}
-                      </small>
-                    </div>
-                    <div>
-                      <b>{item.title}</b>
-                      <small>{item.detail}</small>
-                      <button
-                        className="ai-detail-button"
-                        type="button"
-                        onClick={(event) => {
-                          setDetailTrigger(event.currentTarget);
-                          setAiDetailTask(item.id);
-                        }}
-                      >
-                        查看判断依据
-                      </button>
-                    </div>
-                    <p>
-                      <b>
-                        {item.confidence.data} / {item.confidence.predictive} /{" "}
-                        {item.confidence.causal}
-                      </b>
-                      <br />
-                      真实增量为正概率：不可估计
-                    </p>
-                    <p>
-                      {delta &&
-                      delta.orders != null &&
-                      delta.spend != null &&
-                      delta.wsc != null ? (
-                        <>
-                          <b>
-                            归因订单 {delta.orders >= 0 ? "+" : ""}
-                            {delta.orders.toFixed(2)}
-                          </b>
-                          <br />
-                          花费场景 {delta.spend >= 0 ? "+" : ""}
-                          {money2(delta.spend)}
-                          <br />
-                          归因 WSC {delta.wsc >= 0 ? "+" : ""}
-                          {money2(delta.wsc)}
-                          <br />
-                          贡献场景{" "}
-                          {delta.contributionProxy == null
-                            ? "不可估计"
-                            : `${delta.contributionProxy >= 0 ? "+" : ""}${money2(delta.contributionProxy)}`}
-                        </>
-                      ) : (
-                        <b>等待输入</b>
-                      )}
-                    </p>
-                    <div className="recommendation-execution">
-                      <em className="neutral">Shadow only</em>
-                      <small>
-                        {item.blockers.length
-                          ? item.blockers.join(" · ")
-                          : "需先完成预注册、功效分析和人工审批"}
-                      </small>
-                    </div>
-                    {aiDetailTask === item.id ? (
-                      <div
-                        className="manual-detail-overlay"
-                        role="presentation"
-                        onMouseDown={closeAiDetail}
-                      >
-                        <section
-                          className="manual-detail-dialog ai-detail-dialog"
-                          role="dialog"
-                          aria-modal="true"
-                          aria-labelledby={`${item.id}-detail-title`}
-                          tabIndex={-1}
-                          onKeyDown={(event) =>
-                            trapDialogFocus(event, closeAiDetail)
-                          }
-                          onMouseDown={(event) => event.stopPropagation()}
-                        >
-                          <header>
-                            <div>
-                              <span>AI 判断依据</span>
-                              <h3 id={`${item.id}-detail-title`}>
-                                {item.title}
-                              </h3>
-                            </div>
-                            <button
-                              type="button"
-                              autoFocus
-                              aria-label="关闭判断依据"
-                              onClick={closeAiDetail}
-                            >
-                              ×
-                            </button>
-                          </header>
-                          <div className="ai-detail-content">
-                            <p>{item.detail}</p>
-                            <dl>
-                              <div>
-                                <dt>置信度</dt>
-                                <dd>
-                                  {item.confidence.data} /{" "}
-                                  {item.confidence.predictive} /{" "}
-                                  {item.confidence.causal}
-                                </dd>
-                              </div>
-                              <div>
-                                <dt>执行边界</dt>
-                                <dd>
-                                  {item.blockers.length
-                                    ? item.blockers.join("；")
-                                    : "需先完成预注册、功效分析和人工审批"}
-                                </dd>
-                              </div>
-                              <div>
-                                <dt>归因场景</dt>
-                                <dd>
-                                  {delta &&
-                                  delta.orders != null &&
-                                  delta.spend != null &&
-                                  delta.wsc != null
-                                    ? `订单 ${delta.orders >= 0 ? "+" : ""}${delta.orders.toFixed(2)}；花费 ${delta.spend >= 0 ? "+" : ""}${money2(delta.spend)}；WSC ${delta.wsc >= 0 ? "+" : ""}${money2(delta.wsc)}；贡献 ${delta.contributionProxy == null ? "不可估计" : `${delta.contributionProxy >= 0 ? "+" : ""}${money2(delta.contributionProxy)}`}`
-                                    : "等待完整输入后估计"}
-                                </dd>
-                              </div>
-                              <div>
-                                <dt>执行计划</dt>
-                                <dd>
-                                  {item.executionPlan
-                                    ? `8 月目标 ${item.executionPlan.listingTargetOrders} Orders；授权广告池 ${money2(item.executionPlan.listingPlannedAdBudget)}`
-                                    : "8 月计划尚未映射"}
-                                </dd>
-                              </div>
-                            </dl>
-                          </div>
-                        </section>
-                      </div>
-                    ) : null}
-                  </article>
-                );
-              })}
-              {!loading && !modelTodo.length ? (
-                <p className="empty-state">当前没有可生成的模型任务。</p>
-              ) : null}
-            </div>
-          </div>
+          </section>
           <section className="card action-ledger ai-api-workbench">
             <div className="section-head">
               <div>
-                <span>ADVERTISING API</span>
-                <h2>执行队列</h2>
+                <span>AI 优化</span>
+                <h2>待审批需求</h2>
               </div>
               <b>
                 {queueLoading
                   ? "读取中"
-                  : `${ready} 项建议 · ${apiQueuedActions.length} 项已入批次 · 成功 ${executedActions.length} · 失败 ${failedActions.length}`}
+                  : `${pendingApprovalCount} 项待审批 · 已执行 ${executedActions.length} 项`}
               </b>
             </div>
-            <div className="ai-decision-context">
-              <span>建议与动作依据</span>
-              <b>
-                成熟周 {data?.decisionRange.start || "-"} →{" "}
-                {data?.decisionRange.end || "-"}
-              </b>
-              <em>
-                成熟数据负责评估；Campaign × Listing
-                分开计算，不用父体汇总混淆多个 Campaign。
-              </em>
-            </div>
-            <div className="ai-decision-context live-safety-context">
-              <span>实时安全窗</span>
-              <b>
-                {data?.liveSafetyRange?.start || "-"} →{" "}
-                {data?.liveSafetyRange?.end || "-"}
-              </b>
-              <em>
-                4日异常只报警；持续7日达到真实成熟CVR样本门槛才进入辩论，未成熟数据绝不直接调参。
-              </em>
-            </div>
-            <div className="ai-workbench-metrics">
-              <span>
-                <small>成熟周花费</small>
-                <b>{loading ? "-" : money(aiDecisionCurrent?.spend)}</b>
-                <em>
-                  {change(aiDecisionCurrent?.spend, aiDecisionPrevious?.spend)}
-                </em>
-              </span>
-              <span>
-                <small>成熟周归因订单</small>
-                <b>{loading ? "-" : String(aiDecisionCurrent?.orders || 0)}</b>
-                <em>
-                  {change(
-                    aiDecisionCurrent?.orders,
-                    aiDecisionPrevious?.orders,
-                  )}
-                </em>
-              </span>
-              <span>
-                <small>成熟周 WSC ROAS</small>
-                <b>
-                  {loading
-                    ? "-"
-                    : `${(aiDecisionCurrent?.wscRoas || 0).toFixed(2)}×`}
-                </b>
-                <em>
-                  前成熟周 {(aiDecisionPrevious?.wscRoas || 0).toFixed(2)}×
-                </em>
-              </span>
-              <span>
-                <small>动作进度</small>
-                <b>{validatedActions.length} 待执行</b>
-                <em>{approvedActions.length} 待预检</em>
-              </span>
-            </div>
-            <p className="ai-workbench-note">
-              双窗口决策：成熟归因负责评估和扩量，实时安全窗负责预警和阻止过时动作。仅
-              Bid 与 Listing
-              启停进入此处；其余动作留在手动优化。每次执行前还会对照最新 Listing
-              报表重新校验状态与 Bid。
-            </p>
             <div className="table-tools ai-workbench-tools">
               <label className="search-field">
                 搜索
@@ -7529,7 +7219,7 @@ function Ads({ tab }: { tab: AdsTab }) {
               </label>
               <span>
                 待加入 {selectedRecommendations.length} · 待预检{" "}
-                {selectedQueue.length + approvedActions.length}
+                {selectedQueue.length}
               </span>
               <button
                 disabled={!selectedRecommendations.length || batchBusy}
@@ -7540,12 +7230,11 @@ function Ads({ tab }: { tab: AdsTab }) {
               <button
                 className="primary"
                 disabled={
-                  (!selectedQueue.length && !approvedActions.length) ||
-                  batchBusy
+                  !selectedQueue.length || batchBusy
                 }
                 onClick={prepareSelected}
               >
-                确认并预检 ({selectedQueue.length + approvedActions.length})
+                确认并预检 ({selectedQueue.length})
               </button>
               <button
                 className="primary dark"
@@ -7568,12 +7257,12 @@ function Ads({ tab }: { tab: AdsTab }) {
                   onChange={toggleAllSelectableActions}
                 />
                 <span>对象</span>
-                <span>表现</span>
-                <span>经营边界</span>
-                <span>判断</span>
-                <span>执行</span>
+                <span className="approval-internal-column">表现</span>
+                <span className="approval-internal-column">经营边界</span>
+                <span>审批需求</span>
+                <span>状态</span>
               </div>
-              {filteredListings.map((row) => {
+              {approvalRows.map((row) => {
                 const key = `${row.campaignId}:${row.listing}`;
                 const queuedAction = queueActionByKey.get(
                   `${key}:${row.action.type}`,
@@ -7636,7 +7325,7 @@ function Ads({ tab }: { tab: AdsTab }) {
                         {row.parts.join(" / ") || "Part未映射"}
                       </small>
                     </div>
-                    <p>
+                    <p className="approval-internal">
                       {row.liveSafety &&
                       ["ALERT", "CONFIRMED_STOP"].includes(
                         row.liveSafety.status,
@@ -7678,7 +7367,7 @@ function Ads({ tab }: { tab: AdsTab }) {
                         ? "—"
                         : money2(row.cpcBaseline.cpc)}
                     </p>
-                    <p>
+                    <p className="approval-internal">
                       <b>保本</b> {row.economics.breakEvenRoas.toFixed(2)}×
                       <br />
                       <b>链接</b> {row.linkQuality.rating ?? "缺失"}分 /{" "}
@@ -7724,7 +7413,7 @@ function Ads({ tab }: { tab: AdsTab }) {
                       ) : null}
                       {row.operatorReview ? (
                         <div
-                          className={`operator-debate ${row.operatorReview.verdict === "CANDIDATE" ? "candidate" : "hold"}`}
+                          className={`operator-debate approval-internal ${row.operatorReview.verdict === "CANDIDATE" ? "candidate" : "hold"}`}
                         >
                           <header>
                             <b>运营 Agent 辩论</b>
@@ -7749,7 +7438,7 @@ function Ads({ tab }: { tab: AdsTab }) {
                         </div>
                       ) : null}
                       {row.action.repairPlan ? (
-                        <div className="recommendation-repair">
+                        <div className="recommendation-repair approval-internal">
                           <header>
                             <b>修复清单</b>
                             <span>{row.action.repairPlan.focus}</span>
@@ -7780,7 +7469,7 @@ function Ads({ tab }: { tab: AdsTab }) {
                       ) : null}
                       {row.action.warnings.length ||
                       row.action.blockers.length ? (
-                        <div className="recommendation-alerts">
+                        <div className="recommendation-alerts approval-internal">
                           {row.action.warnings
                             .slice(0, 1)
                             .map((warning, index) => (
@@ -7847,8 +7536,8 @@ function Ads({ tab }: { tab: AdsTab }) {
                   </article>
                 );
               })}
-              {!loading && !filteredListings.length && (
-                <p className="empty-state">没有符合筛选条件的建议。</p>
+              {!loading && !approvalRows.length && (
+                <p className="empty-state">当前没有待审批需求。</p>
               )}
             </div>
             {batchMessage && (
