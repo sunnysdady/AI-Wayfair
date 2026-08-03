@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type KeyboardEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   CLIENT_CACHE_RETENTION_MS,
@@ -5038,6 +5038,30 @@ function AdReviewDashboard() {
   );
 }
 
+function trapDialogFocus(event: KeyboardEvent<HTMLElement>, close: () => void) {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    close();
+    return;
+  }
+  if (event.key !== "Tab") return;
+  const focusable = Array.from(
+    event.currentTarget.querySelectorAll<HTMLElement>(
+      "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]",
+    ),
+  );
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 function Ads({ tab }: { tab: AdsTab }) {
   const initial = adRangeFor("7d");
   const initialAnalysis = readClientCache<AdAnalysis>(
@@ -5108,6 +5132,22 @@ function Ads({ tab }: { tab: AdsTab }) {
   const [selectedManualTasks, setSelectedManualTasks] = useState<string[]>([]);
   const [manualDetailTask, setManualDetailTask] = useState<string | null>(null);
   const [aiDetailTask, setAiDetailTask] = useState<string | null>(null);
+  const [detailTrigger, setDetailTrigger] = useState<HTMLElement | null>(null);
+
+  const closeManualDetail = () => {
+    setManualDetailTask(null);
+    detailTrigger?.focus();
+  };
+  const closeAiDetail = () => {
+    setAiDetailTask(null);
+    detailTrigger?.focus();
+  };
+
+  useEffect(() => {
+    setManualDetailTask(null);
+    setAiDetailTask(null);
+    setDetailTrigger(null);
+  }, [tab]);
   const [zombieResolutions, setZombieResolutions] = useState<
     Record<string, ZombieResolution>
   >({});
@@ -6781,11 +6821,10 @@ function Ads({ tab }: { tab: AdsTab }) {
             <div className="section-head">
               <div>
                 <span>OPERATOR CHECKLIST</span>
-                <h2>手动优化 To-Do List · 按父体 SKU</h2>
+                <h2>手动待办</h2>
               </div>
               <b>
-                统一任务账本 / 服务器审计记录 · {manualDone.length} /{" "}
-                {MANUAL_AD_TASK_COUNT} 已验收
+                {manualDone.length} / {MANUAL_AD_TASK_COUNT} 已验收 · 记录已留存
               </b>
             </div>
             {manualRecordMessage && (
@@ -6898,7 +6937,10 @@ function Ads({ tab }: { tab: AdsTab }) {
                               <button
                                 className="manual-detail-button"
                                 type="button"
-                                onClick={() => setManualDetailTask(taskId)}
+                                onClick={(event) => {
+                                  setDetailTrigger(event.currentTarget);
+                                  setManualDetailTask(taskId);
+                                }}
                               >
                                 查看执行详情
                               </button>
@@ -6915,13 +6957,17 @@ function Ads({ tab }: { tab: AdsTab }) {
                                 <div
                                   className="manual-detail-overlay"
                                   role="presentation"
-                                  onMouseDown={() => setManualDetailTask(null)}
+                                  onMouseDown={closeManualDetail}
                                 >
                                   <section
                                     className="manual-detail-dialog"
                                     role="dialog"
                                     aria-modal="true"
                                     aria-labelledby={`${taskId}-detail-title`}
+                                    tabIndex={-1}
+                                    onKeyDown={(event) =>
+                                      trapDialogFocus(event, closeManualDetail)
+                                    }
                                     onMouseDown={(event) =>
                                       event.stopPropagation()
                                     }
@@ -6935,10 +6981,9 @@ function Ads({ tab }: { tab: AdsTab }) {
                                       </div>
                                       <button
                                         type="button"
+                                        autoFocus
                                         aria-label="关闭执行详情"
-                                        onClick={() =>
-                                          setManualDetailTask(null)
-                                        }
+                                        onClick={closeManualDetail}
                                       >
                                         ×
                                       </button>
@@ -7108,7 +7153,7 @@ function Ads({ tab }: { tab: AdsTab }) {
             <div className="section-head">
               <div>
                 <span>MODEL FIRST · READ ONLY</span>
-                <h2>广告决策模型 · Shadow</h2>
+                <h2>AI 优化建议</h2>
               </div>
               <b>
                 {decisionModel
@@ -7254,7 +7299,10 @@ function Ads({ tab }: { tab: AdsTab }) {
                       <button
                         className="ai-detail-button"
                         type="button"
-                        onClick={() => setAiDetailTask(item.id)}
+                        onClick={(event) => {
+                          setDetailTrigger(event.currentTarget);
+                          setAiDetailTask(item.id);
+                        }}
                       >
                         查看判断依据
                       </button>
@@ -7305,13 +7353,17 @@ function Ads({ tab }: { tab: AdsTab }) {
                       <div
                         className="manual-detail-overlay"
                         role="presentation"
-                        onMouseDown={() => setAiDetailTask(null)}
+                        onMouseDown={closeAiDetail}
                       >
                         <section
                           className="manual-detail-dialog ai-detail-dialog"
                           role="dialog"
                           aria-modal="true"
                           aria-labelledby={`${item.id}-detail-title`}
+                          tabIndex={-1}
+                          onKeyDown={(event) =>
+                            trapDialogFocus(event, closeAiDetail)
+                          }
                           onMouseDown={(event) => event.stopPropagation()}
                         >
                           <header>
@@ -7323,8 +7375,9 @@ function Ads({ tab }: { tab: AdsTab }) {
                             </div>
                             <button
                               type="button"
+                              autoFocus
                               aria-label="关闭判断依据"
-                              onClick={() => setAiDetailTask(null)}
+                              onClick={closeAiDetail}
                             >
                               ×
                             </button>
@@ -7348,6 +7401,25 @@ function Ads({ tab }: { tab: AdsTab }) {
                                     : "需先完成预注册、功效分析和人工审批"}
                                 </dd>
                               </div>
+                              <div>
+                                <dt>归因场景</dt>
+                                <dd>
+                                  {delta &&
+                                  delta.orders != null &&
+                                  delta.spend != null &&
+                                  delta.wsc != null
+                                    ? `订单 ${delta.orders >= 0 ? "+" : ""}${delta.orders.toFixed(2)}；花费 ${delta.spend >= 0 ? "+" : ""}${money2(delta.spend)}；WSC ${delta.wsc >= 0 ? "+" : ""}${money2(delta.wsc)}；贡献 ${delta.contributionProxy == null ? "不可估计" : `${delta.contributionProxy >= 0 ? "+" : ""}${money2(delta.contributionProxy)}`}`
+                                    : "等待完整输入后估计"}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt>执行计划</dt>
+                                <dd>
+                                  {item.executionPlan
+                                    ? `8 月目标 ${item.executionPlan.listingTargetOrders} Orders；授权广告池 ${money2(item.executionPlan.listingPlannedAdBudget)}`
+                                    : "8 月计划尚未映射"}
+                                </dd>
+                              </div>
                             </dl>
                           </div>
                         </section>
@@ -7365,7 +7437,7 @@ function Ads({ tab }: { tab: AdsTab }) {
             <div className="section-head">
               <div>
                 <span>ADVERTISING API</span>
-                <h2>AI API 执行工作台</h2>
+                <h2>执行队列</h2>
               </div>
               <b>
                 {queueLoading
