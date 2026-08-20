@@ -27,6 +27,23 @@ type CatalogItem = {
   listings?: { listingId?: string }[];
 };
 
+type ProductManagementMetric = {
+  partNumber: string;
+  status: string;
+  salesTrendPct: number | null;
+  revenue90d: number | null;
+  unitsSold90d: number | null;
+  conversionRatePct: number | null;
+  launchDate: string;
+  wayfairSku: string;
+  uniqueVisits90d: number | null;
+  totalImpressions90d: number | null;
+  impressionPercentile: number | null;
+  averageReviewRating: number | null;
+  reviewCount: number | null;
+  recentUpdate?: string;
+};
+
 const QUERY = `query SupplierCatalogItems($input: SupplierCatalogItemsInput!) {
   supplierCatalogItems(input: $input) {
     ... on SupplierCatalogItems {
@@ -96,6 +113,44 @@ async function salesBySku(partNumbers: string[]) {
   return new Map(result.results.map((row) => [row.partNumber, { units: Number(row.units || 0), revenue: Number(row.revenue || 0) }]));
 }
 
+async function productManagementBySku(partNumbers: string[]) {
+  const env = await bindings();
+  const empty = { metrics: new Map<string, ProductManagementMetric>(), syncedAt: undefined as string | undefined };
+  if (!env.DB || !partNumbers.length) return empty;
+  try {
+    const snapshot = await env.DB.prepare("SELECT value,updated_at FROM sync_state WHERE key=?")
+      .bind("product-management:v1:latest")
+      .first<{ value: string; updated_at: string }>();
+    if (!snapshot) return empty;
+    const payload = JSON.parse(snapshot.value) as { items?: unknown[] };
+    if (!Array.isArray(payload.items)) return empty;
+    const metrics = new Map<string, ProductManagementMetric>();
+    for (const row of payload.items) {
+      if (!Array.isArray(row) || typeof row[0] !== "string") continue;
+      const [partNumber, status, salesTrendPct, revenue90d, unitsSold90d, conversionRatePct, launchDate, wayfairSku, uniqueVisits90d, totalImpressions90d, impressionPercentile, averageReviewRating, reviewCount, recentUpdate] = row;
+      metrics.set(partNumber, {
+        partNumber,
+        status: typeof status === "string" ? status : "-",
+        salesTrendPct: typeof salesTrendPct === "number" ? salesTrendPct : null,
+        revenue90d: typeof revenue90d === "number" ? revenue90d : null,
+        unitsSold90d: typeof unitsSold90d === "number" ? unitsSold90d : null,
+        conversionRatePct: typeof conversionRatePct === "number" ? conversionRatePct : null,
+        launchDate: typeof launchDate === "string" ? launchDate : "",
+        wayfairSku: typeof wayfairSku === "string" ? wayfairSku : "",
+        uniqueVisits90d: typeof uniqueVisits90d === "number" ? uniqueVisits90d : null,
+        totalImpressions90d: typeof totalImpressions90d === "number" ? totalImpressions90d : null,
+        impressionPercentile: typeof impressionPercentile === "number" ? impressionPercentile : null,
+        averageReviewRating: typeof averageReviewRating === "number" ? averageReviewRating : null,
+        reviewCount: typeof reviewCount === "number" ? reviewCount : null,
+        recentUpdate: typeof recentUpdate === "string" ? recentUpdate : undefined,
+      });
+    }
+    return { metrics, syncedAt: snapshot.updated_at };
+  } catch {
+    return empty;
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const env = await bindings();
@@ -140,18 +195,23 @@ export async function GET(request: Request) {
     if (!result) throw new Error("Catalog API 响应缺少商品数据");
     if (result.httpError || result.internalError) throw new Error(result.httpError?.message || result.internalError?.message || "Catalog API 返回错误");
     const catalogItems = result.catalogItems || [];
-    const sales = await salesBySku(catalogItems.map((item) => item.supplierPartNumber || "").filter(Boolean));
+    const partNumbers = catalogItems.map((item) => item.supplierPartNumber || "").filter(Boolean);
+    const [sales, productManagement] = await Promise.all([
+      salesBySku(partNumbers),
+      productManagementBySku(partNumbers),
+    ]);
     const items = catalogItems.map((item) => {
       const enriched = {
         ...item,
         recent30d: sales.get(item.supplierPartNumber || "") || { units: 0, revenue: 0 },
+        productManagement: productManagement.metrics.get(item.supplierPartNumber || ""),
       };
       return {
         ...enriched,
         newProductSop: evaluateNewProductPromotionSop(enriched),
       };
     });
-    return Response.json({ source: "Wayfair Catalog Read V2 + PostgreSQL", cache: {layer:cacheLayer}, paginationInfo: result.paginationInfo, supplier: result.supplier, items }, {
+    return Response.json({ source: "Wayfair Catalog Read V2 + PostgreSQL", cache: {layer:cacheLayer}, paginationInfo: result.paginationInfo, supplier: result.supplier, productManagement: { syncedAt: productManagement.syncedAt, matchedItemCount: items.filter((item) => item.productManagement).length }, items }, {
       headers: { "Cache-Control": "private, max-age=300" },
     });
   } catch (error) {

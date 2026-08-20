@@ -46,12 +46,12 @@ type PlanSection = "july" | "bfij" | "august";
 type SubView = AdsTab | DailyTab | PlanningTab | ProductTab;
 
 const PRIMARY_NAV: { id: View; label: string }[] = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "tasks", label: "闭环任务" },
+  { id: "dashboard", label: "经营总览" },
+  { id: "tasks", label: "工作台" },
   { id: "daily", label: "日报" },
-  { id: "ads", label: "广告" },
+  { id: "ads", label: "广告增长" },
   { id: "planning", label: "计划与复盘" },
-  { id: "products", label: "商品与库存" },
+  { id: "products", label: "商品经营" },
 ];
 
 const SYSTEM_NAV: { id: View; label: string }[] = [
@@ -78,10 +78,10 @@ const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
     { id: "history", label: "历史月度" },
   ],
   products: [
-    { id: "inventory", label: "库存更新" },
-    { id: "catalog", label: "商品数据" },
-    { id: "launch", label: "推新 SOP" },
-    { id: "performance", label: "SKU 经营" },
+    { id: "performance", label: "SKU 经营中心" },
+    { id: "catalog", label: "商品资料与质量" },
+    { id: "inventory", label: "库存与供给" },
+    { id: "launch", label: "新品孵化 SOP" },
   ],
 };
 
@@ -274,6 +274,21 @@ type CatalogItem = {
     opportunities?: CatalogInsight[];
   };
   recent30d?: { units: number; revenue: number };
+  productManagement?: {
+    status: string;
+    salesTrendPct: number | null;
+    revenue90d: number | null;
+    unitsSold90d: number | null;
+    conversionRatePct: number | null;
+    launchDate: string;
+    wayfairSku: string;
+    uniqueVisits90d: number | null;
+    totalImpressions90d: number | null;
+    impressionPercentile: number | null;
+    averageReviewRating: number | null;
+    reviewCount: number | null;
+    recentUpdate?: string;
+  };
   newProductSop?: NewProductSop;
 };
 type CatalogResponse = {
@@ -284,6 +299,7 @@ type CatalogResponse = {
     totalCount: number;
     hasNextPage: boolean;
   };
+  productManagement?: { syncedAt?: string; matchedItemCount?: number };
   error?: string;
 };
 
@@ -2187,14 +2203,10 @@ const REPORTS: EvidenceReport[] = [
 
 function ShellHeader({
   active,
-  activeSub,
   onNavigate,
-  onSubNavigate,
 }: {
   active: View;
-  activeSub: SubView | null;
   onNavigate: (view: View) => void;
-  onSubNavigate: (view: SubView) => void;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = (next: View) => {
@@ -2226,42 +2238,14 @@ function ShellHeader({
       >
         <nav className="nav" aria-label="主导航">
           {PRIMARY_NAV.map((item) => (
-            <div
-              className={`nav-group ${active === item.id ? "expanded" : ""}`}
+            <button
               key={item.id}
+              className={active === item.id ? "active" : ""}
+              aria-current={active === item.id ? "page" : undefined}
+              onClick={() => navigate(item.id)}
             >
-              <button
-                className={active === item.id ? "active" : ""}
-                aria-current={
-                  active === item.id && !SUB_NAV[item.id]?.length
-                    ? "page"
-                    : undefined
-                }
-                aria-expanded={
-                  SUB_NAV[item.id]?.length ? active === item.id : undefined
-                }
-                onClick={() => navigate(item.id)}
-              >
-                {item.label}
-              </button>
-              {active === item.id && SUB_NAV[item.id]?.length ? (
-                <div className="nav-submenu" aria-label={`${item.label}子菜单`}>
-                  {SUB_NAV[item.id]?.map((child) => (
-                    <button
-                      key={child.id}
-                      className={activeSub === child.id ? "active" : ""}
-                      aria-current={activeSub === child.id ? "page" : undefined}
-                      onClick={() => {
-                        onSubNavigate(child.id);
-                        setMobileOpen(false);
-                      }}
-                    >
-                      {child.label}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+              {item.label}
+            </button>
           ))}
         </nav>
         <nav className="nav utility-nav" aria-label="系统导航">
@@ -2312,6 +2296,33 @@ function Hero({
       <h1 className="sr-only">{title}</h1>
       {side}
     </header>
+  );
+}
+
+function WorkspaceTabs<T extends string>({
+  label,
+  items,
+  active,
+  onChange,
+}: {
+  label: string;
+  items: { id: T; label: string }[];
+  active: T;
+  onChange: (tab: T) => void;
+}) {
+  return (
+    <nav className="workspace-tabs" aria-label={label}>
+      {items.map((item) => (
+        <button
+          key={item.id}
+          className={active === item.id ? "active" : ""}
+          aria-current={active === item.id ? "page" : undefined}
+          onClick={() => onChange(item.id)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </nav>
   );
 }
 
@@ -3009,8 +3020,24 @@ function OperatingDaily() {
   );
 }
 
-function DailyWorkspace({ tab }: { tab: DailyTab }) {
-  return tab === "operating" ? <OperatingDaily /> : <Daily />;
+function DailyWorkspace({
+  tab,
+  onTabChange,
+}: {
+  tab: DailyTab;
+  onTabChange: (tab: DailyTab) => void;
+}) {
+  return (
+    <>
+      <WorkspaceTabs
+        label="日报视图"
+        items={SUB_NAV.daily as { id: DailyTab; label: string }[]}
+        active={tab}
+        onChange={onTabChange}
+      />
+      {tab === "operating" ? <OperatingDaily /> : <Daily />}
+    </>
+  );
 }
 
 function Daily() {
@@ -5065,7 +5092,13 @@ function trapDialogFocus(event: KeyboardEvent<HTMLElement>, close: () => void) {
   }
 }
 
-function Ads({ tab }: { tab: AdsTab }) {
+function Ads({
+  tab,
+  onTabChange,
+}: {
+  tab: AdsTab;
+  onTabChange: (tab: AdsTab) => void;
+}) {
   const initial = adRangeFor("7d");
   const initialAnalysis = readClientCache<AdAnalysis>(
     `ads:v11:${initial.start}:${initial.end}`,
@@ -6063,6 +6096,12 @@ function Ads({ tab }: { tab: AdsTab }) {
             : `${pendingApprovalCount} 项待审批 · 已执行 ${executedActions.length} 项`;
   return (
     <>
+      <WorkspaceTabs
+        label="广告增长视图"
+        items={SUB_NAV.ads as { id: AdsTab; label: string }[]}
+        active={tab}
+        onChange={onTabChange}
+      />
       <Hero
         eyebrow=""
         title={pageTitle}
@@ -7886,6 +7925,7 @@ function Catalog({ embedded = false }: { embedded?: boolean }) {
       (item.insights?.warnings?.length || 0),
     units: (item: CatalogItem) => item.recent30d?.units || 0,
     revenue: (item: CatalogItem) => item.recent30d?.revenue || 0,
+    pmRevenue: (item: CatalogItem) => item.productManagement?.revenue90d || 0,
   }) as CatalogItem[];
   function submit() {
     setLoading(true);
@@ -7982,8 +8022,8 @@ function Catalog({ embedded = false }: { embedded?: boolean }) {
               />
               <span className="dual-sort">
                 <SortHeader
-                  label="近30天件数"
-                  field="units"
+                  label="Product Mgmt · 90天"
+                  field="pmRevenue"
                   sort={catalogSort}
                   onSort={(field) =>
                     setCatalogSort(
@@ -7991,16 +8031,7 @@ function Catalog({ embedded = false }: { embedded?: boolean }) {
                     )
                   }
                 />
-                <SortHeader
-                  label="销售额"
-                  field="revenue"
-                  sort={catalogSort}
-                  onSort={(field) =>
-                    setCatalogSort(
-                      (value) => nextSort(value, field) as SortState,
-                    )
-                  }
-                />
+                <small>精确 SKU 匹配</small>
               </span>
             </div>
             {catalogItems.map((item) => {
@@ -8045,8 +8076,16 @@ function Catalog({ embedded = false }: { embedded?: boolean }) {
                     </small>
                   </span>
                   <span>
-                    <b>{item.recent30d?.units || 0} 件</b>
-                    <small>{money(item.recent30d?.revenue || 0)}</small>
+                    {item.productManagement ? (
+                      <>
+                        <b>{money(item.productManagement.revenue90d || 0)}</b>
+                        <small>
+                          {item.productManagement.unitsSold90d || 0} 件 · CVR {item.productManagement.conversionRatePct ?? "-"}%
+                        </small>
+                      </>
+                    ) : (
+                      <small>尚未匹配 Product Management</small>
+                    )}
                   </span>
                 </button>
               );
@@ -8101,10 +8140,29 @@ function Catalog({ embedded = false }: { embedded?: boolean }) {
                     <b>{money(selected.recent30d?.revenue || 0)}</b>
                   </div>
                   <div>
+                    <small>近 90 天销售</small>
+                    <b>{selected.productManagement ? money(selected.productManagement.revenue90d || 0) : "未匹配"}</b>
+                  </div>
+                  <div>
                     <small>诊断信号</small>
                     <b>{insightTotal}</b>
                   </div>
                 </div>
+                <section className="product-management-panel">
+                  <h3>Product Management · 近 90 天</h3>
+                  {selected.productManagement ? (
+                    <div className="product-management-metrics">
+                      <div><small>售出件数</small><b>{selected.productManagement.unitsSold90d ?? "-"} 件</b></div>
+                      <div><small>转化率</small><b>{selected.productManagement.conversionRatePct ?? "-"}%</b></div>
+                      <div><small>独立访问</small><b>{selected.productManagement.uniqueVisits90d ?? "-"}</b></div>
+                      <div><small>总曝光</small><b>{selected.productManagement.totalImpressions90d ?? "-"}</b></div>
+                      <div><small>销量趋势</small><b className={(selected.productManagement.salesTrendPct || 0) >= 0 ? "good" : "bad"}>{selected.productManagement.salesTrendPct === null ? "-" : `${selected.productManagement.salesTrendPct > 0 ? "+" : ""}${selected.productManagement.salesTrendPct}%`}</b></div>
+                      <div><small>评分 / 评论</small><b>{selected.productManagement.averageReviewRating ?? "-"} / {selected.productManagement.reviewCount ?? 0}</b></div>
+                    </div>
+                  ) : (
+                    <p className="empty-insight">该 Supplier Part # 未在本次 Product Management 快照中匹配。</p>
+                  )}
+                </section>
                 <section>
                   <h3>市场与标识</h3>
                   <p>
@@ -8993,6 +9051,12 @@ function PlanningWorkspace({
   }
   return (
     <>
+      <WorkspaceTabs
+        label="计划与复盘视图"
+        items={SUB_NAV.planning as { id: PlanningTab; label: string }[]}
+        active={tab}
+        onChange={onTabChange}
+      />
       <Hero
         eyebrow=""
         title={
@@ -9029,9 +9093,279 @@ function PlanningWorkspace({
   );
 }
 
-function ProductWorkspace({ tab }: { tab: ProductTab }) {
+const SKU_INFORMATION_GROUPS = [
+  {
+    title: "经营对象",
+    detail: "Supplier Part、Wayfair SKU、上架状态与类目",
+    source: "Catalog",
+  },
+  {
+    title: "增长信号",
+    detail: "90 天销售、访问、曝光、转化和趋势",
+    source: "Product Management + Orders",
+  },
+  {
+    title: "商品质量",
+    detail: "评分、评论与 Catalog 问题/机会",
+    source: "Catalog diagnostics",
+  },
+  {
+    title: "投入产出",
+    detail: "采购价差、广告覆盖与已知贡献上限",
+    source: "Operating audit",
+  },
+  {
+    title: "动作边界",
+    detail: "运营角色、证据截止与只读约束",
+    source: "Operating audit",
+  },
+];
+
+type SkuOperatingFilter = "all" | "repair" | "grow" | "protect";
+
+type SkuOperatingRow = {
+  part: string;
+  listing: string;
+  category: Exclude<SkuOperatingFilter, "all">;
+  lane: string;
+  status: string;
+  revenue: string;
+  trend: string;
+  signal: string;
+  action: string;
+  owner: string;
+  metrics: [string, string][];
+  evidence: [string, string][];
+};
+
+function formatSkuMetric(value: number | null | undefined, suffix = "") {
+  return value === null || value === undefined ? "未同步" : `${value.toLocaleString("en-US")}${suffix}`;
+}
+
+function operatingLane(item: CatalogItem): Pick<SkuOperatingRow, "category" | "lane" | "owner" | "signal" | "action"> {
+  const metrics = item.productManagement;
+  const diagnostics = (item.insights?.problems?.length || 0) + (item.insights?.warnings?.length || 0);
+  if (item.catalogItemStatus !== "LIVE") {
+    return { category: "repair", lane: "补齐上架", owner: "上架", signal: `当前状态为 ${item.catalogItemStatus || "未知"}，尚不进入增长决策`, action: "先补齐上架与商品质量 Gate，再回到经营队列" };
+  }
+  if (diagnostics > 0 || (metrics?.salesTrendPct ?? 0) < 0 || (metrics?.conversionRatePct ?? 100) < 1) {
+    return { category: "repair", lane: "优先修复", owner: "质量", signal: diagnostics > 0 ? `Catalog 有 ${diagnostics} 个待处理诊断信号` : "销售趋势或转化需要先复核", action: "核查资料、价格与转化证据；确认后再决定是否投放" };
+  }
+  if ((metrics?.salesTrendPct ?? 0) >= 15 && (metrics?.conversionRatePct ?? 0) >= 2) {
+    return { category: "grow", lane: "放大增长", owner: "增长", signal: "增长趋势与转化同时达到放量候选门槛", action: "复核库存与广告 Gate 后，生成小预算测试建议" };
+  }
+  return { category: "protect", lane: "守住表现", owner: "经营", signal: "当前未触发修复或放量条件，保持周期观察", action: "维持节奏，在下个复盘窗口检查供给与广告贡献" };
+}
+
+function toSkuOperatingRow(item: CatalogItem): SkuOperatingRow {
+  const metrics = item.productManagement;
+  const lane = operatingLane(item);
+  const trend = metrics?.salesTrendPct;
+  const diagnosticCount = (item.insights?.problems?.length || 0) + (item.insights?.warnings?.length || 0);
+  return {
+    part: item.supplierPartNumber,
+    listing: item.listings?.map((listing) => listing.listingId).filter(Boolean).join(" / ") || "Listing 待映射",
+    ...lane,
+    status: item.catalogItemStatus || "未知",
+    revenue: metrics ? money(metrics.revenue90d || 0) : "未同步",
+    trend: trend === null || trend === undefined ? "待观察" : `${trend > 0 ? "+" : ""}${trend}%`,
+    metrics: [
+      ["90 天销售", metrics ? money(metrics.revenue90d || 0) : "未同步"],
+      ["独立访问", formatSkuMetric(metrics?.uniqueVisits90d)],
+      ["转化率", formatSkuMetric(metrics?.conversionRatePct, "%")],
+      ["评分 / 评论", metrics?.averageReviewRating === null || metrics?.averageReviewRating === undefined ? "未同步" : `${metrics.averageReviewRating} / ${metrics.reviewCount || 0}`],
+    ],
+    evidence: [
+      ["经营对象", `${item.catalogItemStatus || "未知"} · ${item.class?.className || "未分类"}`],
+      ["增长信号", metrics ? `90 天趋势 ${trend === null || trend === undefined ? "未同步" : `${trend > 0 ? "+" : ""}${trend}%`} · ${formatSkuMetric(metrics.conversionRatePct, "%")} 转化` : "Product Management 尚未匹配"],
+      ["商品质量", diagnosticCount ? `${diagnosticCount} 个 Catalog 待处理信号` : "未发现 Catalog 诊断信号"],
+    ],
+  };
+}
+
+function SkuOperatingCenter() {
+  const [section, setSection] = useState<"queue" | "audit">("queue");
+  const [filter, setFilter] = useState<SkuOperatingFilter>("all");
+  const [selectedPart, setSelectedPart] = useState("");
+  const [refresh, setRefresh] = useState(0);
+  const [data, setData] = useState<CatalogResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    fetch("/api/catalog/items?page=1&pageSize=30", { signal: controller.signal })
+      .then(async (response) => {
+        const body = (await response.json()) as CatalogResponse;
+        if (!response.ok) throw new Error(body.error || "SKU 经营数据读取失败");
+        return body;
+      })
+      .then((body) => setData(body))
+      .catch((reason) => {
+        if (reason.name !== "AbortError") setError(reason.message || "SKU 经营数据读取失败");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [refresh]);
+  const rows = (data?.items || []).map(toSkuOperatingRow);
+  const filters: { id: SkuOperatingFilter; label: string; count: number }[] = [
+    { id: "all", label: "全部队列", count: rows.length },
+    { id: "repair", label: "优先修复", count: rows.filter((item) => item.category === "repair").length },
+    { id: "grow", label: "放大增长", count: rows.filter((item) => item.category === "grow").length },
+    { id: "protect", label: "守住表现", count: rows.filter((item) => item.category === "protect").length },
+  ];
+  const visibleRows = rows.filter(
+    (item) => filter === "all" || item.category === filter,
+  );
+  const selected = rows.find((item) => item.part === selectedPart) || visibleRows[0] || rows[0];
+  return (
+    <div className="sku-operating-center">
+      <section className="sku-demo-hero">
+        <div className="sku-demo-hero-copy">
+          <span>SKU OPERATING CENTER · READ ONLY</span>
+          <h2>今天先经营该经营的 SKU</h2>
+          <p>
+            将 Catalog、Product Management 和订单信号按同一套经营语义分流：增长放大、优先修复、表现守护与上架补齐。建议不直接写入生产。
+          </p>
+        </div>
+        <dl className="sku-demo-kpis">
+          <div><dt>本页已载入</dt><dd>{loading ? "—" : rows.length}</dd><small>Catalog 只读队列</small></div>
+          <div><dt>优先修复</dt><dd>{loading ? "—" : filters[1].count}</dd><small>先补齐问题或转化证据</small></div>
+          <div><dt>增长候选</dt><dd>{loading ? "—" : filters[2].count}</dd><small>仍待库存与广告 Gate</small></div>
+        </dl>
+      </section>
+      <WorkspaceTabs
+        label="SKU 经营中心视图"
+        items={[
+          { id: "queue", label: "SKU 队列与 360°" },
+          { id: "audit", label: "经营审计与约束" },
+        ]}
+        active={section}
+        onChange={setSection}
+      />
+      {section === "queue" ? (
+        <section className="sku-demo-board" aria-label="SKU 经营队列">
+          <div className="sku-demo-toolbar">
+            <div>
+              <span>DECISION QUEUE</span>
+              <h3>按经营意图排队，而不是按数据来源堆叠</h3>
+            </div>
+            <p>{data?.productManagement?.syncedAt ? "Product Management 已匹配 · 只读" : "Catalog 只读数据 · 不触发写操作"}</p>
+          </div>
+          <div className="sku-demo-filter" aria-label="经营队列筛选">
+            {filters.map((item) => (
+              <button
+                key={item.id}
+                className={filter === item.id ? "active" : ""}
+                onClick={() => setFilter(item.id)}
+              >
+                {item.label}<b>{item.count}</b>
+              </button>
+            ))}
+          </div>
+          {loading || error || !rows.length ? (
+            <div className="sku-demo-state" role={error ? "alert" : "status"}>
+              <strong>{loading ? "正在读取 SKU 经营数据…" : error ? "SKU 队列暂不可用" : "暂未读取到 SKU"}</strong>
+              <p>{error || "此页只展示已从 Catalog 读取并完成经营分类的数据；可稍后刷新，或在“商品资料与质量”检查来源。"}</p>
+            </div>
+          ) : (
+          <div className="sku-demo-layout">
+            <div className="sku-demo-list">
+              {visibleRows.map((item) => (
+                <button
+                  className={`sku-demo-row ${selected?.part === item.part ? "active" : ""}`}
+                  key={item.part}
+                  onClick={() => setSelectedPart(item.part)}
+                >
+                  <span className={`sku-demo-lane ${item.category}`}>{item.lane}</span>
+                  <strong>{item.part}</strong>
+                  <small>{item.listing} · {item.status}</small>
+                  <p>{item.signal}</p>
+                  <footer>
+                    <b>{item.revenue}</b>
+                    <em className={item.trend.startsWith("-") ? "down" : ""}>{item.trend}</em>
+                  </footer>
+                </button>
+              ))}
+              {!visibleRows.length && <p className="empty-state">当前筛选下没有 SKU；可切换队列或前往商品资料查看。</p>}
+            </div>
+            <aside className="sku-demo-detail">
+              {selected ? (
+                <>
+                  <header>
+                    <div>
+                      <span>SKU 360° · {selected.owner}视角</span>
+                      <h3>{selected.part}</h3>
+                      <p>{selected.listing} · {selected.status}</p>
+                    </div>
+                    <b>{selected.lane}</b>
+                  </header>
+                  <dl className="sku-demo-metrics">
+                    {selected.metrics.map(([label, value]) => (
+                      <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+                    ))}
+                  </dl>
+                  <section className="sku-demo-next-action">
+                    <span>下一步</span>
+                    <p>{selected.action}</p>
+                    <button className="primary" onClick={() => setSection("audit")}>查看经营边界</button>
+                  </section>
+                  <section className="sku-demo-evidence">
+                    <h4>决策证据</h4>
+                    {selected.evidence.map(([label, detail]) => (
+                      <div key={label}><b>{label}</b><p>{detail}</p></div>
+                    ))}
+                  </section>
+                </>
+              ) : (
+                <p className="empty-state">选择一条 SKU 后查看 360° 决策证据。</p>
+              )}
+            </aside>
+          </div>
+          )}
+          <button className="secondary sku-demo-refresh" disabled={loading} onClick={() => setRefresh((value) => value + 1)}>
+            {loading ? "同步中…" : "刷新只读队列"}
+          </button>
+        </section>
+      ) : (
+        <SkuOperatingPerformance />
+      )}
+      {section === "queue" ? (
+        <details className="sku-data-map">
+          <summary>查看这个队列使用的数据分类与来源</summary>
+          <ol className="sku-information-groups">
+            {SKU_INFORMATION_GROUPS.map((group, index) => (
+              <li key={group.title}>
+                <b>{String(index + 1).padStart(2, "0")}</b>
+                <span><strong>{group.title}</strong><small>{group.detail}</small></span>
+                <em>{group.source}</em>
+              </li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+function ProductWorkspace({
+  tab,
+  onTabChange,
+}: {
+  tab: ProductTab;
+  onTabChange: (tab: ProductTab) => void;
+}) {
   return (
     <>
+      <WorkspaceTabs
+        label="商品经营视图"
+        items={SUB_NAV.products as { id: ProductTab; label: string }[]}
+        active={tab}
+        onChange={onTabChange}
+      />
       <Hero
         eyebrow=""
         title={
@@ -9040,7 +9374,7 @@ function ProductWorkspace({ tab }: { tab: ProductTab }) {
             : tab === "launch"
               ? "推新 SOP"
               : tab === "performance"
-                ? "SKU 经营"
+                ? "SKU 经营中心"
                 : "商品数据"
         }
         text=""
@@ -9050,7 +9384,7 @@ function ProductWorkspace({ tab }: { tab: ProductTab }) {
       ) : tab === "launch" ? (
         <NewProductSopWorkspace />
       ) : tab === "performance" ? (
-        <SkuOperatingPerformance />
+        <SkuOperatingCenter />
       ) : (
         <Catalog embedded />
       )}
@@ -9534,7 +9868,7 @@ export default function OpsCenter() {
   const [dailyTab, setDailyTab] = useState<DailyTab>("operating");
   const [adsTab, setAdsTab] = useState<AdsTab>("manager");
   const [planningTab, setPlanningTab] = useState<PlanningTab>("plan");
-  const [productTab, setProductTab] = useState<ProductTab>("inventory");
+  const [productTab, setProductTab] = useState<ProductTab>("performance");
   useEffect(() => {
     function restoreNavigation() {
       const state = navigationStateFromSearch(window.location.search);
@@ -9556,16 +9890,6 @@ export default function OpsCenter() {
     const frame = requestAnimationFrame(() => window.scrollTo(0, 0));
     return () => cancelAnimationFrame(frame);
   }, [view]);
-  const activeSub: SubView | null =
-    view === "daily"
-      ? dailyTab
-      : view === "ads"
-        ? adsTab
-        : view === "planning"
-          ? planningTab
-          : view === "products"
-            ? productTab
-            : null;
   function updateLocation(nextView: View, nextTab: SubView | null = null) {
     window.history.pushState(
       {},
@@ -9620,10 +9944,10 @@ export default function OpsCenter() {
   const page = {
     dashboard: <Dashboard />,
     tasks: <TaskCenter />,
-    daily: <DailyWorkspace tab={dailyTab} />,
-    ads: <Ads tab={adsTab} />,
+    daily: <DailyWorkspace tab={dailyTab} onTabChange={navigateSub} />,
+    ads: <Ads tab={adsTab} onTabChange={navigateSub} />,
     planning: <PlanningWorkspace tab={planningTab} onTabChange={navigateSub} />,
-    products: <ProductWorkspace tab={productTab} />,
+    products: <ProductWorkspace tab={productTab} onTabChange={navigateSub} />,
     sources: <Sources />,
     help: <Help />,
   }[view];
@@ -9631,9 +9955,7 @@ export default function OpsCenter() {
     <div className="app app-shell">
       <ShellHeader
         active={view}
-        activeSub={activeSub}
         onNavigate={navigateView}
-        onSubNavigate={navigateSub}
       />
       <div className="content-shell">
         <main>{page}</main>

@@ -10,7 +10,7 @@ export async function GET() {
   try {
     const rows = await env.DB.prepare(
       `SELECT key,value,updated_at FROM sync_state
-       WHERE key IN ('orders','server:catalog:crawl')
+       WHERE key IN ('orders','server:catalog:crawl','product-management:v1:last-run')
           OR key LIKE 'ads-analysis:%'
           OR key LIKE 'ads-action:%'
           OR key LIKE 'inventory:push:%'
