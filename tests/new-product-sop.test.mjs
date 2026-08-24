@@ -141,11 +141,11 @@ test("gives the new-product SOP an independent product secondary menu and work q
   const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
 
   assert.match(page, /type ProductTab = "inventory" \| "catalog" \| "launch" \| "performance"/);
-  assert.match(page, /\{ id: "launch", label: "推新 SOP" \}/);
+  assert.match(page, /\{ id: "launch", label: "新品孵化 SOP" \}/);
   assert.match(page, /function NewProductSopWorkspace/);
   assert.match(page, /运营 Agent 待接/);
   assert.match(page, /待送测/);
   assert.match(page, /待补条件/);
-  assert.match(page, /next==='launch'/);
-  assert.match(page, /tab==='launch'\?<NewProductSopWorkspace\/>/);
+  assert.match(page, /next === "launch"/);
+  assert.match(page, /tab === "launch" \? \(/);
 });

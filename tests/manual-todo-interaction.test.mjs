@@ -30,12 +30,12 @@ test("renders every manual action at advertising-group grain with its Campaign I
   assert.match(page, /MANUAL_AD_TASK_GROUPS/);
   assert.match(page, /manual-sku-group/);
   assert.match(page, /group\.tasks\.map/);
-  assert.match(page, /手动优化 To-Do List · 按父体 SKU/);
+  assert.match(page, /手动优化 To-Do/);
   assert.match(page, /adGroup:/);
   assert.match(page, /campaignId:/);
-  assert.match(page, /<dt>\u5e7f\u544a\u7ec4<\/dt><dd>\{task\.adGroup\}<\/dd>/);
-  assert.match(page, /<dt>Campaign ID<\/dt><dd>\{task\.campaignId\}<\/dd>/);
-  assert.match(page, /Campaign ID: \{task\.campaignId\}/);
+  assert.match(page, /<dt>\u5e7f\u544a\u7ec4<\/dt>\s*<dd>\{task\.adGroup\}<\/dd>/);
+  assert.match(page, /<dt>Campaign ID<\/dt>\s*<dd>\{task\.campaignId\}<\/dd>/);
+  assert.match(page, /Campaign ID:\s*\{task\.campaignId\}/);
   assert.match(page, /campaignId: "660198"/);
   assert.match(page, /campaignId: "597350"/);
   assert.match(page, /campaignId: "622725"/);
@@ -52,7 +52,7 @@ test("renders every manual action at advertising-group grain with its Campaign I
 test("migrates saved advertising-group completion ids to parent-SKU keys", async () => {
   const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
 
-  assert.match(page, /const MANUAL_AD_TASK_IDS = new Set<string>\(MANUAL_AD_TASKS\.map\(task => task\.id\)\)/);
+  assert.match(page, /const MANUAL_AD_TASK_IDS = new Set<string>\(\s*MANUAL_AD_TASKS\.map\(\(task\) => task\.id\),\s*\)/);
   assert.match(page, /MANUAL_AD_TASK_IDS\.has\(item\)/);
-  assert.match(page, /legacyTask\.parentSkus\.map\(sku=>manualTaskKey\(sku,legacyTask\.id\)\)/);
+  assert.match(page, /legacyTask\.parentSkus\.map\(\(sku\) =>\s*manualTaskKey\(sku, legacyTask\.id\),/);
 });

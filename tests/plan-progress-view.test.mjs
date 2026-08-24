@@ -44,7 +44,7 @@ test("hydrates the plan cache after mount and uses a schema-versioned cache key"
   const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
 
   assert.equal(PLAN_PROGRESS_CACHE_KEY, "plan:progress:v7");
-  assert.match(page, /useState<PlanProgress\|null>\(null\)/);
+  assert.match(page, /useState<PlanProgress \| null>\(null\)/);
   assert.match(page, /PLAN_PROGRESS_CACHE_KEY/);
   assert.doesNotMatch(
     page,

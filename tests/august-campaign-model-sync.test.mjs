@@ -61,8 +61,8 @@ test("links the live control snapshot into analysis, model Todo, persistence and
   assert.match(ads, /campaignControl:\s*AUGUST_CAMPAIGN_CONTROL_SNAPSHOT/);
   assert.match(ads, /ads-analysis:v24/);
   assert.match(model, /campaignControl:\s*unit\.campaignControl/);
-  assert.match(page, /Wallet Daily Cap/);
+  assert.match(page, /advertisingExecution\?\.walletDailyCap/);
   assert.match(page, /597350/);
   assert.match(page, /DMOM1025 \/ LFC-3W/);
-  assert.match(page, /活跃 Campaign Cap 合计/);
+  assert.match(page, /Active Campaign Cap 合计/);
 });

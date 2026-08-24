@@ -152,8 +152,8 @@ test("wires campaign-grain live findings into the AI workbench", async () => {
   assert.match(analysis, /liveSafetyRange/);
   assert.match(analysis, /listingFetchEnd\s*=\s*today/);
   assert.match(analysis, /campaign_id/);
-  assert.match(page, /实时安全窗/);
+  assert.match(page, /实时预警/);
   assert.match(page, /data\?\.liveSafetyFindings/);
   assert.match(page, /row\.liveSafety/);
-  assert.match(page, /const rows=optimizationListings\.filter/);
+  assert.match(page, /const rows = approvalRows\.filter/);
 });

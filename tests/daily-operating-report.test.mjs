@@ -163,7 +163,7 @@ test("wires server persistence and a Daily secondary navigation workspace", asyn
   assert.match(migration, /CREATE TABLE IF NOT EXISTS daily_operating_reports/);
 
   assert.match(page, /type DailyTab = "operating" \| "email"/);
-  assert.match(page, /daily:\s*\[\{ id: "operating", label: "工作日报" \}, \{ id: "email", label: "邮件日报" \}\]/);
+  assert.match(page, /daily:\s*\[\s*\{ id: "operating", label: "工作日报" \},\s*\{ id: "email", label: "邮件日报" \},/);
   assert.match(page, /function DailyWorkspace/);
   assert.match(page, /function OperatingDaily/);
   assert.match(page, /\/api\/operations\/daily-report/);

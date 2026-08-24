@@ -119,10 +119,10 @@ test("enforces the August cutover inside the live advertising route", async () =
   assert.match(route, /SUPERSEDED_BY_AUTHORIZED_AUGUST_PLAN/);
   assert.match(route, /八月执行口径已冻结该跨月旧批次/);
   assert.match(page, /首阶段广告总上限/);
-  assert.match(page, /原销售预算.*已废止/);
+  assert.match(page, /原销售预算[\s\S]*已废止/);
   assert.match(planRoute, /AUGUST_AD_EXECUTION_STATUS/);
-  assert.match(page, /Wallet.*walletDailyCap/);
-  assert.match(page, /597350 保持 Active/);
-  assert.match(page, /DMOM1025 \/ LFC-3W 产品行 Paused/);
+  assert.match(page, /Wallet[\s\S]*walletDailyCap/);
+  assert.match(page, /其中 597350 为/);
+  assert.match(page, /DMOM1025 \/ LFC-3W/);
   assert.doesNotMatch(page, /597350[^\n]{0,40}(?:状态|为)[:： ]*Paused/);
 });

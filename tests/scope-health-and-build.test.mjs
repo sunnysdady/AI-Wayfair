@@ -51,7 +51,30 @@ test("scope health distinguishes configured access from recent successful API ev
   assert.equal(health.sources.find((item) => item.id === "catalog-read")?.status, "healthy");
   assert.equal(health.sources.find((item) => item.id === "advertising-reports")?.status, "unverified");
   assert.equal(health.sources.find((item) => item.id === "inventory-write")?.status, "unverified");
+  assert.equal(health.sources.find((item) => item.id === "product-management-export")?.status, "unverified");
   assert.equal(JSON.stringify(health).includes("secret"), false);
+});
+
+test("scope health reports fresh and failed middle-office Product Management ingestion separately from official APIs", () => {
+  const now = new Date("2026-08-05T12:00:00Z");
+  const healthy = buildWayfairScopeHealth({
+    now,
+    syncStates: [{
+      key: "product-management:v1:last-run",
+      value: JSON.stringify({ status: "succeeded", rowCount: 86 }),
+      updated_at: "2026-08-05T10:00:00Z",
+    }],
+  });
+  assert.equal(healthy.sources.find((item) => item.id === "product-management-export")?.status, "healthy");
+  const failed = buildWayfairScopeHealth({
+    now,
+    syncStates: [{
+      key: "product-management:v1:last-run",
+      value: JSON.stringify({ status: "failed", error: "invalid payload" }),
+      updated_at: "2026-08-05T10:00:00Z",
+    }],
+  });
+  assert.equal(failed.sources.find((item) => item.id === "product-management-export")?.status, "failed");
 });
 
 test("scope health reports stale evidence and catalog integrity failures", () => {

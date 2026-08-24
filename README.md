@@ -81,6 +81,18 @@ Authorization: Bearer <CRON_SECRET>
 
 `vercel.json` 已配置两小时一次的 Cron。若 Vercel 套餐不支持该频率，可用 GitHub Actions、Uptime Kuma 或自有服务器 cron 调用同一受保护端点。
 
+## Product Management 中台导入
+
+SKU 经营中心的 90 天商品指标来自中台导出的 Product Management 快照，不依赖紫鸟。导出文件须符合 `schemaVersion: 1` 与 `sourceWindow: "last_90_days"` 的格式；导入前会校验 Store ID、SKU/Part 去重、日期和数值边界。
+
+```bash
+AIWAYFAIR_ORIGIN=https://aiwayfair.sunnysdady.com \
+AIWAYFAIR_CRON_SECRET='<CRON_SECRET>' \
+node scripts/ingest-product-management-snapshot.mjs data/product-management-2026-08-05.json
+```
+
+该导入仅写入运营数据库的审计记录和最新只读快照；页面不会通过此路径向 Wayfair 写入商品、价格、库存或广告数据。
+
 ## 部署顺序
 
 1. 创建 PostgreSQL 数据库与 S3 兼容 bucket。

@@ -118,7 +118,7 @@ test("presents a focused August promotion workspace after sales-plan approval", 
   assert.match(page, /8月作战节奏/);
   assert.match(page, /完整 Listing 执行表/);
   assert.match(page, /逐 Part 折扣与利润明细/);
-  assert.match(page, /tab!=='august'&&<>/);
+  assert.match(page, /tab === "august" \? \(/);
   assert.doesNotMatch(page, /8月活动审核/);
   assert.doesNotMatch(page, /PAUSED · SALES PLAN FIRST/);
   assert.doesNotMatch(page, /销售计划审核后再重算促销/);

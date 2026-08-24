@@ -15,6 +15,8 @@ test("inventory live push requires an explicit click but no typed confirmation p
 
   assert.doesNotMatch(page, /confirmation,setConfirmation/);
   assert.doesNotMatch(page, /输入：正式推送/);
-  assert.match(page, /body:JSON\.stringify\(\{snapshotId:preview\.snapshotId,dryRun,zeroStockConfirmed:zeroConfirmed\}\)/);
-  assert.match(page, /disabled=\{!preview\?\.canPush\|\|busy\} onClick=\{\(\)=>push\(false\)\}>正式推送库存/);
+  assert.match(page, /body: JSON\.stringify\(\{\s*snapshotId: preview\.snapshotId,\s*dryRun,\s*zeroStockConfirmed: zeroConfirmed,\s*\}\)/);
+  assert.match(page, /disabled=\{!preview\?\.canPush \|\| busy\}/);
+  assert.match(page, /onClick=\{\(\) => push\(false\)\}/);
+  assert.match(page, /正式推送库存/);
 });

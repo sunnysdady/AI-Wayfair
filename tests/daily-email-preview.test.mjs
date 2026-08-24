@@ -24,7 +24,7 @@ test("keeps daily email details inside the operations center without clipping ro
   assert.match(daily, /aria-label="日报 JSON"/);
   assert.match(daily, /onClick=\{importDailyBrief\}/);
   assert.match(daily, /fetch\("\/api\/email\/daily"/);
-  assert.match(daily, /onKeyDown=\{\(event\) => \{ if \(event\.key === "Escape"\) setPreviewEmail\(null\); \}\}/);
+  assert.match(daily, /onKeyDown=\{\(event\) => \{\s*if \(event\.key === "Escape"\) setPreviewEmail\(null\);\s*\}\}/);
   assert.match(styles, /\.daily-mail-list\.outlook-mail-list\{margin:0/);
   assert.match(styles, /\.email-preview-overlay\{/);
   assert.match(styles, /\.email-preview-dialog\{/);

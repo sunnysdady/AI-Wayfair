@@ -63,5 +63,5 @@ test("wires August targets and budget eligibility into model input, To-Do, and e
   assert.match(experimentPolicy, /AUGUST_EXECUTION_POLICY/);
   assert.doesNotMatch(experimentPolicy, /const BASE_AD_PLAN = 1_800/);
   assert.doesNotMatch(experimentPolicy, /const PORTFOLIO_MAX_LOSS = 61\\.1/);
-  assert.match(page, /8月目标.*Orders.*授权广告池/);
+  assert.match(page, /8月留\{row\.goalGuardrail\.augustReserveUnits\}/);
 });

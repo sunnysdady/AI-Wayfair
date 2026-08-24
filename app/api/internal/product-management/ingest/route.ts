@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       env.DB.prepare(`INSERT INTO product_management_sync_runs
         (id,source,status,received_at,extracted_at,store_id,row_count,unique_part_count,payload)
         VALUES(?,?,?,?,?,?,?,?,?)`).bind(
-        runId, "ziniao-cli", "succeeded", receivedAt, audit.extractedAt, audit.storeId,
+        runId, audit.source, "succeeded", receivedAt, audit.extractedAt, audit.storeId,
         audit.rowCount, audit.uniquePartCount, JSON.stringify(snapshot),
       ),
       env.DB.prepare(`INSERT INTO sync_state(key,value,updated_at) VALUES(?,?,?)
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       await env.DB.batch([
         env.DB.prepare(`INSERT INTO product_management_sync_runs
           (id,source,status,received_at,error) VALUES(?,?,?,?,?)`).bind(
-          runId, "ziniao-cli", "failed", receivedAt, message,
+          runId, "中台导入", "failed", receivedAt, message,
         ),
         env.DB.prepare(`INSERT INTO sync_state(key,value,updated_at) VALUES(?,?,?)
           ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at`).bind(

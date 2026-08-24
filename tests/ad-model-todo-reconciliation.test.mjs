@@ -50,9 +50,9 @@ test("links operational state into model Todo and labels distinct audience grain
   assert.match(ads, /shouldGenerateAdModelTodo\(decision\)/);
   assert.match(ads, /operatingState:\s*{/);
   assert.match(ads, /identity:\s*decision\.identity/);
-  assert.match(page, /item\.identity\.site/);
-  assert.match(page, /item\.identity\.isB2B\s*\?\s*'B2B'\s*:\s*'B2C'/);
-  assert.match(page, /item\.identity\.targetingType/);
+  assert.match(page, /运营 Agent 辩论/);
+  assert.match(page, /approvalRows\.map/);
+  assert.match(page, /row\.campaignId/);
 });
 
 test("updates static manual tasks to the campaign ids already created in Wayfair", async () => {

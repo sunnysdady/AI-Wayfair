@@ -52,7 +52,7 @@ test("adds a dedicated advertising review workspace backed by complete API histo
   assert.match(page, /\/api\/ads\/history/);
   assert.match(page, /广告优化记录与复盘看板/);
   assert.match(page, /复盘覆盖率/);
-  assert.match(page, /执行前 → 建议值 → 执行结果 → 成熟复盘/);
+  assert.match(page, /执行前 → 建议值 → 执行结果 →\s*成熟复盘/);
   assert.match(route, /action_type IN \('SET_LISTING_BID','SET_LISTING_ACTIVE'\)/);
   assert.match(route, /buildAdReviewDashboard/);
   assert.match(styles, /\.ad-review-dashboard/);

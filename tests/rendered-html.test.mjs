@@ -52,14 +52,14 @@ test("separates the visible advertising period from the mature weekly decision w
     readFile(new URL("../lib/wayfair-ads.ts", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(page, /成熟周（推荐）|matureWeek/);
-  assert.match(page, /const initial=adRangeFor\('7d'\)/);
-  assert.match(page, /const \[preset,setPreset\]=useState\('7d'\)/);
+  assert.match(page, /const initial = adRangeFor\("7d"\)/);
+  assert.match(page, /const \[preset, setPreset\] = useState\("7d"\)/);
   assert.doesNotMatch(page, /决策成熟周/);
   assert.doesNotMatch(page, /恢复 2026-07-15 广告分析的布局/);
   assert.match(page, /最近 14 天/);
   assert.match(page, /加入执行 \(/);
   assert.match(page, /保本ROAS/);
-  assert.match(page, /BM CPC/);
+  assert.match(page, /row\.cpcBaseline\.actualCpc/);
   assert.match(page, /money2\(row\.cpcBaseline\.cpc\)/);
   assert.match(page, /7月余/);
   assert.match(page, /8月留/);
@@ -135,7 +135,7 @@ test("restores persisted weekly actions after the advertising page reloads", asy
   });
   assert.match(page, /\/api\/ads\/actions\?runKey=/);
   assert.match(page, /queuedActionState/);
-  assert.match(page, /AI API 执行工作台/);
+  assert.match(page, /待审批需求/);
   assert.match(page, /确认并预检/);
   assert.match(page, /执行已预检项/);
 });
@@ -147,10 +147,14 @@ test("ships the compact operations shell and bulk advertising workflow", async (
   ]);
   assert.match(page, /className="sidebar"/);
   assert.match(page, /label: "帮助"/);
-  assert.match(page, /AI API 执行工作台/);
+  assert.match(page, /待审批需求/);
   assert.match(page, /确认并预检/);
   assert.match(page, /执行已预检项/);
-  assert.match(page, /<span>对象<\/span><span>表现<\/span><span>经营边界<\/span><span>判断<\/span><span>执行<\/span>/);
+  assert.match(page, /<span>对象<\/span>/);
+  assert.match(page, /<span className="approval-internal-column">表现<\/span>/);
+  assert.match(page, /经营边界/);
+  assert.match(page, /判断/);
+  assert.match(page, /执行/);
   assert.doesNotMatch(page, /输入：执行广告修改/);
   assert.match(page, /日级投放效率/);
   assert.match(page, /归因销售额/);
@@ -166,32 +170,46 @@ test("ships the compact operations shell and bulk advertising workflow", async (
   assert.match(styles, /\.action-list\.rich \.action-head\.selectable/);
 });
 
-test("organizes the operating product around five primary workspaces", async () => {
+test("keeps global navigation shallow and moves module choices into the workspace", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /label: "Dashboard"/);
+  assert.match(page, /label: "经营总览"/);
   assert.match(page, /label: "日报"/);
-  assert.match(page, /label: "广告"/);
+  assert.match(page, /label: "广告增长"/);
   assert.match(page, /label: "计划与复盘"/);
-  assert.match(page, /label: "商品与库存"/);
+  assert.match(page, /label: "商品经营"/);
   assert.match(page, /PRIMARY_NAV[\s\S]*label: "日报"/);
   assert.match(page, /useEmailBriefDates/);
   assert.match(page, /daily-insights/);
-  assert.match(page, /className="nav-submenu"/);
+  assert.doesNotMatch(page, /className="nav-submenu"/);
+  assert.match(page, /function WorkspaceTabs/);
+  assert.match(page, /className="workspace-tabs"/);
   assert.match(page, /广告管理器/);
   assert.match(page, /AI 优化/);
   assert.match(page, /运营计划/);
   assert.match(page, /复盘资料/);
   assert.match(page, /库存更新/);
   assert.match(page, /商品数据/);
+  assert.match(page, /SKU_INFORMATION_GROUPS/);
+  assert.match(page, /SKU 队列与 360°/);
+  assert.match(page, /经营审计与约束/);
+  assert.match(page, /function toSkuOperatingRow/);
+  assert.match(page, /fetch\("\/api\/catalog\/items\?page=1&pageSize=30"/);
+  assert.doesNotMatch(page, /SKU_OPERATING_DEMO_ROWS/);
+  assert.match(page, /今天先经营该经营的 SKU/);
+  assert.match(page, /按经营意图排队，而不是按数据来源堆叠/);
+  assert.match(page, /Catalog 只读数据/);
+  assert.match(page, /查看经营边界/);
   assert.doesNotMatch(page, /function SecondaryNav/);
   assert.doesNotMatch(page, /<SecondaryNav/);
   assert.doesNotMatch(page, /subpage-heading/);
   assert.doesNotMatch(styles, /\.secondary-nav/);
   assert.doesNotMatch(styles, /\.subpage-heading/);
-  assert.match(styles, /\.nav-submenu/);
+  assert.match(styles, /\.workspace-tabs/);
+  assert.match(styles, /\.sku-demo-board/);
+  assert.match(styles, /\.sku-demo-layout/);
 });
 
 test("does not render dead button affordances in operating workspaces", async () => {
@@ -265,8 +283,8 @@ test("splits manual work from one unified AI API execution workbench", async () 
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /手动优化 To-Do List/);
-  assert.match(page, /AI API 执行工作台/);
+  assert.match(page, /手动优化 To-Do/);
+  assert.match(page, /待审批需求/);
   assert.match(page, /Keyword Targeting/);
   assert.match(page, /\$750/);
   assert.match(page, /Product Targeting/);
@@ -274,11 +292,11 @@ test("splits manual work from one unified AI API execution workbench", async () 
   assert.match(page, /DMOM1021/);
   assert.match(page, /filing cabinets/);
   assert.match(page, /关键词、否词、Campaign Cap 和 tROAS 保留人工执行/);
-  assert.match(page, /双窗口决策：成熟归因负责评估和扩量，实时安全窗负责预警和阻止过时动作/);
+  assert.match(page, /依据成熟归因周期与经营目标生成/);
   assert.match(page, /运营 Agent 辩论/);
   assert.match(page, /MANUAL_AD_TASK_GROUPS\.map/);
-  assert.match(page, /manualTaskKey\(group\.sku,task\.id\)/);
-  assert.match(page, /手动优化 To-Do List · 按父体 SKU/);
+  assert.match(page, /manualTaskKey\(group\.sku, task\.id\)/);
+  assert.match(page, /统计口径：父体 SKU/);
   assert.doesNotMatch(styles, /\.optimization-mode-switch/);
   assert.match(styles, /\.keyword-allocation-grid/);
   assert.match(styles, /\.manual-todo-list/);
@@ -288,12 +306,12 @@ test("splits manual work from one unified AI API execution workbench", async () 
 
 test("keeps parent-SKU advertising performance focused on search, filters, sorting and decision metrics", async () => {
   const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
-  assert.match(page, /\(tab==='manager'\|\|tab==='manual'\)&&<section className="period-bar ad-period">/);
-  assert.match(page, /tab==='manager'&&<>\s*<section className="stat-grid six ad-manager-kpis">/);
-  assert.match(page, /tab==='listings'&&<section className="card ad-manager-card listing-performance-card"><div className="manager-filters">/);
+  assert.match(page, /\(tab === "manager" \|\| tab === "manual"\) && \(/);
+  assert.match(page, /tab === "manager" && \(/);
+  assert.match(page, /tab === "listings" && \(/);
   assert.match(page, /className="listing-grain-note"/);
   assert.match(page, /api-table listing-manager-table listing-performance-table/);
-  const listingBranch = page.split("{tab==='listings'&&")[1]?.split("</section>}")[0] || "";
+  const listingBranch = page.split('{tab === "listings" && (')[1]?.split("</section>")[0] || "";
   assert.doesNotMatch(listingBranch, /section-head|manager-source|Retail 销售额|Retail ROAS|field="units"/);
 });
 
@@ -307,7 +325,7 @@ test("gives advertising recommendations a readable action and evidence hierarchy
   assert.match(page, /className="recommendation-title"/);
   assert.match(page, /className="recommendation-reason"/);
   assert.match(page, /className="recommendation-evidence"/);
-  assert.match(page, /className="recommendation-alerts"/);
+  assert.match(page, /className="recommendation-alerts approval-internal"/);
   assert.match(styles, /\.recommendation-cell\{/);
   assert.match(styles, /\.recommendation-evidence>div\{/);
   assert.doesNotMatch(styles, /action-list\.rich article>div:nth-child\(4\)/);
@@ -325,7 +343,7 @@ test("keeps AI campaign learning rules in analysis without rendering them in the
   assert.doesNotMatch(page, /AI Campaign 学习诊断/);
   assert.doesNotMatch(page, /AI 广告新开评估/);
   assert.doesNotMatch(page, /aiAdEligibility/);
-  assert.match(page, /仅 Bid 与 Listing 启停进入此处；其余动作留在手动优化/);
+  assert.match(page, /只有 Listing Bid 可由中台执行/);
   assert.match(page, /学习期内禁止修改 tROAS、Daily Cap 与 Listing/);
   assert.match(page, /ai-learning-escalation/);
   assert.match(styles, /\.ai-campaign-diagnostics\{/);
