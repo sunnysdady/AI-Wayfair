@@ -70,6 +70,16 @@ DATABASE_URL='postgresql://…' npm run db:migrate:postgres
 
 迁移器使用事务、PostgreSQL advisory lock 和 `schema_migrations` 账本，可安全重复执行。迁移文件位于 `migrations/postgres/`。
 
+## 运营数据助理
+
+访问 `/assistant` 可以检索已经保存到 PostgreSQL 的 SKU 成本、最新库存、订单、广告动作、运营任务、报告和 Outlook 日报。它调用 `POST /api/assistant/search`，请求示例：
+
+```json
+{ "query": "DMOM1021", "limit": 8 }
+```
+
+接口只读、结果最多 12 条，并使用参数化查询和同源校验；每次查询仅记录查询词、命中数量和时间到 `assistant_query_audit`。该版本是可供后续大模型调用的数据检索工具，不会伪造模型回答，也不会向 Wayfair 执行写操作。
+
 ## 分层同步
 
 `GET /api/cron/sync` 只接受：

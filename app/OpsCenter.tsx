@@ -2259,6 +2259,9 @@ function ShellHeader({
               {item.label}
             </button>
           ))}
+          <Link className="release-link" href="/assistant">
+            数据助理
+          </Link>
           <Link className="release-link" href="/releases">
             版本记录 · v0.2.2
           </Link>

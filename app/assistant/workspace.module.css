@@ -1,0 +1,54 @@
+.page {
+  min-height: 100vh;
+  padding: 48px 24px;
+  color: #1a2433;
+  background: #f4f7f9;
+}
+
+.panel {
+  width: min(860px, 100%);
+  margin: 0 auto;
+  padding: clamp(28px, 6vw, 64px);
+  border: 1px solid #dce4e9;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgb(24 39 58 / 9%);
+}
+
+.back, .meta, .notice, .eyebrow, .card p, .card time {
+  color: #607080;
+}
+
+.back { font-size: 14px; text-decoration: none; }
+.eyebrow { margin: 40px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+.panel h1 { margin: 0; font-size: clamp(32px, 5vw, 52px); letter-spacing: -.045em; }
+.intro { max-width: 620px; font-size: 18px; line-height: 1.7; }
+.notice { padding: 14px 16px; border-left: 3px solid #0f766e; background: #edf9f6; line-height: 1.55; }
+.form { margin-top: 36px; }
+.form label { display: block; margin-bottom: 8px; font-weight: 700; }
+.searchRow { display: flex; gap: 10px; }
+.searchRow input { min-width: 0; flex: 1; padding: 14px 16px; border: 1px solid #bdc9d2; border-radius: 10px; font: inherit; }
+.searchRow button, .examples button { cursor: pointer; font: inherit; }
+.searchRow button { padding: 0 20px; border: 0; border-radius: 10px; color: white; background: #0f766e; font-weight: 700; }
+.searchRow button:disabled { cursor: wait; opacity: .6; }
+.examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.examples button { padding: 6px 10px; border: 1px solid #dce4e9; border-radius: 999px; color: #315267; background: #fff; }
+.error { margin-top: 20px; color: #b42318; }
+.results { margin-top: 32px; }
+.answer { margin-bottom: 8px; font-size: 18px; font-weight: 700; line-height: 1.6; }
+.meta { margin-top: 0; font-size: 13px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 20px; }
+.card { display: grid; gap: 7px; padding: 18px; border: 1px solid #e2e8ed; border-radius: 14px; }
+.card p { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.card h2, .card strong, .card span, .card time { overflow-wrap: anywhere; }
+.card h2 { margin: 0; font-size: 16px; }
+.card strong { color: #0f5660; }
+.card span { line-height: 1.5; }
+.card time { font-size: 12px; }
+
+@media (max-width: 560px) {
+  .page { padding: 18px 12px; }
+  .panel { border-radius: 16px; }
+  .searchRow { flex-direction: column; }
+  .searchRow button { min-height: 46px; }
+}
