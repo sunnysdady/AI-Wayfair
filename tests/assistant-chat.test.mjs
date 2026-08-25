@@ -107,6 +107,35 @@ test("calls an OpenAI-compatible model only with server configuration and bounde
   assert.match(payload.instructions, /不能当作 Wayfair 业务事实或阈值/);
 });
 
+test("retries one transient model failure before returning the model answer", async () => {
+  let attempts = 0;
+  const reply = await answerAssistantChat({}, {
+    message: "请给我通用的广告诊断框架",
+  }, {
+    processEnv: {
+      AI_MODEL_BASE_URL: "https://llm.example.test/v1",
+      AI_MODEL_API_KEY: "server-only-secret",
+      AI_MODEL_NAME: "operations-model",
+    },
+    search: async () => ({
+      answer: "没有匹配的当前运营数据。",
+      resultCount: 0,
+      sources: [],
+      records: [],
+    }),
+    fetchImpl: async () => {
+      attempts += 1;
+      if (attempts === 1) return new Response("busy", { status: 503 });
+      return new Response(JSON.stringify({ output_text: "通用建议：先看流量、成本、转化和回报。" }), { status: 200 });
+    },
+    sleep: async () => {},
+  });
+
+  assert.equal(attempts, 2);
+  assert.equal(reply.mode, "model");
+  assert.match(reply.message, /通用建议/);
+});
+
 test("keeps AI provider credentials on the server and exposes a chat route", async () => {
   const [route, workspace, navigation] = await Promise.all([
     readFile(new URL("../app/api/assistant/chat/route.ts", import.meta.url), "utf8"),

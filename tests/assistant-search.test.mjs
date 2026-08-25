@@ -138,6 +138,56 @@ test("translates a natural-language date and sales question into a bounded daily
   assert.deepEqual(calls[1].values, ["audit-daily-sales", "8.23 的销量是多少", 1, "2026-08-25T08:00:00.000Z"]);
 });
 
+test("translates a SKU and month order request into a bounded SKU-month query", async () => {
+  const calls = [];
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...values) {
+          calls.push({ sql, values });
+          return {
+            async all() {
+              return {
+                results: [{
+                  part_number: "DMOM1027",
+                  orders: 3,
+                  units: 7,
+                  revenue_cents: 12345,
+                }],
+              };
+            },
+            async run() {
+              return { success: true };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const result = await searchAssistantKnowledge(db, {
+    query: "查询DMOM1027 8 月的订单数据",
+  }, {
+    now: () => "2026-08-25T08:00:00.000Z",
+    idFactory: () => "audit-sku-month-orders",
+  });
+
+  assert.deepEqual(result.command, {
+    type: "sku_month_orders",
+    sku: "DMOM1027",
+    month: "2026-08",
+    description: "查询 SKU DMOM1027 在 2026-08 的订单、销量和销售额",
+  });
+  assert.equal(result.resultCount, 1);
+  assert.match(result.answer, /DMOM1027 在 2026-08 共 3 个采购订单/);
+  assert.match(result.answer, /销量 7 件/);
+  assert.match(result.answer, /销售额 \$123\.45/);
+  assert.match(calls[0].sql, /JOIN order_items/);
+  assert.match(calls[0].sql, /Asia\/Shanghai/);
+  assert.deepEqual(calls[0].values, ["DMOM1027", "2026-08-01"]);
+  assert.deepEqual(calls[1].values, ["audit-sku-month-orders", "查询DMOM1027 8 月的订单数据", 1, "2026-08-25T08:00:00.000Z"]);
+});
+
 test("returns a transparent no-result answer while still auditing the lookup", async () => {
   const writes = [];
   const db = {
