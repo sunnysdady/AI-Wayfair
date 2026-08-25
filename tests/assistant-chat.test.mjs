@@ -82,22 +82,22 @@ test("calls an OpenAI-compatible model only with server configuration and bounde
     fetchImpl: async (url, options) => {
       calls.push({ url, options });
       return new Response(JSON.stringify({
-        choices: [{ message: { content: "DMOM1021 当前现货为 24，请持续关注补货。" } }],
+        output_text: "DMOM1021 当前现货为 24，请持续关注补货。",
       }), { status: 200 });
     },
   });
 
   assert.equal(reply.mode, "model");
   assert.match(reply.message, /现货为 24/);
-  assert.equal(calls[0].url, "https://llm.example.test/v1/chat/completions");
+  assert.equal(calls[0].url, "https://llm.example.test/v1/responses");
   assert.equal(calls[0].options.headers.authorization, "Bearer server-only-secret");
   const payload = JSON.parse(calls[0].options.body);
   assert.equal(payload.model, "operations-model");
-  assert.equal(payload.messages.at(-1).content, "DMOM1021 库存");
-  assert.match(payload.messages[0].content, /只基于提供的运营数据/);
-  assert.match(payload.messages[0].content, /现货 24/);
-  assert.match(payload.messages[0].content, /跨平台运营方法论/);
-  assert.match(payload.messages[0].content, /不能当作 Wayfair 业务事实或阈值/);
+  assert.equal(payload.input.at(-1).content[0].text, "DMOM1021 库存");
+  assert.match(payload.instructions, /只基于提供的运营数据/);
+  assert.match(payload.instructions, /现货 24/);
+  assert.match(payload.instructions, /跨平台运营方法论/);
+  assert.match(payload.instructions, /不能当作 Wayfair 业务事实或阈值/);
 });
 
 test("keeps AI provider credentials on the server and exposes a chat route", async () => {
