@@ -12,6 +12,33 @@ function unauthorized(status = 401) {
   );
 }
 
+function hasValidAccessCredential(user: string, password: string) {
+  const configuredCredentials = new Map<string, string>();
+  const primaryUser = process.env.APP_ACCESS_USER;
+  const primaryPassword = process.env.APP_ACCESS_PASSWORD;
+  if (primaryUser && primaryPassword) {
+    configuredCredentials.set(primaryUser, primaryPassword);
+  }
+
+  const additionalCredentials = process.env.APP_ACCESS_CREDENTIALS_JSON;
+  if (additionalCredentials) {
+    try {
+      const parsed = JSON.parse(additionalCredentials) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        for (const [configuredUser, configuredPassword] of Object.entries(parsed)) {
+          if (typeof configuredPassword === "string" && configuredUser) {
+            configuredCredentials.set(configuredUser, configuredPassword);
+          }
+        }
+      }
+    } catch {
+      // Ignore an invalid optional account list so the primary account stays available.
+    }
+  }
+
+  return configuredCredentials.get(user) === password;
+}
+
 export async function proxy(request: NextRequest) {
   if (
     request.nextUrl.pathname === "/api/cron/sync"
@@ -24,9 +51,9 @@ export async function proxy(request: NextRequest) {
     || process.env.WAYFAIR_DEPLOYMENT_ENV === "production";
   if (!deployed) return NextResponse.next();
 
-  const expectedUser = process.env.APP_ACCESS_USER;
-  const expectedPassword = process.env.APP_ACCESS_PASSWORD;
-  if (!expectedUser || !expectedPassword) return unauthorized(503);
+  if (!process.env.APP_ACCESS_USER || !process.env.APP_ACCESS_PASSWORD) {
+    return unauthorized(503);
+  }
 
   const authorization = request.headers.get("authorization");
   if (!authorization?.startsWith("Basic ")) return unauthorized();
@@ -35,7 +62,7 @@ export async function proxy(request: NextRequest) {
     const separator = decoded.indexOf(":");
     const user = decoded.slice(0, separator);
     const password = decoded.slice(separator + 1);
-    if (separator < 0 || user !== expectedUser || password !== expectedPassword) {
+    if (separator < 0 || !hasValidAccessCredential(user, password)) {
       return unauthorized();
     }
   } catch {

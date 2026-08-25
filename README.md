@@ -50,7 +50,8 @@ npm test
 - S3 必须配置访问密钥；只有使用 AWS IAM Role/OIDC 等默认凭证链时才显式设置 `S3_USE_DEFAULT_CREDENTIAL_CHAIN=true`。
 - `CRON_SECRET`：保护定时同步端点的随机长字符串。
 - `APP_ORIGIN`：固定为 `https://aiwayfair.sunnysdady.com`。
-- `APP_ACCESS_USER`、`APP_ACCESS_PASSWORD`：生产页面和普通 API 的 HTTP Basic 登录。生产环境缺少这两个变量时应用会拒绝访问。
+- `APP_ACCESS_USER`、`APP_ACCESS_PASSWORD`：生产页面和普通 API 的主 HTTP Basic 登录。生产环境缺少这两个变量时应用会拒绝访问。
+- `APP_ACCESS_CREDENTIALS_JSON`：可选的额外 HTTP Basic 账号对象，例如 `{"xiaotong":"a-strong-password"}`；仅写入生产环境文件，主账号继续保留。
 - Microsoft Graph：`MICROSOFT_CLIENT_ID`、`MICROSOFT_CLIENT_SECRET`，并选择：
   - 委托授权：配置 `MICROSOFT_REFRESH_TOKEN`；
   - 应用授权：配置 `OUTLOOK_MAILBOX_USER`，并在 Entra 中授予目标邮箱的 `Mail.Read` 应用权限。
