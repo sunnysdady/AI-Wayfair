@@ -63,7 +63,7 @@ test("opens AI 助理 inside the operations shell instead of navigating to a sep
 
   const source = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
   assert.match(source, /import AssistantWorkspace from "\.\/assistant\/workspace"/);
-  assert.match(source, /navigate\("assistant"\)/);
+  assert.match(source, /\{ id: "assistant", label: "AI 助理" \}/);
   assert.match(source, /assistant:\s*<AssistantWorkspace embedded \/>/);
   assert.doesNotMatch(source, /href="\/assistant"/);
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 
 import styles from "./workspace.module.css";
@@ -30,7 +31,7 @@ const WELCOME: ChatMessage = {
   content: "你好，我是 AI 助理。你可以问 SKU、库存、订单、广告、任务和日报相关的问题。我会先读取已保存的运营数据，再基于已配置的大模型进行分析。",
 };
 
-export default function AssistantWorkspace() {
+export default function AssistantWorkspace({ embedded = false }: { embedded?: boolean }) {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [error, setError] = useState("");
@@ -69,12 +70,11 @@ export default function AssistantWorkspace() {
     }
   }
 
-  return (
-    <main className={styles.page}>
-      <section className={styles.shell} aria-labelledby="assistant-title">
+  const workspace = (
+    <section className={styles.shell} aria-labelledby="assistant-title">
         <header className={styles.header}>
           <div>
-            <a className={styles.back} href="/">← 返回运营中台</a>
+            {!embedded ? <Link className={styles.back} href="/">← 返回运营中台</Link> : null}
             <p className={styles.eyebrow}>AI OPERATIONS ASSISTANT</p>
             <h1 id="assistant-title">AI 助理</h1>
             <p>以对话方式分析已同步的 Wayfair 运营数据；所有数据读取与模型调用均在服务端完成。</p>
@@ -134,7 +134,10 @@ export default function AssistantWorkspace() {
         </form>
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
         <p className={styles.notice}>AI 助理不会执行 Wayfair、广告或数据库写操作；建议需由人工确认后执行。</p>
-      </section>
-    </main>
+    </section>
   );
+
+  return embedded
+    ? <section className={styles.embedded}>{workspace}</section>
+    : <main className={styles.page}>{workspace}</main>;
 }

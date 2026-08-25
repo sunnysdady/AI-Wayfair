@@ -26,6 +26,7 @@ import {
   navigationSearch,
   navigationStateFromSearch,
 } from "../lib/app-navigation.mjs";
+import AssistantWorkspace from "./assistant/workspace";
 import { PLAN_PROGRESS_CACHE_KEY } from "../lib/plan-progress-view.mjs";
 import legacyOperatingDataSource from "../data/dmom-operating-2026-06.json";
 
@@ -36,6 +37,7 @@ type View =
   | "ads"
   | "planning"
   | "products"
+  | "assistant"
   | "sources"
   | "help";
 type AdsTab = "manager" | "listings" | "ai" | "manual" | "review";
@@ -52,6 +54,7 @@ const PRIMARY_NAV: { id: View; label: string }[] = [
   { id: "ads", label: "广告增长" },
   { id: "planning", label: "计划与复盘" },
   { id: "products", label: "商品经营" },
+  { id: "assistant", label: "AI 助理" },
 ];
 
 const SYSTEM_NAV: { id: View; label: string }[] = [
@@ -2247,7 +2250,6 @@ function ShellHeader({
               {item.label}
             </button>
           ))}
-          <Link className="release-link" href="/assistant">AI 助理</Link>
         </nav>
         <nav className="nav utility-nav" aria-label="系统导航">
           {SYSTEM_NAV.map((item) => (
@@ -9949,6 +9951,7 @@ export default function OpsCenter() {
     ads: <Ads tab={adsTab} onTabChange={navigateSub} />,
     planning: <PlanningWorkspace tab={planningTab} onTabChange={navigateSub} />,
     products: <ProductWorkspace tab={productTab} onTabChange={navigateSub} />,
+    assistant: <AssistantWorkspace embedded />,
     sources: <Sources />,
     help: <Help />,
   }[view];

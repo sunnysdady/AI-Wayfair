@@ -114,6 +114,6 @@ test("keeps AI provider credentials on the server and exposes a chat route", asy
   assert.doesNotMatch(route, /AI_MODEL_API_KEY/);
   assert.match(workspace, /\/api\/assistant\/chat/);
   assert.match(workspace, /对话/);
-  assert.match(navigation, />AI 助理</);
+  assert.match(navigation, /\{ id: "assistant", label: "AI 助理" \}/);
   assert.doesNotMatch(navigation, />数据助理</);
 });
