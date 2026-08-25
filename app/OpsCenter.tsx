@@ -44,7 +44,7 @@ type AdsTab = "manager" | "listings" | "ai" | "manual" | "review";
 type DailyTab = "operating" | "email";
 type PlanningTab = "plan" | "august" | "september" | "review" | "history";
 type ProductTab = "inventory" | "catalog" | "launch" | "performance";
-type PlanSection = "july" | "bfij" | "august" | "september";
+type PlanSection = "plan" | "july" | "bfij" | "august" | "september";
 type SubView = AdsTab | DailyTab | PlanningTab | ProductTab;
 
 const PRIMARY_NAV: { id: View; label: string }[] = [
@@ -3575,7 +3575,7 @@ function Plan({
           }
         />
       )}
-      {tab !== "september" && (
+      {tab === "plan" && (
         <>
           <section className="context-strip" aria-label="经营月份导航">
             <button aria-label="打开6月复盘资料" onClick={onOpenReview}>
@@ -3681,13 +3681,11 @@ function Plan({
           </section>
           <div className="plan-tabs">
             <button
-              className={tab === "august" ? "active" : ""}
               onClick={() => onTabChange("august")}
             >
               8月执行计划
             </button>
             <button
-              className={tab === "bfij" ? "active" : ""}
               onClick={() => onTabChange("bfij")}
             >
               BFIJ 活动广告策略
@@ -9131,7 +9129,7 @@ function PlanningWorkspace({
   tab: PlanningTab;
   onTabChange: (tab: PlanningTab) => void;
 }) {
-  const [planSection, setPlanSection] = useState<PlanSection>("august");
+  const [planSection, setPlanSection] = useState<PlanSection>("plan");
   function openPlanSection(section: PlanSection) {
     setPlanSection(section);
     onTabChange(section === "august" || section === "september" ? section : "plan");
