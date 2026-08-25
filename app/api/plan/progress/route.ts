@@ -4,8 +4,6 @@ import {
   AUGUST_OPERATIONS_GUIDE,
   BFIJ_PLAN,
   JULY_EVENTS,
-  JULY_PLAN,
-  JULY_PLAN_LISTINGS,
   LISTING_PORTFOLIO_POLICY,
   MAKEACE_CPC_PLAN,
   WEEKLY_MILESTONES,
@@ -24,6 +22,11 @@ import {
   AUGUST_SALES_PLAN_ROWS,
   summarizeAugustSalesPlan,
 } from "../../../../lib/august-sales-plan.mjs";
+import {
+  SEPTEMBER_SALES_PLAN,
+  SEPTEMBER_SALES_PLAN_ROWS,
+  summarizeSeptemberSalesPlan,
+} from "../../../../lib/september-sales-plan.mjs";
 import { cachedAdSpend } from "../../../../lib/wayfair-ads";
 import { eventCycleForDate } from "../../../../lib/event-cycle.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
@@ -34,6 +37,8 @@ import {
 } from "@/lib/august-execution-policy.mjs";
 
 const DEFAULT_MARGIN_RATE = .2826;
+const CURRENT_PLAN = AUGUST_PLAN;
+const CURRENT_PLAN_LISTINGS = AUGUST_PLAN_LISTINGS;
 
 const bindings = getRuntimeBindings;
 
@@ -52,8 +57,11 @@ export async function GET() {
   try {
     const env = await bindings();
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-    const start = `${JULY_PLAN.month}-01`;
-    const end = `${JULY_PLAN.month}-31`;
+    const start = `${CURRENT_PLAN.month}-01`;
+    const totalDays = new Date(
+      Date.UTC(Number(CURRENT_PLAN.month.slice(0, 4)), Number(CURRENT_PLAN.month.slice(5, 7)), 0),
+    ).getUTCDate();
+    const end = `${CURRENT_PLAN.month}-${String(totalDays).padStart(2, "0")}`;
     const actualEnd = today < start ? start : today > end ? end : today;
     const endExclusive = addDays(actualEnd, 1);
     const from = `${start}T00:00:00+08:00`;
@@ -72,7 +80,7 @@ export async function GET() {
       current.revenue += Number(row.unitPriceCents || 0) * Number(row.quantity || 0) / 100;
       byPart.set(String(row.partNumber), current);
     }
-    const listings = JULY_PLAN_LISTINGS.filter((item) => Number(item.julyTargetOrders || 0) > 0).map((item) => {
+    const listings = CURRENT_PLAN_LISTINGS.filter((item) => Number(item.augustUnits || 0) > 0).map((item) => {
       const orders = new Set<string>();
       let units = 0;
       let revenue = 0;
@@ -82,15 +90,23 @@ export async function GET() {
         units += partActual?.units || 0;
         revenue += partActual?.revenue || 0;
       }
-      return { ...item, actualOrders: orders.size, actualUnits: units, actualRevenue: Number(revenue.toFixed(2)) };
+      return {
+        ...item,
+        juneBaselineOrders: Number(item.juneUnits || 0),
+        julyTargetOrders: Number(item.augustUnits || 0),
+        estimatedNetProfit: 0,
+        actualOrders: orders.size,
+        actualUnits: units,
+        actualRevenue: Number(revenue.toFixed(2)),
+      };
     });
 
-    const elapsedDays = today < start ? 0 : today > end ? 31 : Number(today.slice(8, 10));
+    const elapsedDays = today < start ? 0 : today > end ? totalDays : Number(today.slice(8, 10));
     const orders = Number(actual?.orders || 0);
-    const remainingOrders = Math.max(0, JULY_PLAN.orderTarget - orders);
-    const remainingDays = Math.max(0, 31 - elapsedDays);
-    const expectedOrders = Number((JULY_PLAN.orderTarget * elapsedDays / 31).toFixed(1));
-    const forecastOrders = elapsedDays ? Number((orders / elapsedDays * 31).toFixed(1)) : 0;
+    const remainingOrders = Math.max(0, CURRENT_PLAN.orderTarget - orders);
+    const remainingDays = Math.max(0, totalDays - elapsedDays);
+    const expectedOrders = Number((CURRENT_PLAN.orderTarget * elapsedDays / totalDays).toFixed(1));
+    const forecastOrders = elapsedDays ? Number((orders / elapsedDays * totalDays).toFixed(1)) : 0;
     const advertising = await cachedAdSpend(env.DB, start, actualEnd);
     const profit = await env.DB.prepare(`SELECT
       COALESCE(SUM(CASE WHEN c.unit_cost_cents IS NOT NULL THEN (i.unit_price_cents-c.unit_cost_cents)*i.quantity ELSE 0 END),0) AS knownProfitCents,
@@ -107,8 +123,15 @@ export async function GET() {
     const eventCycle = eventCycleForDate(today);
 
     return Response.json({
-      plan: JULY_PLAN,
-      currentOperatingMonth: { month: JULY_PLAN.month, targetStatus: "ACTIVE", note: "128 Orders真实基线计划执行中" },
+      plan: {
+        ...CURRENT_PLAN,
+        baselineOrders: 0,
+        floorOrders: 0,
+        stretchOrders: CURRENT_PLAN.orderTarget,
+        adBudget: CURRENT_PLAN.baseAdBudget,
+        estimatedNetProfit: 0,
+      },
+      currentOperatingMonth: { month: CURRENT_PLAN.month, targetStatus: "ACTIVE", note: `${CURRENT_PLAN.orderTarget} Orders计划执行中` },
       status: today < start ? "PREPARATION" : today > end ? "CLOSED" : "ACTIVE",
       asOf: today,
       actual: {
@@ -123,9 +146,9 @@ export async function GET() {
       },
       progress: {
         elapsedDays,
-        totalDays: 31,
-        timeProgress: elapsedDays / 31,
-        orderCompletion: orders / JULY_PLAN.orderTarget,
+        totalDays,
+        timeProgress: elapsedDays / totalDays,
+        orderCompletion: orders / CURRENT_PLAN.orderTarget,
         expectedOrders,
         paceGap: Number((orders - expectedOrders).toFixed(1)),
         forecastOrders,
@@ -163,6 +186,11 @@ export async function GET() {
         quantityPromotion: AUGUST_QUANTITY_PROMOTION,
         promotionPortfolio: AUGUST_PROMOTION_PORTFOLIO,
         promotionSummary: promotionReviewSummary(AUGUST_PROMOTION_PLAN),
+      },
+      septemberPlan: {
+        plan: SEPTEMBER_SALES_PLAN,
+        rows: SEPTEMBER_SALES_PLAN_ROWS,
+        summary: summarizeSeptemberSalesPlan(),
       },
     });
   } catch (error) {

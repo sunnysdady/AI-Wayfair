@@ -22,13 +22,14 @@ test("renders the Wayfair AI operations product", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
 });
 
-test("keeps July execution and BFIJ strategy between June review and August preparation", async () => {
+test("keeps August execution and September planning after the June review", async () => {
   const [page, plan] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/operating-plan.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /6月复盘 → 7月真实基线执行 → 8月下一阶段准备/);
-  assert.match(page, /7月执行计划/);
+  assert.match(page, /6月复盘 → 8月执行中 → 9月销售计划已确认/);
+  assert.match(page, /8月执行计划/);
+  assert.match(page, /9月销售计划/);
   assert.match(page, /BFIJ 活动广告策略/);
   assert.doesNotMatch(page, /7月 · 目标未建档/);
   assert.match(plan, /orderTarget: 128/);
@@ -220,10 +221,10 @@ test("does not render dead button affordances in operating workspaces", async ()
     assert.match(button, /onClick=/, `button is missing an action: ${button}`);
   }
   assert.match(page, /aria-label="打开6月复盘资料"/);
-  assert.match(page, /aria-label="查看7月执行计划"/);
-  assert.match(page, /aria-label="查看8月推广计划"/);
+  assert.match(page, /aria-label="查看8月执行计划"/);
+  assert.match(page, /aria-label="查看9月销售计划"/);
   assert.match(page, /aria-label="查看6月月度复盘"/);
-  assert.match(page, /aria-label="返回7月执行计划"/);
+  assert.match(page, /aria-label="返回8月执行计划"/);
   assert.doesNotMatch(page, /<button className="text-link">/);
 });
 

@@ -42,9 +42,9 @@ type View =
   | "help";
 type AdsTab = "manager" | "listings" | "ai" | "manual" | "review";
 type DailyTab = "operating" | "email";
-type PlanningTab = "plan" | "august" | "review" | "history";
+type PlanningTab = "plan" | "august" | "september" | "review" | "history";
 type ProductTab = "inventory" | "catalog" | "launch" | "performance";
-type PlanSection = "july" | "bfij" | "august";
+type PlanSection = "july" | "bfij" | "august" | "september";
 type SubView = AdsTab | DailyTab | PlanningTab | ProductTab;
 
 const PRIMARY_NAV: { id: View; label: string }[] = [
@@ -76,7 +76,8 @@ const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
   ],
   planning: [
     { id: "plan", label: "运营计划" },
-    { id: "august", label: "8月推广计划" },
+    { id: "august", label: "8月执行计划" },
+    { id: "september", label: "9月销售计划" },
     { id: "review", label: "复盘资料" },
     { id: "history", label: "历史月度" },
   ],
@@ -1434,6 +1435,21 @@ type PlanProgress = {
       fallbackAdBudget: number;
       fullPromotionHardAdCap: number;
     };
+  };
+  septemberPlan: {
+    plan: {
+      month: string;
+      status: string;
+      targetMetric: "ORDERS";
+      orderTarget: number;
+      adBudget: number;
+      source: string;
+      sourceAsOf: string;
+      note: string;
+      executionNote: string;
+    };
+    rows: { listing: string; targetOrders: number }[];
+    summary: { listingCount: number; targetOrders: number; adBudget: number };
   };
   error?: string;
 };
@@ -3531,6 +3547,9 @@ function Plan({
   const advertisingExecution = data?.nextPlan?.advertisingExecution;
   const executionPolicy = data?.nextPlan?.executionPolicy;
   const executionStage = data?.nextPlan?.executionStage;
+  const currentMonth = data?.plan.month || "2026-08";
+  const currentMonthLabel = `${Number(currentMonth.slice(5, 7))}月`;
+  const septemberPlan = data?.septemberPlan;
   const salesRoleNames: Record<string, string> = {
     VOLUME_CORE: "跑量核心",
     PROFIT_POOL: "利润池",
@@ -3548,7 +3567,7 @@ function Plan({
         <Hero
           eyebrow="MONTHLY OPERATING PLAN"
           title="目标与执行"
-          text="6月复盘 → 7月真实基线执行 → 8月下一阶段准备；目标、利润与广告共用同一套运营计划"
+          text="6月复盘 → 8月执行中 → 9月销售计划已确认；目标、利润与广告共用同一套运营计划"
           side={
             <button className="hero-button" onClick={onOpenReview}>
               查看完整复盘证据
@@ -3556,7 +3575,7 @@ function Plan({
           }
         />
       )}
-      {tab !== "august" && (
+      {tab !== "september" && (
         <>
           <section className="context-strip" aria-label="经营月份导航">
             <button aria-label="打开6月复盘资料" onClick={onOpenReview}>
@@ -3565,25 +3584,25 @@ function Plan({
               <small>经营事实已归档</small>
             </button>
             <button
-              aria-label="查看7月执行计划"
+              aria-label="查看8月执行计划"
               className="active"
-              onClick={() => onTabChange("july")}
+              onClick={() => onTabChange("august")}
             >
               <span>当前经营月</span>
               <b>
-                {data?.currentOperatingMonth.month || "2026-07"} · 128 Orders
+                {data?.currentOperatingMonth.month || "2026-08"} · {data?.plan.orderTarget || 150} Orders
               </b>
               <small>
                 {data?.currentOperatingMonth.note || "真实基线计划读取中"}
               </small>
             </button>
             <button
-              aria-label="查看8月推广计划"
-              onClick={() => onTabChange("august")}
+              aria-label="查看9月销售计划"
+              onClick={() => onTabChange("september")}
             >
               <span>下一计划月</span>
-              <b>2026-08 · 150 Orders</b>
-              <small>销售计划已确认 · 促销已提报同步</small>
+              <b>{septemberPlan?.plan.month || "2026-09"} · {septemberPlan?.summary.targetOrders || 180} Orders</b>
+              <small>销售目标与 SKU 清单已确认</small>
             </button>
           </section>
           <section
@@ -3621,8 +3640,8 @@ function Plan({
           <section className="stat-grid six plan-kpis">
             {[
               [
-                `${actual?.orders || 0} / 128`,
-                "7月订单完成",
+                `${actual?.orders || 0} / ${data?.plan.orderTarget || 150}`,
+                `${currentMonthLabel}订单完成`,
                 `${((p?.orderCompletion || 0) * 100).toFixed(1)}% · ${actual?.units || 0} 件`,
               ],
               [
@@ -3633,7 +3652,7 @@ function Plan({
               [
                 `${p?.forecastOrders || 0}`,
                 "月末订单预测",
-                `剩余 ${p?.remainingOrders ?? 128} Orders`,
+                `剩余 ${p?.remainingOrders ?? data?.plan.orderTarget ?? 150} Orders`,
               ],
               [
                 `${p?.requiredDailyOrders || 0}`,
@@ -3642,8 +3661,8 @@ function Plan({
               ],
               [
                 actual?.adSpend == null ? "待广告同步" : money(actual.adSpend),
-                "7月广告实际",
-                `月预算 $790 · ${actual?.adCoverage || "未覆盖"}`,
+                `${currentMonthLabel}广告实际`,
+                `月预算 ${money(data?.plan.adBudget || 0)} · ${actual?.adCoverage || "未覆盖"}`,
               ],
               [
                 actual?.contributionAfterAds == null
@@ -3662,10 +3681,10 @@ function Plan({
           </section>
           <div className="plan-tabs">
             <button
-              className={tab === "july" ? "active" : ""}
-              onClick={() => onTabChange("july")}
+              className={tab === "august" ? "active" : ""}
+              onClick={() => onTabChange("august")}
             >
-              7月执行计划
+              8月执行计划
             </button>
             <button
               className={tab === "bfij" ? "active" : ""}
@@ -3673,7 +3692,7 @@ function Plan({
             >
               BFIJ 活动广告策略
             </button>
-            <button onClick={() => onTabChange("august")}>8月推广计划</button>
+            <button onClick={() => onTabChange("september")}>9月销售计划</button>
           </div>
         </>
       )}
@@ -4288,6 +4307,71 @@ function Plan({
             </div>
           </details>
         </div>
+      )}
+      {tab === "september" && (
+        <>
+          <section className="context-strip september-summary" aria-label="9月销售计划摘要">
+            <div>
+              <span>计划月份</span>
+              <b>{septemberPlan?.plan.month || "2026-09"}</b>
+              <small>{septemberPlan?.plan.status === "CONFIRMED" ? "已确认" : "读取中"}</small>
+            </div>
+            <div>
+              <span>销量目标</span>
+              <b>{septemberPlan?.summary.targetOrders || 180} Orders</b>
+              <small>{septemberPlan?.summary.listingCount || 11} 个 SKU</small>
+            </div>
+            <div>
+              <span>广告月预算</span>
+              <b>{money(septemberPlan?.summary.adBudget || 1000)}</b>
+              <small>店铺总预算，未按 SKU 分摊</small>
+            </div>
+          </section>
+          <div className="plan-workspace">
+            <article className="card target-card">
+              <div className="section-head">
+                <div>
+                  <span>SEPTEMBER ORDER OWNERSHIP</span>
+                  <h2>180 单销售目标清单</h2>
+                </div>
+                <b>按确认顺序列示</b>
+              </div>
+              <div className="plan-table july">
+                <div className="plan-row head">
+                  <span>SKU</span>
+                  <span>9月目标</span>
+                  <span>目标占比</span>
+                  <span>广告预算</span>
+                  <span>执行状态</span>
+                  <span>说明</span>
+                </div>
+                {(septemberPlan?.rows || []).map((item) => (
+                  <div className="plan-row" key={item.listing}>
+                    <span><b>{item.listing}</b></span>
+                    <span><b>{item.targetOrders} 单</b></span>
+                    <span>{percent(item.targetOrders / (septemberPlan?.summary.targetOrders || 180))}</span>
+                    <span>未分摊</span>
+                    <span><b>待月初执行核验</b></span>
+                    <span><small>目标由运营负责人确认；不自动触发广告或商品操作。</small></span>
+                  </div>
+                ))}
+              </div>
+            </article>
+            <aside className="card milestone-card">
+              <div className="section-head">
+                <div>
+                  <span>EXECUTION NOTES</span>
+                  <h2>执行边界</h2>
+                </div>
+              </div>
+              <div className="milestones">
+                <div><b>预算口径<small>月度店铺总预算</small></b><strong>{money(septemberPlan?.plan.adBudget || 1000)}</strong><p>{septemberPlan?.plan.note || "广告预算尚未按 SKU 分摊。"}</p></div>
+                <div><b>执行前核验<small>每个 SKU</small></b><strong>必做</strong><p>{septemberPlan?.plan.executionNote || "核验可售、库存与投放资格。"}</p></div>
+                <div><b>数据来源<small>{septemberPlan?.plan.sourceAsOf || "2026-08-25"}</small></b><strong>已确认</strong><p>{septemberPlan?.plan.source || "运营负责人确认的销售计划。"}</p></div>
+              </div>
+            </aside>
+          </div>
+        </>
       )}
     </>
   );
@@ -7769,17 +7853,17 @@ function Review({
           <b>2026-06 · 已归档</b>
         </button>
         <i>→</i>
-        <button aria-label="返回7月执行计划" onClick={() => onOpenPlan("july")}>
+        <button aria-label="返回8月执行计划" onClick={() => onOpenPlan("august")}>
           <span>当前经营月</span>
-          <b>2026-07 · 128 Orders执行中</b>
+          <b>2026-08 · 150 Orders执行中</b>
         </button>
         <i>→</i>
         <button
-          aria-label="查看8月推广计划"
-          onClick={() => onOpenPlan("august")}
+          aria-label="查看9月销售计划"
+          onClick={() => onOpenPlan("september")}
         >
           <span>下一计划月</span>
-          <b>2026-08 · 150 Orders推广准备</b>
+          <b>2026-09 · 180 Orders计划已确认</b>
         </button>
       </section>
       {uploadMessage && <div className="upload-message">{uploadMessage}</div>}
@@ -9047,10 +9131,10 @@ function PlanningWorkspace({
   tab: PlanningTab;
   onTabChange: (tab: PlanningTab) => void;
 }) {
-  const [planSection, setPlanSection] = useState<PlanSection>("july");
+  const [planSection, setPlanSection] = useState<PlanSection>("august");
   function openPlanSection(section: PlanSection) {
     setPlanSection(section);
-    onTabChange(section === "august" ? "august" : "plan");
+    onTabChange(section === "august" || section === "september" ? section : "plan");
   }
   return (
     <>
@@ -9064,7 +9148,9 @@ function PlanningWorkspace({
         eyebrow=""
         title={
           tab === "august"
-            ? "8月推广计划"
+            ? "8月执行计划"
+            : tab === "september"
+              ? "9月销售计划"
             : tab === "plan"
               ? "运营计划"
               : tab === "history"
@@ -9077,6 +9163,13 @@ function PlanningWorkspace({
         <Plan
           embedded
           tab="august"
+          onTabChange={openPlanSection}
+          onOpenReview={() => onTabChange("review")}
+        />
+      ) : tab === "september" ? (
+        <Plan
+          embedded
+          tab="september"
           onTabChange={openPlanSection}
           onOpenReview={() => onTabChange("review")}
         />
@@ -9930,6 +10023,7 @@ export default function OpsCenter() {
       view === "planning" &&
       (next === "plan" ||
         next === "august" ||
+        next === "september" ||
         next === "review" ||
         next === "history")
     )
