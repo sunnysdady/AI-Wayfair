@@ -107,6 +107,45 @@ test("calls an OpenAI-compatible model only with server configuration and bounde
   assert.match(payload.instructions, /不能当作 Wayfair 业务事实或阈值/);
 });
 
+test("encodes assistant conversation history in the Responses API output format", async () => {
+  const reply = await answerAssistantChat({}, {
+    message: "查询 DMOM1027 8 月的订单数据",
+    history: [
+      { role: "assistant", content: "你好，我是 AI 助理。" },
+      { role: "user", content: "请按月查询。" },
+    ],
+  }, {
+    processEnv: {
+      AI_MODEL_BASE_URL: "https://llm.example.test/v1",
+      AI_MODEL_API_KEY: "server-only-secret",
+      AI_MODEL_NAME: "operations-model",
+    },
+    search: async () => ({
+      answer: "DMOM1027 在 2026-08 共 0 个采购订单，销量 0 件，销售额 $0.00。",
+      resultCount: 1,
+      sources: ["订单"],
+      records: [],
+    }),
+    fetchImpl: async (_url, options) => {
+      const payload = JSON.parse(options.body);
+      const invalidAssistantPart = payload.input.find((item) => (
+        item.role === "assistant" && item.content[0]?.type !== "output_text"
+      ));
+      if (invalidAssistantPart) {
+        return new Response(JSON.stringify({
+          error: { message: "assistant history must use output_text" },
+        }), { status: 400 });
+      }
+      return new Response(JSON.stringify({
+        output_text: "DMOM1027 在 2026 年 8 月暂无订单数据。",
+      }), { status: 200 });
+    },
+  });
+
+  assert.equal(reply.mode, "model");
+  assert.match(reply.message, /暂无订单数据/);
+});
+
 test("retries one transient model failure before returning the model answer", async () => {
   let attempts = 0;
   const reply = await answerAssistantChat({}, {
