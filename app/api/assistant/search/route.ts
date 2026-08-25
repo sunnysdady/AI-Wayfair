@@ -10,7 +10,17 @@ const MAX_BODY_BYTES = 4 * 1024;
 
 function sameOrigin(request: Request) {
   const origin = request.headers.get("origin");
-  return !origin || origin === new URL(request.url).origin;
+  if (!origin) {
+    return true;
+  }
+
+  const url = new URL(request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = forwardedHost || request.headers.get("host") || url.host;
+  const forwardedProtocol = request.headers.get("x-forwarded-proto");
+  const protocol = forwardedProtocol?.split(",")[0]?.trim() || url.protocol.slice(0, -1);
+
+  return origin === `${protocol}://${host}`;
 }
 
 async function readJsonBody(request: Request) {
