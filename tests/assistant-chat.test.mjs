@@ -7,6 +7,7 @@ import {
   answerAssistantChat,
   parseAssistantChatRequest,
 } from "../lib/assistant-chat.mjs";
+import { assistantExperienceContext } from "../lib/assistant-experience.mjs";
 
 test("normalizes a bounded multi-turn AI assistant request", () => {
   assert.deepEqual(parseAssistantChatRequest({
@@ -52,6 +53,15 @@ test("falls back to retrieved data until the server-only model configuration is 
   assert.deepEqual(searches, [{ query: "DMOM1021 库存", limit: 6 }]);
 });
 
+test("adds curated Amazon Ops methodology as non-factual context", () => {
+  const context = assistantExperienceContext();
+
+  assert.match(context, /跨平台运营方法论/);
+  assert.match(context, /证据/);
+  assert.match(context, /观察期/);
+  assert.match(context, /不能当作 Wayfair 业务事实或阈值/);
+});
+
 test("calls an OpenAI-compatible model only with server configuration and bounded retrieved context", async () => {
   const calls = [];
   const reply = await answerAssistantChat({}, {
@@ -86,6 +96,8 @@ test("calls an OpenAI-compatible model only with server configuration and bounde
   assert.equal(payload.messages.at(-1).content, "DMOM1021 库存");
   assert.match(payload.messages[0].content, /只基于提供的运营数据/);
   assert.match(payload.messages[0].content, /现货 24/);
+  assert.match(payload.messages[0].content, /跨平台运营方法论/);
+  assert.match(payload.messages[0].content, /不能当作 Wayfair 业务事实或阈值/);
 });
 
 test("keeps AI provider credentials on the server and exposes a chat route", async () => {
