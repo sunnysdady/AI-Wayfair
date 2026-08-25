@@ -2247,6 +2247,7 @@ function ShellHeader({
               {item.label}
             </button>
           ))}
+          <Link className="release-link" href="/assistant">AI 助理</Link>
         </nav>
         <nav className="nav utility-nav" aria-label="系统导航">
           {SYSTEM_NAV.map((item) => (
@@ -2259,9 +2260,6 @@ function ShellHeader({
               {item.label}
             </button>
           ))}
-          <Link className="release-link" href="/assistant">
-            数据助理
-          </Link>
           <Link className="release-link" href="/releases">
             版本记录 · v0.2.2
           </Link>

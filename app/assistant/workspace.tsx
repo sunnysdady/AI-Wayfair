@@ -9,41 +9,61 @@ type AssistantRecord = {
   reference: string;
   title: string;
   detail: string;
-  occurred_at: string | null;
 };
 
-type AssistantResponse = {
-  answer: string;
-  resultCount: number;
-  sources: string[];
-  records: AssistantRecord[];
-  searchedAt: string;
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  knowledge?: { resultCount: number; sources: string[]; records: AssistantRecord[] };
+  mode?: "model" | "data_only";
 };
 
-const EXAMPLES = ["DMOM1021", "广告", "库存", "BFIJ"];
+type ChatResponse = {
+  message: string;
+  mode: "model" | "data_only";
+  knowledge: ChatMessage["knowledge"];
+};
+
+const EXAMPLES = ["DMOM1021 库存风险", "广告表现需要关注什么", "BFIJ 订单进展"];
+const WELCOME: ChatMessage = {
+  role: "assistant",
+  content: "你好，我是 AI 助理。你可以问 SKU、库存、订单、广告、任务和日报相关的问题。我会先读取已保存的运营数据，再基于已配置的大模型进行分析。",
+};
 
 export default function AssistantWorkspace() {
-  const [query, setQuery] = useState("");
-  const [result, setResult] = useState<AssistantResponse | null>(null);
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const trimmed = message.trim();
+    if (trimmed.length < 2 || loading) return;
+
+    const nextUserMessage: ChatMessage = { role: "user", content: trimmed };
+    const history = messages.slice(-8).map(({ role, content }) => ({ role, content }));
+    setMessage("");
     setError("");
     setLoading(true);
+    setMessages((current) => [...current, nextUserMessage]);
     try {
-      const response = await fetch("/api/assistant/search", {
+      const response = await fetch("/api/assistant/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ query, limit: 8 }),
+        body: JSON.stringify({ message: trimmed, history }),
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "查询失败");
-      setResult(body);
+      if (!response.ok) throw new Error(body.error || "AI 助理暂时无法回答");
+      const reply = body as ChatResponse;
+      setMessages((current) => [...current, {
+        role: "assistant",
+        content: reply.message,
+        knowledge: reply.knowledge,
+        mode: reply.mode,
+      }]);
     } catch (caught) {
-      setResult(null);
-      setError(caught instanceof Error ? caught.message : "查询失败");
+      setError(caught instanceof Error ? caught.message : "AI 助理暂时无法回答");
     } finally {
       setLoading(false);
     }
@@ -51,61 +71,69 @@ export default function AssistantWorkspace() {
 
   return (
     <main className={styles.page}>
-      <section className={styles.panel} aria-labelledby="assistant-title">
-        <a className={styles.back} href="/">← 返回运营中台</a>
-        <p className={styles.eyebrow}>READ-ONLY DATA ASSISTANT</p>
-        <h1 id="assistant-title">运营数据助理</h1>
-        <p className={styles.intro}>
-          输入 SKU、采购订单号、Campaign 或报告关键词，直接调取数据库中已同步的运营记录。
-        </p>
-        <p className={styles.notice}>
-          当前为只读检索版：不会执行 Wayfair 写操作，结果来自最近保存的快照。
-        </p>
-
-        <form className={styles.form} onSubmit={submit}>
-          <label htmlFor="assistant-query">查询内容</label>
-          <div className={styles.searchRow}>
-            <input
-              id="assistant-query"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="例如：DMOM1021、广告、BFIJ"
-              minLength={2}
-              maxLength={120}
-              required
-            />
-            <button type="submit" disabled={loading}>{loading ? "查询中…" : "查询数据"}</button>
+      <section className={styles.shell} aria-labelledby="assistant-title">
+        <header className={styles.header}>
+          <div>
+            <a className={styles.back} href="/">← 返回运营中台</a>
+            <p className={styles.eyebrow}>AI OPERATIONS ASSISTANT</p>
+            <h1 id="assistant-title">AI 助理</h1>
+            <p>以对话方式分析已同步的 Wayfair 运营数据；所有数据读取与模型调用均在服务端完成。</p>
           </div>
-        </form>
+          <span className={styles.readonly}>只读分析</span>
+        </header>
 
-        <div className={styles.examples} aria-label="查询示例">
+        <section className={styles.conversation} aria-label="与 AI 助理对话" aria-live="polite">
+          {messages.map((item, index) => (
+            <article className={`${styles.message} ${styles[item.role]}`} key={`${item.role}-${index}`}>
+              <strong>{item.role === "user" ? "你" : "AI 助理"}</strong>
+              <p>{item.content}</p>
+              {item.role === "assistant" && item.knowledge ? (
+                <details className={styles.sources}>
+                  <summary>
+                    本次引用 {item.knowledge.resultCount} 条数据
+                    {item.knowledge.sources.length ? ` · ${item.knowledge.sources.join("、")}` : ""}
+                    {item.mode === "data_only" ? " · 模型待配置" : ""}
+                  </summary>
+                  <ul>
+                    {item.knowledge.records.slice(0, 4).map((record, recordIndex) => (
+                      <li key={`${record.reference}-${recordIndex}`}>
+                        <b>{record.title}</b> · {record.detail}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+            </article>
+          ))}
+          {loading ? <p className={styles.typing}>AI 助理正在读取数据并思考…</p> : null}
+        </section>
+
+        <div className={styles.examples} aria-label="提问示例">
           {EXAMPLES.map((example) => (
-            <button key={example} type="button" onClick={() => setQuery(example)}>{example}</button>
+            <button key={example} type="button" onClick={() => setMessage(example)}>{example}</button>
           ))}
         </div>
 
+        <form className={styles.composer} onSubmit={submit}>
+          <label htmlFor="assistant-message">输入你的问题</label>
+          <div>
+            <textarea
+              id="assistant-message"
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="例如：DMOM1021 的库存是否需要补货？"
+              minLength={2}
+              maxLength={1200}
+              rows={3}
+              required
+            />
+            <button type="submit" disabled={loading || message.trim().length < 2}>
+              {loading ? "处理中…" : "发送"}
+            </button>
+          </div>
+        </form>
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
-
-        {result ? (
-          <section className={styles.results} aria-live="polite">
-            <p className={styles.answer}>{result.answer}</p>
-            <p className={styles.meta}>
-              检索时间 {new Date(result.searchedAt).toLocaleString("zh-CN", { hour12: false })}
-              {result.sources.length ? ` · 来源：${result.sources.join("、")}` : ""}
-            </p>
-            <div className={styles.cards}>
-              {result.records.map((record, index) => (
-                <article className={styles.card} key={`${record.source}-${record.reference}-${index}`}>
-                  <p>{record.source.replaceAll("_", " ")}</p>
-                  <h2>{record.title}</h2>
-                  <strong>{record.reference}</strong>
-                  <span>{record.detail}</span>
-                  {record.occurred_at ? <time>{record.occurred_at}</time> : null}
-                </article>
-              ))}
-            </div>
-          </section>
-        ) : null}
+        <p className={styles.notice}>AI 助理不会执行 Wayfair、广告或数据库写操作；建议需由人工确认后执行。</p>
       </section>
     </main>
   );

@@ -70,15 +70,21 @@ DATABASE_URL='postgresql://…' npm run db:migrate:postgres
 
 迁移器使用事务、PostgreSQL advisory lock 和 `schema_migrations` 账本，可安全重复执行。迁移文件位于 `migrations/postgres/`。
 
-## 运营数据助理
+## AI 助理
 
-访问 `/assistant` 可以检索已经保存到 PostgreSQL 的 SKU 成本、最新库存、订单、广告动作、运营任务、报告和 Outlook 日报。它调用 `POST /api/assistant/search`，请求示例：
+一级菜单“AI 助理”打开 `/assistant`。它以对话形式检索 PostgreSQL 中已保存的 SKU 成本、最新库存、订单、广告动作、运营任务、报告和 Outlook 日报，并将本次命中的数据作为受限上下文交给已配置的大模型。
 
-```json
-{ "query": "DMOM1021", "limit": 8 }
+模型接入使用 OpenAI 兼容的 Chat Completions API，仅在服务器环境变量中配置：
+
+```bash
+AI_MODEL_BASE_URL=https://<provider>/v1
+AI_MODEL_API_KEY=<server-only-api-key>
+AI_MODEL_NAME=<model-name>
 ```
 
-接口只读、结果最多 12 条，并使用参数化查询和同源校验；每次查询仅记录查询词、命中数量和时间到 `assistant_query_audit`。该版本是可供后续大模型调用的数据检索工具，不会伪造模型回答，也不会向 Wayfair 执行写操作。
+浏览器只调用 `POST /api/assistant/chat`，不会获得 API Key。接口只读、会限制消息大小与历史条数、要求同源请求；未配置模型或模型暂时不可用时，页面会明确退回数据库检索结果，而不会伪造模型回答。AI 助理不会向 Wayfair 执行写操作。
+
+助手还包含从本机 `amazon ops` 项目筛选出的通用运营方法论：证据优先、问题优先级、单变量调整与观察期、动作反馈沉淀。它不读取 Amazon 的业务数据，也不会把 Amazon 的阈值或结论用于 Wayfair。
 
 ## 分层同步
 
