@@ -39,6 +39,15 @@ test("keeps August execution and September planning after the June review", asyn
   assert.match(plan, /flashConfirmationDeadline: "2026-07-17"/);
 });
 
+test("keeps the plan overview separate from monthly execution pages", async () => {
+  const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /type PlanSection = "plan" \| "july" \| "bfij" \| "august" \| "september"/);
+  assert.match(page, /\{tab === "plan" && \(/);
+  assert.match(page, /useState<PlanSection>\("plan"\)/);
+  assert.doesNotMatch(page, /\{tab !== "september" && \(/);
+});
+
 test("puts DMOM1018 and DMOM1000 into zero-budget stop-loss repair pools", async () => {
   const plan = await readFile(new URL("../lib/operating-plan.ts", import.meta.url), "utf8");
 
