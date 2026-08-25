@@ -15,14 +15,21 @@ type AssistantRecord = {
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
-  knowledge?: { resultCount: number; sources: string[]; records: AssistantRecord[] };
+  knowledge?: {
+    resultCount: number;
+    sources: string[];
+    records: AssistantRecord[];
+    command?: { type: string; date: string; description: string } | null;
+  };
   mode?: "model" | "data_only";
+  notice?: string;
 };
 
 type ChatResponse = {
   message: string;
   mode: "model" | "data_only";
   knowledge: ChatMessage["knowledge"];
+  notice?: string;
 };
 
 const EXAMPLES = ["DMOM1021 库存风险", "广告表现需要关注什么", "BFIJ 订单进展"];
@@ -62,6 +69,7 @@ export default function AssistantWorkspace({ embedded = false }: { embedded?: bo
         content: reply.message,
         knowledge: reply.knowledge,
         mode: reply.mode,
+        notice: reply.notice,
       }]);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "AI 助理暂时无法回答");
@@ -92,7 +100,8 @@ export default function AssistantWorkspace({ embedded = false }: { embedded?: bo
                   <summary>
                     本次引用 {item.knowledge.resultCount} 条数据
                     {item.knowledge.sources.length ? ` · ${item.knowledge.sources.join("、")}` : ""}
-                    {item.mode === "data_only" ? " · 模型待配置" : ""}
+                    {item.knowledge.command ? ` · ${item.knowledge.command.description}` : ""}
+                    {item.notice ? ` · ${item.notice}` : ""}
                   </summary>
                   <ul>
                     {item.knowledge.records.slice(0, 4).map((record, recordIndex) => (

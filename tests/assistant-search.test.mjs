@@ -93,6 +93,51 @@ test("searches saved operational data with bound parameters and writes a minimal
   assert.deepEqual(calls[1].values, ["audit-001", "DMOM1021", 2, "2026-08-25T08:00:00.000Z"]);
 });
 
+test("translates a natural-language date and sales question into a bounded daily-sales query", async () => {
+  const calls = [];
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...values) {
+          calls.push({ sql, values });
+          return {
+            async all() {
+              return {
+                results: [{
+                  sales_day: "2026-08-23",
+                  orders: 4,
+                  units: 6,
+                  revenue_cents: 56550,
+                }],
+              };
+            },
+            async run() {
+              return { success: true };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const result = await searchAssistantKnowledge(db, { query: "8.23 的销量是多少" }, {
+    now: () => "2026-08-25T08:00:00.000Z",
+    idFactory: () => "audit-daily-sales",
+  });
+
+  assert.deepEqual(result.command, {
+    type: "daily_sales",
+    date: "2026-08-23",
+    description: "查询 2026-08-23 的订单、销量和销售额",
+  });
+  assert.equal(result.resultCount, 1);
+  assert.match(result.answer, /2026-08-23 的销量为 6 件/);
+  assert.match(calls[0].sql, /FROM orders/);
+  assert.match(calls[0].sql, /Asia\/Shanghai/);
+  assert.deepEqual(calls[0].values, ["2026-08-23"]);
+  assert.deepEqual(calls[1].values, ["audit-daily-sales", "8.23 的销量是多少", 1, "2026-08-25T08:00:00.000Z"]);
+});
+
 test("returns a transparent no-result answer while still auditing the lookup", async () => {
   const writes = [];
   const db = {

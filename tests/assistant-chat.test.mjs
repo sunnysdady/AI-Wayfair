@@ -77,6 +77,11 @@ test("calls an OpenAI-compatible model only with server configuration and bounde
       answer: "找到 1 条相关记录。",
       resultCount: 1,
       sources: ["库存"],
+      command: {
+        type: "daily_sales",
+        date: "2026-08-23",
+        description: "查询 2026-08-23 的订单、销量和销售额",
+      },
       records: [{ source: "inventory", title: "最新库存", detail: "现货 24", reference: "DMOM1021" }],
     }),
     fetchImpl: async (url, options) => {
@@ -96,6 +101,8 @@ test("calls an OpenAI-compatible model only with server configuration and bounde
   assert.equal(payload.input.at(-1).content[0].text, "DMOM1021 库存");
   assert.match(payload.instructions, /只基于提供的运营数据/);
   assert.match(payload.instructions, /现货 24/);
+  assert.match(payload.instructions, /查询 2026-08-23 的订单、销量和销售额/);
+  assert.match(payload.instructions, /通用建议/);
   assert.match(payload.instructions, /跨平台运营方法论/);
   assert.match(payload.instructions, /不能当作 Wayfair 业务事实或阈值/);
 });
@@ -114,6 +121,7 @@ test("keeps AI provider credentials on the server and exposes a chat route", asy
   assert.doesNotMatch(route, /AI_MODEL_API_KEY/);
   assert.match(workspace, /\/api\/assistant\/chat/);
   assert.match(workspace, /对话/);
+  assert.doesNotMatch(workspace, /模型待配置/);
   assert.match(navigation, /\{ id: "assistant", label: "AI 助理" \}/);
   assert.doesNotMatch(navigation, />数据助理</);
 });
