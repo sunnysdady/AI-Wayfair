@@ -109,6 +109,8 @@ test("keeps AI provider credentials on the server and exposes a chat route", asy
 
   assert.match(route, /answerAssistantChat\(env\.DB, input\)/);
   assert.match(route, /MAX_BODY_BYTES = 16 \* 1024/);
+  assert.match(route, /MAX_REQUESTS_PER_MINUTE = 12/);
+  assert.match(route, /isRateLimited\(request\)/);
   assert.doesNotMatch(route, /AI_MODEL_API_KEY/);
   assert.match(workspace, /\/api\/assistant\/chat/);
   assert.match(workspace, /对话/);
