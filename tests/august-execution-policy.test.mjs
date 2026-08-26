@@ -118,7 +118,7 @@ test("enforces the August cutover inside the live advertising route", async () =
   assert.match(route, /validateAugustRunForExecution/);
   assert.match(route, /SUPERSEDED_BY_AUTHORIZED_AUGUST_PLAN/);
   assert.match(route, /八月执行口径已冻结该跨月旧批次/);
-  assert.match(page, /首阶段广告总上限/);
+  assert.match(page, /月度授权/);
   assert.match(page, /原销售预算[\s\S]*已废止/);
   assert.match(planRoute, /AUGUST_AD_EXECUTION_STATUS/);
   assert.match(page, /Wallet[\s\S]*walletDailyCap/);

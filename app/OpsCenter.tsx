@@ -75,7 +75,7 @@ const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
     { id: "review", label: "优化记录与复盘" },
   ],
   planning: [
-    { id: "plan", label: "运营计划" },
+    { id: "plan", label: "运营目标" },
     { id: "august", label: "8月执行计划" },
     { id: "september", label: "9月销售计划" },
     { id: "review", label: "复盘资料" },
@@ -3550,6 +3550,12 @@ function Plan({
   const currentMonth = data?.plan.month || "2026-08";
   const currentMonthLabel = `${Number(currentMonth.slice(5, 7))}月`;
   const septemberPlan = data?.septemberPlan;
+  const hasObjectiveProgress = Boolean(data && actual && p);
+  const objectiveStatus = !p
+    ? "订单数据同步中"
+    : p.paceGap >= 0
+      ? `节奏领先 ${p.paceGap} 单`
+      : `节奏落后 ${Math.abs(p.paceGap)} 单`;
   const salesRoleNames: Record<string, string> = {
     VOLUME_CORE: "跑量核心",
     PROFIT_POOL: "利润池",
@@ -3577,33 +3583,84 @@ function Plan({
       )}
       {tab === "plan" && (
         <>
-          <section className="context-strip" aria-label="经营月份导航">
-            <button aria-label="打开6月复盘资料" onClick={onOpenReview}>
-              <span>复盘月</span>
-              <b>2026-06</b>
-              <small>经营事实已归档</small>
-            </button>
-            <button
-              aria-label="查看8月执行计划"
-              className="active"
-              onClick={() => onTabChange("august")}
-            >
-              <span>当前经营月</span>
-              <b>
-                {data?.currentOperatingMonth.month || "2026-08"} · {data?.plan.orderTarget || 150} Orders
-              </b>
-              <small>
-                {data?.currentOperatingMonth.note || "真实基线计划读取中"}
-              </small>
-            </button>
-            <button
-              aria-label="查看9月销售计划"
-              onClick={() => onTabChange("september")}
-            >
-              <span>下一计划月</span>
-              <b>{septemberPlan?.plan.month || "2026-09"} · {septemberPlan?.summary.targetOrders || 180} Orders</b>
-              <small>销售目标与 SKU 清单已确认</small>
-            </button>
+          <section className="objective-tracker card" aria-labelledby="objective-tracker-title">
+            <div className="section-head">
+              <div>
+                <span>MONTHLY OBJECTIVES</span>
+                <h2 id="objective-tracker-title">目标完成度</h2>
+              </div>
+              <div className="objective-actions">
+                <b>{data?.asOf ? `数据截至 ${data.asOf}` : "数据同步中"}</b>
+                <button
+                  className="objective-link"
+                  aria-label="查看8月执行计划"
+                  onClick={() => onTabChange("august")}
+                >
+                  查看执行计划
+                </button>
+                <button
+                  className="objective-link"
+                  aria-label="打开BFIJ活动广告策略"
+                  onClick={() => onTabChange("bfij")}
+                >
+                  BFIJ 活动广告策略
+                </button>
+                <button
+                  className="objective-link"
+                  aria-label="打开6月复盘资料"
+                  onClick={onOpenReview}
+                >
+                  查看6月复盘
+                </button>
+              </div>
+            </div>
+            <div className="objective-progress-main">
+              <div>
+                <span>有效订单 / 月目标</span>
+                <strong>
+                  {hasObjectiveProgress
+                    ? `${actual?.orders ?? 0} / ${data?.plan.orderTarget ?? 150}`
+                    : "—"}
+                </strong>
+                <small>以 Orders 为本月验收口径</small>
+              </div>
+              <div className="objective-progress-meter">
+                <strong>
+                  {hasObjectiveProgress
+                    ? `${((p?.orderCompletion ?? 0) * 100).toFixed(1)}%`
+                    : "待同步"}
+                </strong>
+                <progress
+                  aria-label="月度订单目标完成度"
+                  max={1}
+                  value={hasObjectiveProgress ? p?.orderCompletion : undefined}
+                />
+                <small>
+                  {hasObjectiveProgress
+                    ? `时间进度 ${((p?.timeProgress ?? 0) * 100).toFixed(1)}% · ${objectiveStatus}`
+                    : "订单与节奏数据读取后显示完成度"}
+                </small>
+              </div>
+            </div>
+            <div className="objective-status-grid">
+              <article>
+                <span>截至今日应完成</span>
+                <strong>{p?.expectedOrders ?? "—"}</strong>
+                <small>{objectiveStatus}</small>
+              </article>
+              <article>
+                <span>月末订单预测</span>
+                <strong>{p?.forecastOrders ?? "—"}</strong>
+                <small>
+                  {p ? `尚差 ${p.remainingOrders} 单` : "等待订单数据"}
+                </small>
+              </article>
+              <article>
+                <span>后续所需日均</span>
+                <strong>{p?.requiredDailyOrders ?? "—"}</strong>
+                <small>按剩余天数计算</small>
+              </article>
+            </div>
           </section>
           <section
             className={`event-cycle-banner card ${data?.eventCycle.mode || "loading"}`}
@@ -3637,28 +3694,8 @@ function Plan({
               </b>
             )}
           </section>
-          <section className="stat-grid six plan-kpis">
+          <section className="stat-grid objective-financials">
             {[
-              [
-                `${actual?.orders || 0} / ${data?.plan.orderTarget || 150}`,
-                `${currentMonthLabel}订单完成`,
-                `${((p?.orderCompletion || 0) * 100).toFixed(1)}% · ${actual?.units || 0} 件`,
-              ],
-              [
-                `${p?.expectedOrders || 0}`,
-                "截至今日应完成",
-                `节奏差 ${p?.paceGap || 0} Orders`,
-              ],
-              [
-                `${p?.forecastOrders || 0}`,
-                "月末订单预测",
-                `剩余 ${p?.remainingOrders ?? data?.plan.orderTarget ?? 150} Orders`,
-              ],
-              [
-                `${p?.requiredDailyOrders || 0}`,
-                "后续所需日均",
-                `按剩余天数计算 · 截至 ${data?.asOf || "-"}`,
-              ],
               [
                 actual?.adSpend == null ? "待广告同步" : money(actual.adSpend),
                 `${currentMonthLabel}广告实际`,
@@ -3679,19 +3716,6 @@ function Plan({
               </article>
             ))}
           </section>
-          <div className="plan-tabs">
-            <button
-              onClick={() => onTabChange("august")}
-            >
-              8月执行计划
-            </button>
-            <button
-              onClick={() => onTabChange("bfij")}
-            >
-              BFIJ 活动广告策略
-            </button>
-            <button onClick={() => onTabChange("september")}>9月销售计划</button>
-          </div>
         </>
       )}
       {error && <div className="inline-error">{error}</div>}
@@ -3884,92 +3908,33 @@ function Plan({
       )}
       {tab === "august" && (
         <div className="august-brief">
-          <section className="august-command card">
-            <header>
-              <div>
-                <span>2026年8月 · 已批准执行</span>
-                <h2>150 单，广告后利润率守住 10%–15%</h2>
-                <p>
-                  促销和多件优惠已经提报。8月只围绕销量、利润和库存三条线执行，不再增加新口径。
-                </p>
-              </div>
-              <b>授权阶段 {executionStage?.ready ? "2" : "1"} · 07/28</b>
-            </header>
-            <div className="august-command-body">
-              <article className="august-target">
-                <span>订单目标</span>
-                <strong>{salesSummary?.targetOrders || 150}</strong>
-                <small>
-                  7月月末预测{" "}
-                  {data?.nextPlan.salesPlan.currentForecastOrders || 56.5}{" "}
-                  单，8月需要新增约{" "}
-                  {Math.round(
-                    (salesSummary?.targetOrders || 150) -
-                      (data?.nextPlan.salesPlan.currentForecastOrders || 56.5),
-                  )}{" "}
-                  单
-                </small>
-              </article>
-              <div className="august-pulse">
-                <article>
-                  <span>广告后利润率</span>
-                  <strong>
-                    {percent(promotionSummary?.projectedPostAdMargin || 0)}
-                  </strong>
-                  <small>
-                    压力情景{" "}
-                    {percent(promotionSummary?.stressPostAdMargin || 0)} ·
-                    硬底线 10%
-                  </small>
-                </article>
-                <article>
-                  <span>首阶段广告总上限</span>
-                  <strong>
-                    {money(
-                      executionStage?.authorizedAdCap ||
-                        executionPolicy?.stageOneAdCap ||
-                        0,
-                    )}
-                  </strong>
-                  <small>
-                    基础 {money(executionPolicy?.baseAdBudget || 0)} + Canary{" "}
-                    {money(executionPolicy?.canaryLossCap || 0)} · 第二阶段{" "}
-                    {money(executionPolicy?.stageTwoAdCap || 0)}
-                  </small>
-                </article>
-                <article>
-                  <span>促销覆盖</span>
-                  <strong>
-                    {promotionSummary?.submittedParts || 0}
-                    <em> / {promotionSummary?.totalParts || 21}</em>
-                  </strong>
-                  <small>
-                    {promotionSummary?.heldParts || 0} 个保护款暂缓 · 多件优惠{" "}
-                    {promotionSummary?.quantityPromotionParts || 0} 个
-                  </small>
-                </article>
-              </div>
+          <section className="execution-context card" aria-label="8月执行状态">
+            <div>
+              <span>2026年8月 · 执行中</span>
+              <strong>
+                {hasObjectiveProgress
+                  ? `截至 ${data?.asOf}：${actual?.orders ?? 0}/${data?.plan.orderTarget ?? 150} · ${objectiveStatus}`
+                  : "目标完成度正在同步"}
+              </strong>
+              <small>销量、节奏与预测统一在“运营目标”中追踪；本页只呈现执行安排与控制项。</small>
             </div>
-            <footer>
-              <b>本月判断：</b>
-              <span>
-                用利润款补贴跑量款；活动订单按 60% 建模，买 2 件优惠按 15%
-                建模。原销售预算{" "}
-                {executionPolicy?.retiredAdBudgets.map(money).join("、") ||
-                  "$2,700、$4,050"}{" "}
-                已废止。
-              </span>
-            </footer>
+            <button onClick={() => onTabChange("plan")}>查看运营目标</button>
           </section>
 
-          <section className="august-operating-grid">
+          <section className="execution-group" aria-labelledby="execution-control-title">
+            <div className="execution-group-head">
+              <span>EXECUTION CHECKLIST</span>
+              <h2 id="execution-control-title">执行清单与控制</h2>
+              <p>按 SKU 优先级、广告边界和止损规则推进；这些计划值不作为实际完成度。</p>
+            </div>
+            <section className="august-operating-grid">
             <article className="card august-allocation">
               <div className="section-head">
                 <div>
                   <span>ORDER OWNERSHIP</span>
-                  <h2>150 单由谁完成</h2>
+                  <h2>SKU 执行优先级</h2>
                 </div>
-                <b>按目标单量排序</b>
+                <b>按本月计划单量排序</b>
               </div>
               <div className="august-allocation-list">
                 {[...(data?.nextPlan.salesPlanRows || [])]
@@ -4053,7 +4018,7 @@ function Plan({
                       {money(
                         advertisingExecution?.correctedCampaign.dailyCap || 4,
                       )}
-                      /day。
+                      /day。原销售预算已废止，以月度授权为准。
                     </small>
                   </div>
                 </article>
@@ -4087,15 +4052,22 @@ function Plan({
                 </span>
               </footer>
             </aside>
+            </section>
           </section>
 
-          <section className="card august-rhythm">
+          <section className="execution-group" aria-labelledby="execution-rhythm-title">
+            <div className="execution-group-head">
+              <span>EXECUTION RHYTHM</span>
+              <h2 id="execution-rhythm-title">执行节奏与活动</h2>
+              <p>按阶段排期推进活动、促销和库存保护；里程碑是计划节奏，不是订单实际。</p>
+            </div>
+            <section className="card august-rhythm">
             <div className="section-head">
               <div>
                 <span>MONTHLY RHYTHM</span>
                 <h2>8月作战节奏</h2>
               </div>
-              <b>累计 150 Orders</b>
+              <b>按周次执行</b>
             </div>
             <div className="august-rhythm-track">
               {(data?.nextPlan.salesMilestones || []).map((item, index) => (
@@ -4140,9 +4112,9 @@ function Plan({
                 </article>
               ))}
             </div>
-          </section>
+            </section>
 
-          <section className="august-status-line" aria-label="促销执行摘要">
+            <section className="august-status-line" aria-label="促销执行摘要">
             <article>
               <span>活动提报</span>
               <b>{promotionSummary?.submittedEvents || 0} 个处理中</b>
@@ -4161,8 +4133,15 @@ function Plan({
               <b>5T-1830-900 暂缓</b>
               <small>利润与库存保护，不属于数据缺失</small>
             </article>
+            </section>
           </section>
 
+          <section className="execution-group execution-details" aria-labelledby="execution-details-title">
+            <div className="execution-group-head">
+              <span>EXECUTION DETAILS</span>
+              <h2 id="execution-details-title">执行明细</h2>
+              <p>需要执行或复核时展开查看；目标、预算与止损规则均以此为准。</p>
+            </div>
           <details className="card august-detail">
             <summary>
               <span>
@@ -4304,6 +4283,7 @@ function Plan({
               ))}
             </div>
           </details>
+          </section>
         </div>
       )}
       {tab === "september" && (
@@ -9150,7 +9130,7 @@ function PlanningWorkspace({
             : tab === "september"
               ? "9月销售计划"
             : tab === "plan"
-              ? "运营计划"
+              ? "运营目标"
               : tab === "history"
                 ? "历史月度"
                 : "复盘资料"

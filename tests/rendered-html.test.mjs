@@ -17,7 +17,7 @@ test("renders the Wayfair AI operations product", async () => {
   assert.match(html, /广告前商品毛利/);
   assert.match(html, /广告后店铺贡献/);
   assert.doesNotMatch(html, /实际利润/);
-  assert.match(html, />广告</);
+  assert.match(html, />广告增长</);
   assert.match(html, /Ops API（库存 \+ 订单）/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
 });
@@ -46,6 +46,18 @@ test("keeps the plan overview separate from monthly execution pages", async () =
   assert.match(page, /\{tab === "plan" && \(/);
   assert.match(page, /useState<PlanSection>\("plan"\)/);
   assert.doesNotMatch(page, /\{tab !== "september" && \(/);
+});
+
+test("separates operating objectives from August execution work", async () => {
+  const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /\{ id: "plan", label: "运营目标" \}/);
+  assert.match(page, /className="objective-tracker card"/);
+  assert.match(page, /目标完成度/);
+  assert.match(page, /className="execution-context card"/);
+  assert.match(page, /执行节奏与活动/);
+  assert.match(page, /执行清单与控制/);
+  assert.doesNotMatch(page, /<h2>150 单，广告后利润率守住 10%–15%<\/h2>/);
 });
 
 test("puts DMOM1018 and DMOM1000 into zero-budget stop-loss repair pools", async () => {

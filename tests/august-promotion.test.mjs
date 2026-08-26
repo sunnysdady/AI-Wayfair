@@ -229,8 +229,9 @@ test("exposes synced event, quantity and Part status in the operating-center UI"
   assert.match(route, /AUGUST_QUANTITY_PROMOTION/);
   assert.match(route, /syncPromotionsToSalesPlan/);
   assert.match(route, /AUGUST_PROMOTION_PORTFOLIO/);
-  assert.match(page, /150 单，广告后利润率守住 10%–15%/);
-  assert.match(page, /150 单由谁完成/);
+  assert.match(page, /8月执行状态/);
+  assert.match(page, /运营目标/);
+  assert.match(page, /SKU 执行优先级/);
   assert.match(page, /只看这 4 条红线/);
   assert.match(page, /8月作战节奏/);
   assert.match(page, /完整 Listing 执行表/);
@@ -239,7 +240,7 @@ test("exposes synced event, quantity and Part status in the operating-center UI"
   assert.match(page, /暂缓/);
   assert.match(page, /买 2 件额外 5%/);
   assert.match(page, /quantityPromotion\.projectId/);
-  assert.match(styles, /\.august-command/);
+  assert.match(styles, /\.execution-context/);
   assert.match(styles, /\.august-allocation-list/);
   assert.match(styles, /\.august-rhythm-track/);
   assert.match(styles, /\.august-detail/);

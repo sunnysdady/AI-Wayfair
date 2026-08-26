@@ -109,11 +109,11 @@ test("presents a focused August promotion workspace after sales-plan approval", 
   assert.match(route, /AUGUST_SALES_PLAN_ROWS/);
   assert.match(route, /summarizeAugustSalesPlan/);
   assert.match(route, /SYNCED_AFTER_SUBMISSION/);
-  assert.match(page, /8月推广计划/);
+  assert.match(page, /8月执行状态/);
   assert.match(page, /150 Orders/);
   assert.match(page, /利润款.*跑量款/);
   assert.match(page, /销售计划已确认/);
-  assert.match(page, /150 单由谁完成/);
+  assert.match(page, /SKU 执行优先级/);
   assert.match(page, /只看这 4 条红线/);
   assert.match(page, /8月作战节奏/);
   assert.match(page, /完整 Listing 执行表/);
@@ -123,7 +123,7 @@ test("presents a focused August promotion workspace after sales-plan approval", 
   assert.doesNotMatch(page, /PAUSED · SALES PLAN FIRST/);
   assert.doesNotMatch(page, /销售计划审核后再重算促销/);
   assert.doesNotMatch(page, /className="card listing-policy-card"/);
-  assert.match(styles, /\.august-command/);
+  assert.match(styles, /\.execution-context/);
   assert.match(styles, /\.august-operating-grid/);
   assert.match(styles, /\.august-detail/);
 });

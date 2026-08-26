@@ -101,7 +101,7 @@ test("exposes a task center and server-backed closure APIs", async () => {
     readFile(new URL("../migrations/postgres/0005_operation_ledger.sql", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /id: "tasks", label: "闭环任务"/);
+  assert.match(page, /id: "tasks", label: "工作台"/);
   assert.match(page, /function TaskCenter/);
   assert.match(page, /\/api\/operations/);
   assert.match(page, /\/api\/ads\/zombie-resolutions/);
