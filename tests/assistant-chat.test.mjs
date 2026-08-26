@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   AssistantChatInputError,
   answerAssistantChat,
+  isAssistantHelpQuery,
   parseAssistantChatRequest,
 } from "../lib/assistant-chat.mjs";
 import { assistantExperienceContext } from "../lib/assistant-experience.mjs";
@@ -27,6 +28,33 @@ test("normalizes a bounded multi-turn AI assistant request", () => {
   ]) {
     assert.throws(() => parseAssistantChatRequest(input), AssistantChatInputError);
   }
+});
+
+test("returns a deterministic help reply for help keywords without querying data or a model", async () => {
+  const search = async () => {
+    throw new Error("帮助不应触发数据查询");
+  };
+
+  assert.equal(isAssistantHelpQuery("帮助"), true);
+  assert.equal(isAssistantHelpQuery("help"), true);
+  assert.equal(isAssistantHelpQuery("可以查询什么数据？"), true);
+  assert.equal(isAssistantHelpQuery("DMOM1021 库存"), false);
+
+  const reply = await answerAssistantChat({}, { message: "帮助" }, { search });
+
+  assert.equal(reply.mode, "data_only");
+  assert.match(reply.message, /当前功能/);
+  assert.match(reply.message, /可查询的数据/);
+  assert.match(reply.message, /SKU 成本/);
+  assert.match(reply.message, /库存/);
+  assert.match(reply.message, /订单/);
+  assert.match(reply.message, /广告动作/);
+  assert.match(reply.message, /运营任务/);
+  assert.match(reply.message, /报告/);
+  assert.match(reply.message, /日报/);
+  assert.match(reply.message, /使用场景/);
+  assert.match(reply.message, /只读/);
+  assert.deepEqual(reply.knowledge, { resultCount: 0, sources: [], records: [] });
 });
 
 test("falls back to retrieved data until the server-only model configuration is supplied", async () => {
