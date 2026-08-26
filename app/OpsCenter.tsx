@@ -1446,10 +1446,26 @@ type PlanProgress = {
       source: string;
       sourceAsOf: string;
       note: string;
+      forecastNote: string;
       executionNote: string;
     };
-    rows: { listing: string; targetOrders: number }[];
-    summary: { listingCount: number; targetOrders: number; adBudget: number };
+    rows: {
+      listing: string;
+      targetOrders: number;
+      averageRevenuePerOrder: number;
+      preAdMarginRate: number;
+      expectedRevenue: number;
+      expectedGrossProfit: number;
+    }[];
+    summary: {
+      listingCount: number;
+      targetOrders: number;
+      adBudget: number;
+      expectedRevenue: number;
+      expectedGrossProfit: number;
+      projectedPostAdProfit: number;
+      projectedPostAdMargin: number;
+    };
   };
   error?: string;
 };
@@ -4300,6 +4316,16 @@ function Plan({
               <small>{septemberPlan?.summary.listingCount || 11} 个 SKU</small>
             </div>
             <div>
+              <span>预估销售额</span>
+              <b>{money(septemberPlan?.summary.expectedRevenue ?? 21636.4)}</b>
+              <small>按 SKU 目标单量与订单均价估算</small>
+            </div>
+            <div>
+              <span>预估利润</span>
+              <b>{money(septemberPlan?.summary.projectedPostAdProfit ?? 6253.61)}</b>
+              <small>广告后 · 利润率 {percent(septemberPlan?.summary.projectedPostAdMargin ?? 0.289)}</small>
+            </div>
+            <div>
               <span>广告月预算</span>
               <b>{money(septemberPlan?.summary.adBudget || 1000)}</b>
               <small>店铺总预算，未按 SKU 分摊</small>
@@ -4315,18 +4341,22 @@ function Plan({
                 <b>按确认顺序列示</b>
               </div>
               <div className="plan-table july">
-                <div className="plan-row head">
+                <div className="plan-row september-plan-row head">
                   <span>SKU</span>
                   <span>9月目标</span>
+                  <span>预估销售额</span>
+                  <span>广告前预估毛利</span>
                   <span>目标占比</span>
                   <span>广告预算</span>
                   <span>执行状态</span>
                   <span>说明</span>
                 </div>
                 {(septemberPlan?.rows || []).map((item) => (
-                  <div className="plan-row" key={item.listing}>
+                  <div className="plan-row september-plan-row" key={item.listing}>
                     <span><b>{item.listing}</b></span>
                     <span><b>{item.targetOrders} 单</b></span>
+                    <span><b>{money(item.expectedRevenue)}</b><small>均价 {money(item.averageRevenuePerOrder)}</small></span>
+                    <span><b>{money(item.expectedGrossProfit)}</b><small>毛利率 {percent(item.preAdMarginRate)}</small></span>
                     <span>{percent(item.targetOrders / (septemberPlan?.summary.targetOrders || 180))}</span>
                     <span>未分摊</span>
                     <span><b>待月初执行核验</b></span>
@@ -4344,6 +4374,7 @@ function Plan({
               </div>
               <div className="milestones">
                 <div><b>预算口径<small>月度店铺总预算</small></b><strong>{money(septemberPlan?.plan.adBudget || 1000)}</strong><p>{septemberPlan?.plan.note || "广告预算尚未按 SKU 分摊。"}</p></div>
+                <div><b>预估口径<small>销售额与利润</small></b><strong>已补齐</strong><p>{septemberPlan?.plan.forecastNote || "按 SKU 目标、均价与利润率估算。"}</p></div>
                 <div><b>执行前核验<small>每个 SKU</small></b><strong>必做</strong><p>{septemberPlan?.plan.executionNote || "核验可售、库存与投放资格。"}</p></div>
                 <div><b>数据来源<small>{septemberPlan?.plan.sourceAsOf || "2026-08-25"}</small></b><strong>已确认</strong><p>{septemberPlan?.plan.source || "运营负责人确认的销售计划。"}</p></div>
               </div>
