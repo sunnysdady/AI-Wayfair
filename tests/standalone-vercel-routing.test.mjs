@@ -23,7 +23,12 @@ test("Vercel declares a protected standalone sync cron", async () => {
     "utf8",
   );
 
-  assert.ok(config.crons.some((cron) => cron.path === "/api/cron/sync"));
+  assert.ok(
+    config.crons.some(
+      (cron) =>
+        cron.path === "/api/cron/sync" && cron.schedule === "0 2 * * *",
+    ),
+  );
   assert.match(route, /CRON_SECRET/);
   assert.match(route, /syncOutlookDaily/);
 });
