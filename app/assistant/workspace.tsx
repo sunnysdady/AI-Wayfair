@@ -28,11 +28,11 @@ type ChatMessage = {
 type ChatResponse = {
   message: string;
   mode: "model" | "data_only";
-  knowledge: ChatMessage["knowledge"];
+  knowledge?: ChatMessage["knowledge"];
   notice?: string;
 };
 
-const EXAMPLES = ["DMOM1021 库存风险", "广告表现需要关注什么", "BFIJ 订单进展"];
+const EXAMPLES = ["帮助", "DMOM1021 库存风险", "广告表现需要关注什么", "BFIJ 订单进展"];
 const WELCOME: ChatMessage = {
   role: "assistant",
   content: "你好，我是 AI 助理。你可以问 SKU、库存、订单、广告、任务和日报相关的问题。我会先读取已保存的运营数据，再基于已配置的大模型进行分析。",
@@ -44,9 +44,8 @@ export default function AssistantWorkspace({ embedded = false }: { embedded?: bo
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmed = message.trim();
+  async function sendMessage(rawMessage: string) {
+    const trimmed = rawMessage.trim();
     if (trimmed.length < 2 || loading) return;
 
     const nextUserMessage: ChatMessage = { role: "user", content: trimmed };
@@ -76,6 +75,11 @@ export default function AssistantWorkspace({ embedded = false }: { embedded?: bo
     } finally {
       setLoading(false);
     }
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void sendMessage(message);
   }
 
   const workspace = (
@@ -119,7 +123,7 @@ export default function AssistantWorkspace({ embedded = false }: { embedded?: bo
 
         <div className={styles.examples} aria-label="提问示例">
           {EXAMPLES.map((example) => (
-            <button key={example} type="button" onClick={() => setMessage(example)}>{example}</button>
+            <button key={example} type="button" onClick={() => void sendMessage(example)}>{example}</button>
           ))}
         </div>
 

@@ -54,7 +54,7 @@ test("returns a deterministic help reply for help keywords without querying data
   assert.match(reply.message, /日报/);
   assert.match(reply.message, /使用场景/);
   assert.match(reply.message, /只读/);
-  assert.deepEqual(reply.knowledge, { resultCount: 0, sources: [], records: [] });
+  assert.equal(reply.knowledge, undefined);
 });
 
 test("falls back to retrieved data until the server-only model configuration is supplied", async () => {
@@ -216,6 +216,8 @@ test("keeps AI provider credentials on the server and exposes a chat route", asy
   assert.match(route, /isRateLimited\(request\)/);
   assert.doesNotMatch(route, /AI_MODEL_API_KEY/);
   assert.match(workspace, /\/api\/assistant\/chat/);
+  assert.match(workspace, /"帮助"/);
+  assert.match(workspace, /sendMessage\(example\)/);
   assert.match(workspace, /对话/);
   assert.doesNotMatch(workspace, /模型待配置/);
   assert.match(navigation, /\{ id: "assistant", label: "AI 助理" \}/);
