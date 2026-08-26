@@ -43,6 +43,6 @@ test("routes every business-day surface through the shared Lingxing timezone", a
 
   for (const content of contents) {
     assert.match(content, /lingxing-business-time\.mjs/);
-    assert.doesNotMatch(content, /Asia\/Shanghai|\+08:00/);
+    assert.doesNotMatch(content, /Asia\/Shanghai|\+08:00|上海时间|北京时间/);
   }
 });

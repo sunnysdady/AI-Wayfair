@@ -94,7 +94,7 @@ AI_MODEL_NAME=<model-name>
 Authorization: Bearer <CRON_SECRET>
 ```
 
-每两小时同步当月订单和近三日 Outlook 日报；上海时间 06:00 的运行额外同步成熟周广告及 Catalog 前 10 页。Outlook 会扫描收件箱与所有名称含 “Wayfair” 的自定义文件夹，分页覆盖上海时间今天减两天的 00:00。
+每两小时同步当月订单和近三日 Outlook 日报；领星站点时间 06:00 的运行额外同步成熟周广告及 Catalog 前 10 页。Outlook 会扫描收件箱与所有名称含 “Wayfair” 的自定义文件夹，分页覆盖领星站点时间今天减两天的 00:00。
 
 `vercel.json` 已配置两小时一次的 Cron。若 Vercel 套餐不支持该频率，可用 GitHub Actions、Uptime Kuma 或自有服务器 cron 调用同一受保护端点。
 
@@ -120,7 +120,7 @@ node scripts/ingest-product-management-snapshot.mjs data/product-management-2026
 6. 手工调用一次受保护的 `/api/cron/sync`，确认订单、邮件、广告和 Catalog 快照。
 7. 核对 Supplier ID 后，再按需启用库存或广告写入开关。
 
-迁移到自有服务器时，保留 PostgreSQL、S3 和 Graph 配置；仓库内置的 Docker Scheduler 会按上海时间每两小时调用同一同步端点。
+迁移到自有服务器时，保留 PostgreSQL、S3 和 Graph 配置；仓库内置的 Docker Scheduler 会按领星站点时间计算业务日期，并每两小时调用同一同步端点。
 
 ## DigitalOcean Droplet
 

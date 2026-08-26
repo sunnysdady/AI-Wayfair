@@ -233,7 +233,7 @@ docker compose --env-file .env.production -f docker-compose.production.yml \
   exec scheduler node scripts/run-scheduled-sync.mjs
 ```
 
-确认订单、近三日邮件快照写入成功；上海时间 06:00 的任务还会同步成熟周广告和 Catalog。
+确认订单、近三日邮件快照写入成功；领星站点时间 06:00 的任务还会同步成熟周广告和 Catalog。
 
 ## 10. 后续更新与回滚
 
