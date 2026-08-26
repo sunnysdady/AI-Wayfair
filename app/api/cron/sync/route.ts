@@ -8,7 +8,7 @@ import {
   shanghaiDate,
 } from "@/lib/daily-operating-report.mjs";
 
-export const maxDuration = 800;
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 function authorized(request: Request, secret: string | undefined) {

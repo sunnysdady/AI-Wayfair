@@ -300,7 +300,7 @@ test("rejects invalid JSON without allowing status persistence to hide the sync 
   );
 });
 
-test("Vercel exports a protected scheduler route and declares the two-hour trigger", async () => {
+test("Vercel exports a protected scheduler route within Hobby limits", async () => {
   const [route, vercel] = await Promise.all([
     readFile(new URL("../app/api/cron/sync/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../vercel.json", import.meta.url), "utf8"),
@@ -313,7 +313,8 @@ test("Vercel exports a protected scheduler route and declares the two-hour trigg
   assert.match(route, /import \{ sameOrigin \} from "@\/lib\/http-origin\.mjs"/);
   assert.match(route, /if \(!sameOrigin\(request\)\)/);
   assert.match(route, /runLayeredSync/);
-  assert.match(vercel, /0 \*\/2 \* \* \*/);
+  assert.match(route, /export const maxDuration = 300/);
+  assert.match(vercel, /0 2 \* \* \*/);
 });
 
 test("scheduler skips Outlook only when Microsoft Graph credentials are incomplete", async () => {
