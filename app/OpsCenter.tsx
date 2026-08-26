@@ -6,13 +6,18 @@ import { canRemoveAction, executionResultForAction, filterAdActions, isBulkAppro
 import { isBulkActionSelectionComplete, nextBulkActionSelection } from "../lib/ad-action-selection.mjs";
 import { nextSort, sortRows } from "../lib/table-sort.mjs";
 import { financialDetailsForEmail } from "../lib/email-finance.mjs";
+import {
+  SEPTEMBER_SALES_PLAN,
+  SEPTEMBER_SALES_PLAN_ROWS,
+  summarizeSeptemberSalesPlan,
+} from "../lib/september-sales-plan.mjs";
 import legacyOperatingDataSource from "../data/dmom-operating-2026-06.json";
 
 type View = "dashboard" | "daily" | "ads" | "planning" | "products" | "sources" | "help";
 type AdsTab = "manager" | "listings" | "ai" | "manual" | "review";
 type PlanningTab = "plan" | "review" | "history";
 type ProductTab = "inventory" | "catalog" | "performance";
-type PlanSection = "july" | "bfij" | "august";
+type PlanSection = "july" | "bfij" | "august" | "september";
 type SubView = AdsTab | PlanningTab | ProductTab;
 
 const PRIMARY_NAV: { id: View; label: string }[] = [
@@ -474,6 +479,7 @@ function Daily() {
 
 function Plan({ embedded = false, onOpenReview, tab, onTabChange }: { embedded?: boolean; onOpenReview: () => void; tab: PlanSection; onTabChange: (tab: PlanSection) => void }) {
   const [data,setData]=useState<PlanProgress|null>(readClientCache<PlanProgress>('plan:progress',CLIENT_CACHE_RETENTION_MS)); const [error,setError]=useState('');
+  const septemberSummary=summarizeSeptemberSalesPlan();
   useEffect(()=>{const cached=readClientCache<PlanProgress>('plan:progress');if(cached){queueMicrotask(()=>setData(cached));return;}fetch('/api/plan/progress').then(async r=>{const body=await r.json() as PlanProgress;if(!r.ok)throw new Error(body.error||'计划读取失败');return body;}).then(body=>{setData(body);writeClientCache('plan:progress',body);}).catch(e=>setError(e.message));},[]);
   const p=data?.progress; const actual=data?.actual;
   return <>{!embedded&&<Hero eyebrow="MONTHLY OPERATING PLAN" title="目标与执行" text="6月复盘 → 7月真实基线执行 → 8月下一阶段准备；目标、利润与广告共用同一套运营计划" side={<button className="hero-button" onClick={onOpenReview}>查看完整复盘证据</button>} />}
@@ -487,7 +493,7 @@ function Plan({ embedded = false, onOpenReview, tab, onTabChange }: { embedded?:
       [actual?.adSpend==null?'待广告同步':money(actual.adSpend),"7月广告实际",`月预算 $790 · ${actual?.adCoverage||'未覆盖'}`],
       [actual?.contributionAfterAds==null?'待广告同步':money(actual.contributionAfterAds),"广告后店铺贡献",`${actual?.adCoverage==='FULL'?'广告完整覆盖':'广告仅部分覆盖'} · 成本覆盖 ${Math.round((actual?.costCoverage||0)*100)}% · 计划预计净利 $3,394`],
     ].map(([value,label,note])=><article className="stat" key={label}><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}</section>
-    <div className="plan-tabs"><button className={tab==='july'?'active':''} onClick={()=>onTabChange('july')}>7月执行计划</button><button className={tab==='bfij'?'active':''} onClick={()=>onTabChange('bfij')}>BFIJ 活动广告策略</button><button className={tab==='august'?'active':''} onClick={()=>onTabChange('august')}>8月准备计划</button></div>
+    <div className="plan-tabs"><button className={tab==='july'?'active':''} onClick={()=>onTabChange('july')}>7月执行计划</button><button className={tab==='bfij'?'active':''} onClick={()=>onTabChange('bfij')}>BFIJ 活动广告策略</button><button className={tab==='august'?'active':''} onClick={()=>onTabChange('august')}>8月准备计划</button><button className={tab==='september'?'active':''} onClick={()=>onTabChange('september')}>9月销售计划</button></div>
     {tab==='july'&&<><div className="plan-workspace">
       <article className="card target-card"><div className="section-head"><div><span>SKU 责任</span><h2>128 Orders责任拆解与订单API实际</h2></div><b>来源：真实基线 v3.1 · 2026-06-23</b></div><div className="plan-table july"><div className="plan-row head"><span>Listing / Part</span><span>6月基线</span><span>7月目标</span><span>实际订单 / 件</span><span>广告预算</span><span>策略与Gate</span></div>{(data?.listings||[]).map(item=><div className="plan-row" key={item.listing}><span><b>{item.listing}</b><small>{item.parts.join(' · ')}</small></span><span>{item.juneBaselineOrders}</span><span><b>{item.julyTargetOrders}</b></span><span><b>{item.actualOrders} / {item.actualUnits}</b><small>{money(item.actualRevenue)}</small></span><span>{money(item.budget)}<small>预计净利 {money(item.estimatedNetProfit)}</small></span><span><b>{item.role} · {item.tactic}</b><small>{item.gate}{item.sourceWarning?` · ${item.sourceWarning}`:''}</small></span></div>)}</div></article>
       <aside className="card milestone-card"><div className="section-head"><div><span>活动节点</span><h2>活动节奏</h2></div></div><div className="milestones">{(data?.events||[]).map(item=><div key={item.label}><b>{item.label}<small>{item.range}</small></b><strong>{item.range.includes('23')?'当前重点':'记录'}</strong><p>{item.note}</p></div>)}</div></aside>
@@ -500,6 +506,7 @@ function Plan({ embedded = false, onOpenReview, tab, onTabChange }: { embedded?:
       <article className="card target-card"><div className="section-head"><div><span>8月准备</span><h2>150 Units下一计划责任表</h2></div><b>来源：Playbook · {data?.nextPlan.plan.sourceAsOf||'2026-07-15'}</b></div><div className="plan-table"><div className="plan-row head"><span>Listing / Part</span><span>6月基线</span><span>8月目标</span><span>实际</span><span>广告预算</span><span>角色与Gate</span></div>{(data?.nextPlan.listings||[]).map(item=><div className="plan-row" key={item.listing}><span><b>{item.listing}</b><small>{item.parts.join(' · ')}</small></span><span>{item.juneUnits}</span><span><b>{item.augustUnits}</b></span><span>{item.actualUnits}</span><span>{money(item.budget)}</span><span><b>{item.role}</b><small>{item.gate}</small></span></div>)}</div></article>
       <aside className="card milestone-card"><div className="section-head"><div><span>周里程碑</span><h2>8月周里程碑</h2></div></div><div className="milestones">{(data?.nextPlan.milestones||[]).map(item=><div key={item.label}><b>{item.label}<small>{item.range}</small></b><strong>{item.cumulative?`${item.cumulative} Units`:'准备'}</strong><p>{item.note}</p></div>)}</div></aside>
     </div><div className="scope-alert"><b>8月承接规则</b><span>继续使用 Makeace P{data?.cpcPlan.sourcePage||22} BM CPC锚；BFIJ不透支8月责任库存，活动成熟归因再决定8月首周Cap。{data?.nextPlan.plan.scopeWarning||'8月责任表按Units跟踪。'}</span></div></>}
+    {tab==='september'&&<><section className="context-strip september-summary" aria-label="9月销售计划摘要"><div><span>计划月份</span><b>{SEPTEMBER_SALES_PLAN.month}</b><small>已确认</small></div><div><span>销量目标</span><b>{septemberSummary.targetOrders} Orders</b><small>{septemberSummary.listingCount} 个 SKU</small></div><div><span>预估销售额</span><b>{money(septemberSummary.expectedRevenue)}</b><small>按 SKU 目标单量与订单均价估算</small></div><div><span>预估利润</span><b>{money(septemberSummary.projectedPostAdProfit)}</b><small>广告后 · 利润率 {percent(septemberSummary.projectedPostAdMargin)}</small></div><div><span>广告月预算</span><b>{money(septemberSummary.adBudget)}</b><small>店铺总预算，未按 SKU 分摊</small></div></section><div className="plan-workspace"><article className="card target-card"><div className="section-head"><div><span>SEPTEMBER ORDER OWNERSHIP</span><h2>180 单销售目标清单</h2></div><b>按确认顺序列示</b></div><div className="plan-table july"><div className="plan-row september-plan-row head"><span>SKU</span><span>9月目标</span><span>预估销售额</span><span>广告前预估毛利</span><span>目标占比</span><span>广告预算</span><span>执行状态</span><span>说明</span></div>{SEPTEMBER_SALES_PLAN_ROWS.map(item=><div className="plan-row september-plan-row" key={item.listing}><span><b>{item.listing}</b></span><span><b>{item.targetOrders} 单</b></span><span><b>{money(item.expectedRevenue)}</b><small>均价 {money(item.averageRevenuePerOrder)}</small></span><span><b>{money(item.expectedGrossProfit)}</b><small>毛利率 {percent(item.preAdMarginRate)}</small></span><span>{percent(item.targetOrders/septemberSummary.targetOrders)}</span><span>未分摊</span><span><b>待月初执行核验</b></span><span><small>目标由运营负责人确认；不自动触发广告或商品操作。</small></span></div>)}</div></article><aside className="card milestone-card"><div className="section-head"><div><span>EXECUTION NOTES</span><h2>执行边界</h2></div></div><div className="milestones"><div><b>预估口径<small>销售额与利润</small></b><strong>已补齐</strong><p>{SEPTEMBER_SALES_PLAN.forecastNote}</p></div><div><b>执行前核验<small>每个 SKU</small></b><strong>必做</strong><p>SKU 的可售、库存与投放资格须在执行前核验。</p></div><div><b>数据来源<small>{SEPTEMBER_SALES_PLAN.sourceAsOf}</small></b><strong>已确认</strong><p>{SEPTEMBER_SALES_PLAN.source}</p></div></div></aside></div></>}
   </>;
 }
 
