@@ -1,4 +1,5 @@
 import { cachedAdSpend } from "../../../../lib/wayfair-ads";
+import { LINGXING_TIME_ZONE, lingxingDate, lingxingDayStart } from "@/lib/lingxing-business-time.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import { fetchAllDropshipOrders } from "@/lib/wayfair-orders-pagination.mjs";
 
@@ -36,7 +37,7 @@ function addDays(value: string, days: number) {
 }
 
 function isoFromDate(value: string) {
-  return `${value}T00:00:00+08:00`;
+  return lingxingDayStart(value);
 }
 
 async function accessToken() {
@@ -87,7 +88,7 @@ async function syncOrders(force = false) {
   const lastSync = state?.updated_at ? Date.parse(state.updated_at) : 0;
   if (!force && lastSync && Date.now() - lastSync < FRESH_MS) return { refreshed: false, syncedAt: state?.updated_at };
   const latest = await db.prepare("SELECT MAX(po_date) AS max_date, COUNT(*) AS count FROM orders").first<{ max_date: string | null; count: number }>();
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+  const today = lingxingDate();
   const fromDate = latest?.count && latest.max_date ? addDays(String(latest.max_date).slice(0, 10), -2) : addDays(today, -PRELOAD_DAYS);
   const orderSync = await fetchOrders(fromDate) as {
     orders: PurchaseOrder[];
@@ -180,7 +181,7 @@ export async function GET(request: Request) {
     const previousStart = addDays(previousEnd, -(span - 1));
     const previous = await metrics(previousStart, previousEnd);
     const endExclusive = addDays(end, 1);
-    const daily = await env.DB.prepare(`SELECT to_char(po_date::timestamptz AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD') AS date, COUNT(*) AS orders, SUM(revenue_cents)/100.0 AS revenue, SUM(units) AS units FROM orders WHERE po_date >= ? AND po_date < ? AND revenue_cents > 0 GROUP BY to_char(po_date::timestamptz AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD') ORDER BY date`).bind(isoFromDate(start), isoFromDate(endExclusive)).all();
+    const daily = await env.DB.prepare(`SELECT to_char(po_date::timestamptz AT TIME ZONE '${LINGXING_TIME_ZONE}','YYYY-MM-DD') AS date, COUNT(*) AS orders, SUM(revenue_cents)/100.0 AS revenue, SUM(units) AS units FROM orders WHERE po_date >= ? AND po_date < ? AND revenue_cents > 0 GROUP BY to_char(po_date::timestamptz AT TIME ZONE '${LINGXING_TIME_ZONE}','YYYY-MM-DD') ORDER BY date`).bind(isoFromDate(start), isoFromDate(endExclusive)).all();
     const topSkus = await env.DB.prepare(`SELECT i.part_number AS partNumber, SUM(i.quantity) AS units, SUM(i.unit_price_cents*i.quantity)/100.0 AS revenue FROM order_items i JOIN orders o ON o.po_number=i.po_number WHERE o.po_date >= ? AND o.po_date < ? AND o.revenue_cents > 0 AND i.unit_price_cents > 0 GROUP BY i.part_number ORDER BY revenue DESC LIMIT 8`).bind(isoFromDate(start), isoFromDate(endExclusive)).all();
     return Response.json({ source: "Wayfair Orders API", range: { start, end, previousStart, previousEnd }, current, previous, daily: daily.results, topSkus: topSkus.results, sync });
   } catch (error) {

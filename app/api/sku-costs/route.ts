@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 
+import { lingxingDate, lingxingDayStart } from "@/lib/lingxing-business-time.mjs";
 import { costTemplateCsv, parseCostCsv, resolveColumns, summarizeCostCoverage, validateCostRows } from "@/lib/sku-costs.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
@@ -25,21 +26,12 @@ async function ensureCostTable(db: D1Database) {
   }
 }
 
-function shanghaiToday() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
 function addDays(value: string, days: number) {
   return new Date(Date.parse(`${value}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
 }
 
 async function loadSoldParts(db: D1Database): Promise<SoldPart[]> {
-  const since = `${addDays(shanghaiToday(), -SOLD_LOOKBACK_DAYS)}T00:00:00+08:00`;
+  const since = lingxingDayStart(addDays(lingxingDate(), -SOLD_LOOKBACK_DAYS));
   const rows = await db.prepare(`SELECT i.part_number AS part_number,
       SUM(i.quantity) AS units,
       SUM(i.unit_price_cents*i.quantity) AS revenue_cents,
@@ -103,7 +95,7 @@ export async function GET(request: Request) {
       return new Response(costTemplateCsv(summary.missing), {
         headers: {
           "content-type": "text/csv; charset=utf-8",
-          "content-disposition": `attachment; filename="sku-costs-${shanghaiToday()}.csv"`,
+          "content-disposition": `attachment; filename="sku-costs-${lingxingDate()}.csv"`,
           "cache-control": "no-store",
         },
       });

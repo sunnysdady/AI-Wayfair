@@ -5,6 +5,7 @@ import {
   RELEASE_NOTES,
   validateReleaseNotes,
 } from "@/lib/release-notes.mjs";
+import { formatLingxingDateTime } from "@/lib/lingxing-business-time.mjs";
 
 export const metadata: Metadata = {
   title: "系统功能与逻辑升级日报 · Wayfair AI",
@@ -12,18 +13,6 @@ export const metadata: Metadata = {
 };
 
 const release = validateReleaseNotes(RELEASE_NOTES);
-
-function shanghaiTime(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(value));
-}
 
 export default function ReleasesPage() {
   const versionLabel = `v${release.version}`;
@@ -117,7 +106,7 @@ export default function ReleasesPage() {
           <article>
             <h3>Outlook 与财务</h3>
             <dl>
-              <div><dt>同步时间</dt><dd>{shanghaiTime(release.outlook.syncedAt)}</dd></div>
+              <div><dt>同步时间</dt><dd>{formatLingxingDateTime(release.outlook.syncedAt)}</dd></div>
               <div><dt>邮件 / 未读</dt><dd>{release.outlook.total} / {release.outlook.unread}</dd></div>
               <div><dt>实际汇款</dt><dd>{release.finance.currency} {release.finance.actualAmount.toFixed(2)}</dd></div>
               <div><dt>汇款单 / 发票</dt><dd>{release.finance.remittanceId} / {release.finance.invoiceCount} 张</dd></div>
@@ -141,7 +130,7 @@ export default function ReleasesPage() {
       </section>
 
       <footer className="release-footer">
-        <span>修订于 {shanghaiTime(release.generatedAt)}（Asia/Shanghai）</span>
+        <span>修订于 {formatLingxingDateTime(release.generatedAt)}（领星站点时间）</span>
         <span>生产分支 {release.git.branch} · 功能汇总基线 {release.productionBaseline}</span>
       </footer>
     </main>

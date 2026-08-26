@@ -23,6 +23,7 @@ import {
   reconcileAugustCampaignFindings,
 } from "./august-execution-policy.mjs";
 import { augustSalesPlanForListing } from "./august-sales-plan.mjs";
+import { lingxingDate, lingxingDayStart } from "./lingxing-business-time.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -70,7 +71,7 @@ async function loadInventoryEvidence(db: D1Database | undefined) {
   try {
     const latest = await db.prepare("SELECT id,created_at FROM inventory_snapshots ORDER BY created_at DESC LIMIT 1").first<{id:string;created_at:string}>();
     if (!latest) return result;
-    const start = addDays(todayShanghai(), -29);
+    const start = addDays(lingxingDate(), -29);
     const inventory = await db.prepare("SELECT part_number,SUM(quantity_on_hand) AS quantity_on_hand FROM inventory_snapshot_rows WHERE snapshot_id=? GROUP BY part_number").bind(latest.id).all<{part_number:string;quantity_on_hand:number}>();
     const velocity = await db.prepare("SELECT oi.part_number AS part_number,SUM(oi.quantity) AS units FROM order_items oi JOIN orders o ON o.po_number=oi.po_number WHERE o.po_date>=? GROUP BY oi.part_number").bind(start).all<{part_number:string;units:number}>();
     const units = new Map((velocity.results||[]).map((row)=>[row.part_number,Number(row.units||0)]));
@@ -172,7 +173,7 @@ async function loadGoalEvidence(db: D1Database | undefined, asOf: string): Promi
     const endExclusive = addDays(asOf, 1);
     const [orders, items] = await Promise.all([
       db.prepare("SELECT COUNT(*) AS orders FROM orders WHERE po_date>=? AND po_date<?")
-        .bind("2026-07-01T00:00:00+08:00", `${endExclusive}T00:00:00+08:00`)
+        .bind(lingxingDayStart("2026-07-01"), lingxingDayStart(endExclusive))
         .first<{ orders: number }>(),
       db.prepare(`SELECT i.part_number AS part_number, SUM(i.quantity) AS units,
         SUM(i.unit_price_cents*i.quantity) AS revenue_cents,
@@ -184,7 +185,7 @@ async function loadGoalEvidence(db: D1Database | undefined, asOf: string): Promi
           AND c.currency_certified_at IS NOT NULL
           AND c.currency_certification_source IS NOT NULL
         WHERE o.po_date>=? AND o.po_date<? GROUP BY i.part_number`)
-        .bind("2026-07-01T00:00:00+08:00", `${endExclusive}T00:00:00+08:00`)
+        .bind(lingxingDayStart("2026-07-01"), lingxingDayStart(endExclusive))
         .all<{ part_number: string; units: number; revenue_cents: number; cost_cents: number; uncovered_revenue_cents: number }>(),
     ]);
     const byPart = new Map((items.results || []).map((row) => [row.part_number, row]));
@@ -231,10 +232,6 @@ function dates(start: string, end: string) {
   const result: string[] = [];
   for (let value = start; value <= end; value = addDays(value, 1)) result.push(value);
   return result;
-}
-
-function todayShanghai() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
 function parseCsv(input: string): CsvRow[] {
@@ -341,7 +338,7 @@ async function loadReportFromDb(db: D1Database | undefined, reportType: ReportTy
   if (!db) return null;
   const coverage = await db.prepare("SELECT COUNT(*) AS days, MIN(refreshed_at) AS oldest FROM ad_report_days WHERE report_type=? AND report_date>=? AND report_date<=?").bind(reportType, start, end).first<{ days: number; oldest: string | null }>();
   if (Number(coverage?.days || 0) < daysBetween(start, end)) return null;
-  const mutable = end > addDays(todayShanghai(), -ATTRIBUTION_DAYS);
+  const mutable = end > addDays(lingxingDate(), -ATTRIBUTION_DAYS);
   if (mutable && (!coverage?.oldest || Date.now() - Date.parse(coverage.oldest) > MUTABLE_REPORT_CACHE_MS)) return null;
   const stored = await db.prepare("SELECT payload FROM ad_report_rows WHERE report_type=? AND report_date>=? AND report_date<=? ORDER BY report_date,entity_key").bind(reportType, start, end).all<{ payload: string }>();
   return (stored.results || []).map((item) => JSON.parse(item.payload) as CsvRow);
@@ -440,7 +437,7 @@ function buildAnalysis(campaignRows: CsvRow[], listingRows: CsvRow[], start: str
   const previousStart = addDays(previousEnd, -(span - 1));
   const decisionPreviousEnd = addDays(decisionStart, -1);
   const decisionPreviousStart = addDays(decisionPreviousEnd, -6);
-  const asOf = todayShanghai();
+  const asOf = lingxingDate();
   const matureThrough = addDays(asOf, -ATTRIBUTION_DAYS);
   const learningStart = addDays(asOf, -(ATTRIBUTION_DAYS - 1));
   const liveSafetyEnd = addDays(asOf, -1);
@@ -967,7 +964,7 @@ async function syncWeeklyReviews(db: D1Database | undefined, analysis: ReturnTyp
     const baseline = source.listings?.find((row) => row.listing === action.listing && String(row.campaignId) === action.campaign_id);
     const observed = analysis.listings.find((row) => row.listing === action.listing && String(row.campaignId) === action.campaign_id);
     if (!baseline || !observed) continue;
-    const executedDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(action.executed_at));
+    const executedDate = lingxingDate(new Date(action.executed_at));
     const review = evaluateAdjustment({
       action, baseline: baseline.current, observed: observed.current, executedDate,
       matureThrough: analysis.range.matureThrough,
@@ -987,12 +984,12 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   if (span < 1 || span > 42) throw new Error("广告展示周期需在1–42天内");
   const previousEnd = addDays(start, -1);
   const previousStart = addDays(previousEnd, -(span - 1));
-  const decisionEnd = addDays(todayShanghai(), -ATTRIBUTION_DAYS);
+  const decisionEnd = addDays(lingxingDate(), -ATTRIBUTION_DAYS);
   const decisionStart = addDays(decisionEnd, -6);
   const decisionPreviousStart = addDays(decisionStart, -7);
   const decisionHistoryStart = addDays(decisionEnd, -55);
   const fetchStart = [previousStart, decisionPreviousStart, decisionHistoryStart].sort()[0];
-  const today = todayShanghai();
+  const today = lingxingDate();
   const campaignFetchEnd = today;
   const listingFetchEnd = today;
   const fetchEnd = [campaignFetchEnd, listingFetchEnd].sort().at(-1) as string;
@@ -1044,7 +1041,7 @@ export async function cachedAdSpend(db: D1Database | undefined, start: string, e
     const summary = summarizeAdSpendCoverage({
       start,
       end,
-      asOf: todayShanghai(),
+      asOf: lingxingDate(),
       days: (ledger.results || []).map((row) => ({ reportDate: row.report_date, refreshedAt: row.refreshed_at })),
       rows: (stored.results || []).map((row) => ({ reportDate: row.report_date, spend: number(JSON.parse(row.payload) as CsvRow, "spend_USD") })),
     });

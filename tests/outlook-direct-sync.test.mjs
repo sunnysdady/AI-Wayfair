@@ -23,13 +23,13 @@ test("selects Inbox and every custom Wayfair folder", () => {
   );
 });
 
-test("builds three Shanghai daily reports from all Wayfair operating categories", () => {
+test("builds three Lingxing daily reports from all Wayfair operating categories", () => {
   const messages = [
     {
       id: "po",
       subject: "Action Required: PO# CS123",
       sender: { emailAddress: { address: "NewSupplierOps@wayfair.com" } },
-      receivedDateTime: "2026-07-24T02:00:00Z",
+      receivedDateTime: "2026-07-24T05:00:00Z",
       isRead: false,
       bodyPreview: "Register and Fulfill PO -- Must Ship By 07/24/2026",
       webLink: "https://outlook.example/po",
@@ -47,7 +47,7 @@ test("builds three Shanghai daily reports from all Wayfair operating categories"
       id: "opportunity",
       subject: "Reduce Your Lost Sales Opportunities",
       sender: { emailAddress: { address: "growth@wayfair.com" } },
-      receivedDateTime: "2026-07-22T03:00:00Z",
+      receivedDateTime: "2026-07-22T05:00:00Z",
       isRead: true,
       bodyPreview: "Check your future inventory gap report",
       webLink: "https://outlook.example/opportunity",
@@ -137,7 +137,7 @@ test("keeps parsed remittance details in the daily finance item", () => {
     id: "finance-csv",
     subject: "Payment Remittance - #10002005965230",
     from: { emailAddress: { address: "noreply@wayfair.com" } },
-    receivedDateTime: "2026-07-28T17:33:46Z",
+    receivedDateTime: "2026-07-29T17:33:46Z",
     isRead: true,
     bodyPreview: "Payment remittance attached",
     financial,
@@ -151,7 +151,7 @@ test("uses the complete structured finance rule in the persisted daily section",
     id: "finance-section",
     subject: "Payment Remittance - #10002005965230",
     from: { emailAddress: { address: "noreply@wayfair.com" } },
-    receivedDateTime: "2026-07-28T17:33:46Z",
+    receivedDateTime: "2026-07-29T17:33:46Z",
     isRead: true,
     bodyPreview: "Payment remittance attached",
     financial: {
@@ -207,7 +207,7 @@ test("direct Outlook sync reads remittance attachment content before persisting"
           id: "finance-message",
           subject: "Payment Remittance - #10002005965230",
           from: { emailAddress: { address: "noreply@wayfair.com" } },
-          receivedDateTime: "2026-07-28T17:33:46Z",
+          receivedDateTime: "2026-07-29T17:33:46Z",
           isRead: true,
           bodyPreview: "Payment remittance attached",
           hasAttachments: true,
@@ -252,7 +252,7 @@ test("direct Outlook sync reads remittance attachment content before persisting"
     },
     db,
     fetchImpl,
-    now: new Date("2026-07-29T01:30:00Z"),
+    now: new Date("2026-07-29T05:30:00Z"),
   });
 
   const briefWrite = batches.find((statement) => (

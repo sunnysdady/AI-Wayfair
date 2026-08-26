@@ -28,6 +28,7 @@ import {
 } from "../lib/app-navigation.mjs";
 import AssistantWorkspace from "./assistant/workspace";
 import { PLAN_PROGRESS_CACHE_KEY } from "../lib/plan-progress-view.mjs";
+import { formatLingxingDateTime, lingxingDate, shiftLingxingDate } from "../lib/lingxing-business-time.mjs";
 import legacyOperatingDataSource from "../data/dmom-operating-2026-06.json";
 
 type View =
@@ -1756,18 +1757,11 @@ const presetOptions = [
 ] as const;
 
 function dateText(date: Date) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+  return lingxingDate(date);
 }
 
 function shiftDate(value: string, days: number) {
-  const date = new Date(`${value}T12:00:00+08:00`);
-  date.setDate(date.getDate() + days);
-  return dateText(date);
+  return shiftLingxingDate(value, days);
 }
 
 function rangeFor(preset: string) {
@@ -2647,7 +2641,7 @@ function Dashboard() {
               (data?.sync.stale
                 ? `同步失败，显示缓存：${data.sync.error}`
                 : data?.sync.syncedAt
-                  ? `最近同步 ${new Date(data.sync.syncedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`
+                  ? `最近同步 ${formatLingxingDateTime(data.sync.syncedAt)}`
                   : "正在连接订单数据")}
           </span>
           <button
@@ -2842,8 +2836,8 @@ function OperatingDaily() {
             </b>
             <span>
               {report?.generatedAt
-                ? `生成 ${new Date(report.generatedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`
-                : "每日北京时间 20:00 后生成"}
+                ? `生成 ${formatLingxingDateTime(report.generatedAt)}`
+                : "每日领星站点时间 20:00 后生成"}
             </span>
           </div>
         }
@@ -2868,7 +2862,7 @@ function OperatingDaily() {
           <span>SERVER SCHEDULER</span>
           <h2>等待今日工作日报</h2>
           <p>
-            服务器会在北京时间 20:00 后的首次同步中生成；失败自动重试，结果写入
+            服务器会在领星站点时间 20:00 后的首次同步中生成；失败自动重试，结果写入
             PostgreSQL，Codex 与浏览器离线不影响执行。
           </p>
         </section>
@@ -3139,7 +3133,7 @@ function Daily() {
             </b>
             <span>
               {brief?.syncedAt
-                ? `同步 ${new Date(brief.syncedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`
+                ? `同步 ${formatLingxingDateTime(brief.syncedAt)}`
                 : "等待同步"}
             </span>
           </div>
@@ -3352,9 +3346,7 @@ function Daily() {
               <div>
                 <span>收件时间</span>
                 <b>
-                  {new Date(previewEmail.receivedAt).toLocaleString("zh-CN", {
-                    timeZone: "Asia/Shanghai",
-                  })}
+                  {formatLingxingDateTime(previewEmail.receivedAt)}
                 </b>
               </div>
               <div>
@@ -5101,9 +5093,7 @@ function AdReviewDashboard() {
                   </em>
                   <small>
                     {action.result_at
-                      ? new Date(action.result_at).toLocaleString("zh-CN", {
-                          timeZone: "Asia/Shanghai",
-                        })
+                      ? formatLingxingDateTime(action.result_at)
                       : "尚无终态时间"}
                   </small>
                 </span>
@@ -6228,7 +6218,7 @@ function Ads({
           )}
           <span>
             {error ||
-              `每小时自动同步 · 最近入库 ${data?.generatedAt ? new Date(data.generatedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }) : "-"}`}
+              `每小时自动同步 · 最近入库 ${data?.generatedAt ? formatLingxingDateTime(data.generatedAt) : "-"}`}
           </span>
         </section>
       )}
@@ -6289,7 +6279,7 @@ function Ads({
               <b>{data?.cache?.layer || "连接中"}</b>
               <span>
                 {data?.generatedAt
-                  ? `更新 ${new Date(data.generatedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`
+                  ? `更新 ${formatLingxingDateTime(data.generatedAt)}`
                   : "正在读取"}
               </span>
             </div>
@@ -7065,10 +7055,7 @@ function Ads({
                               {done && record?.completedAt ? (
                                 <small className="manual-audit-time">
                                   验收时间：
-                                  {new Date(record.completedAt).toLocaleString(
-                                    "zh-CN",
-                                    { timeZone: "Asia/Shanghai" },
-                                  )}
+                                  {formatLingxingDateTime(record.completedAt)}
                                 </small>
                               ) : null}
                               {manualDetailTask === taskId ? (
@@ -8657,9 +8644,7 @@ function SkuOperatingPerformance() {
           <span>
             <b>成本更新时间</b>
             {audit?.costUpdatedAt
-              ? new Date(audit.costUpdatedAt).toLocaleString("zh-CN", {
-                  timeZone: "Asia/Shanghai",
-                })
+              ? formatLingxingDateTime(audit.costUpdatedAt)
               : "—"}
           </span>
           <span>
@@ -9594,9 +9579,7 @@ function TaskCenter() {
                 </span>
                 <b>{record.title}</b>
                 <time>
-                  {new Date(record.updatedAt).toLocaleString("zh-CN", {
-                    timeZone: "Asia/Shanghai",
-                  })}
+                  {formatLingxingDateTime(record.updatedAt)}
                 </time>
               </header>
               <div className="task-card-grid">

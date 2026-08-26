@@ -11,7 +11,7 @@ function jsonResponse(body, status = 200) {
   });
 }
 
-test("refreshes orders every run using the Shanghai month-to-date window", async () => {
+test("refreshes orders every run using the Lingxing month-to-date window", async () => {
   const requests = [];
   const records = [];
 
@@ -25,19 +25,19 @@ test("refreshes orders every run using the Shanghai month-to-date window", async
   });
 
   assert.deepEqual(requests, [
-    "https://worker.internal/api/orders/summary?start=2026-07-01&end=2026-07-22&refresh=1",
+    "https://worker.internal/api/orders/summary?start=2026-07-01&end=2026-07-21&refresh=1",
   ]);
   assert.equal(result.mode, "regular");
   assert.equal(result.ok, true);
   assert.equal(records.at(-1).status, "succeeded");
 });
 
-test("runs mature advertising and all reported catalog pages at 06:00 Shanghai", async () => {
+test("runs mature advertising and all reported catalog pages at 06:00 Lingxing time", async () => {
   const requests = [];
   const checkpoints = [];
 
   const result = await runLayeredSync({
-    scheduledTime: Date.parse("2026-07-21T22:00:00Z"),
+    scheduledTime: Date.parse("2026-07-22T10:00:00Z"),
     catalogPageBudget: 20,
     request: async (url) => {
       const value = String(url);
@@ -119,7 +119,7 @@ test("continues an incomplete catalog crawl on regular runs without repeating co
   };
 
   await runLayeredSync({
-    scheduledTime: Date.parse("2026-07-21T22:00:00Z"),
+    scheduledTime: Date.parse("2026-07-22T10:00:00Z"),
     catalogPageBudget: 3,
     request: request(firstRequests),
     loadCatalogCheckpoint: async () => checkpoint,
@@ -156,7 +156,7 @@ test("marks catalog completion as an integrity error when totalCount does not cl
   let checkpoint = null;
 
   await runLayeredSync({
-    scheduledTime: Date.parse("2026-07-21T22:00:00Z"),
+    scheduledTime: Date.parse("2026-07-22T10:00:00Z"),
     catalogPageBudget: 10,
     request: async (url) => {
       const value = String(url);
@@ -185,7 +185,7 @@ test("classifies a catalog page failure and resumes from that page on the next r
 
   await assert.rejects(
     runLayeredSync({
-      scheduledTime: Date.parse("2026-07-21T22:00:00Z"),
+      scheduledTime: Date.parse("2026-07-22T10:00:00Z"),
       catalogPageBudget: 3,
       request: async (url) => {
         const value = String(url);
@@ -236,7 +236,7 @@ test("supports a root-level catalog totalPages response", async () => {
   const requests = [];
 
   await runLayeredSync({
-    scheduledTime: Date.parse("2026-07-21T22:00:00Z"),
+    scheduledTime: Date.parse("2026-07-22T10:00:00Z"),
     request: async (url) => {
       const value = String(url);
       requests.push(value);
@@ -252,7 +252,7 @@ test("defaults catalog pagination to one page when the total is absent", async (
   const requests = [];
 
   await runLayeredSync({
-    scheduledTime: Date.parse("2026-07-21T22:00:00Z"),
+    scheduledTime: Date.parse("2026-07-22T10:00:00Z"),
     request: async (url) => {
       requests.push(String(url));
       return jsonResponse({ items: [] });

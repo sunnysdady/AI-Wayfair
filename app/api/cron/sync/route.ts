@@ -5,8 +5,8 @@ import { syncOutlookDaily } from "@/lib/outlook-daily-sync.mjs";
 import {
   buildDailyOperatingReport,
   dailyOperatingReportDue,
-  shanghaiDate,
 } from "@/lib/daily-operating-report.mjs";
+import { lingxingDate } from "@/lib/lingxing-business-time.mjs";
 
 export const maxDuration = 800;
 export const dynamic = "force-dynamic";
@@ -66,9 +66,9 @@ async function responseJson(requestInternal: (target: URL | Request) => Promise<
 }
 
 async function generateDailyOperatingReport({ db, now, force, requestInternal }: { db: D1Database; now: Date; force: boolean; requestInternal: (target: URL | Request) => Promise<Response> }) {
-  const reportDate = shanghaiDate(now);
+  const reportDate = lingxingDate(now);
   const existing = await db.prepare("SELECT report_date,generation_mode FROM daily_operating_reports WHERE report_date=?").bind(reportDate).first<{ report_date: string; generation_mode: string }>();
-  if (!force && !dailyOperatingReportDue({ now, existingReportDate: existing?.generation_mode === "FORCED" ? null : existing?.report_date || null })) return { status: existing ? "ALREADY_GENERATED" : "WAITING_FOR_20_SHANGHAI", reportDate };
+  if (!force && !dailyOperatingReportDue({ now, existingReportDate: existing?.generation_mode === "FORCED" ? null : existing?.report_date || null })) return { status: existing ? "ALREADY_GENERATED" : "WAITING_FOR_20_LINGXING", reportDate };
   const monthStart = `${reportDate.slice(0, 7)}-01`;
   const previous = await db.prepare("SELECT payload FROM daily_operating_reports WHERE report_date<? ORDER BY report_date DESC LIMIT 1").bind(reportDate).first<{ payload: string }>();
   const [dailyOrders, monthOrders, dailyAds, manualCompletions, operations, planProgress, readiness] = await Promise.all([

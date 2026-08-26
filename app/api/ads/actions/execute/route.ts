@@ -3,6 +3,7 @@ import { validateAdActionFreshness } from "@/lib/ad-action-freshness.mjs";
 import { syncAdActionOperation } from "@/lib/ad-operation-link.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import { sameOrigin } from "@/lib/http-origin.mjs";
+import { lingxingDate } from "@/lib/lingxing-business-time.mjs";
 import { assertLiveOperation } from "@/lib/operating-safety.mjs";
 import { validateAugustRunForExecution } from "@/lib/august-execution-policy.mjs";
 import { validateAugustAdActionsAgainstPlan } from "@/lib/august-sales-plan.mjs";
@@ -13,10 +14,6 @@ type QueueRow = {
 };
 
 const bindings = getRuntimeBindings;
-
-function todayShanghai() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-}
 
 function addDays(value: string, days: number) {
   const date = new Date(`${value}T00:00:00Z`);
@@ -29,7 +26,7 @@ function active(value: unknown) {
 }
 
 async function validateLatestReportState(db: D1Database, actions: QueueRow[]) {
-  const asOf = todayShanghai();
+  const asOf = lingxingDate();
   const start = addDays(asOf, -7);
   const stored = await db.prepare("SELECT report_date,payload FROM ad_report_rows WHERE report_type='LISTING_REPORT' AND report_date>=? ORDER BY report_date DESC,entity_key").bind(start).all<{ report_date: string; payload: string }>();
   const latest = new Map<string, { reportDate: string; active: boolean; campaignActive: boolean; bid: number }>();
@@ -156,7 +153,7 @@ export async function POST(request: Request) {
     if (!body.runKey || !/^weekly:\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/.test(body.runKey)) return Response.json({ error: "周执行批次格式无效" }, { status: 400 });
     const augustCutover = validateAugustRunForExecution({
       runKey: body.runKey,
-      asOf: todayShanghai(),
+      asOf: lingxingDate(),
     });
     if (!augustCutover.allowed && augustCutover.reason === "SUPERSEDED_BY_AUTHORIZED_AUGUST_PLAN") {
       return Response.json(

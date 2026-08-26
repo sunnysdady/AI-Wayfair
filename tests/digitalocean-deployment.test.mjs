@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { nextShanghaiSyncBoundary } from "../scripts/sync-scheduler.mjs";
+import { nextSyncBoundary } from "../scripts/sync-scheduler.mjs";
 import { runScheduledSync } from "../scripts/run-scheduled-sync.mjs";
 
 test("DigitalOcean deployment separates web, scheduler, migration, and TLS proxy", async () => {
@@ -47,9 +47,9 @@ test("health route is public for infrastructure checks but cron remains secret-p
   assert.match(cron, /CRON_SECRET/);
 });
 
-test("scheduler targets even two-hour Shanghai boundaries", () => {
+test("scheduler targets even two-hour UTC boundaries", () => {
   const before = Date.parse("2026-07-24T21:59:00Z");
-  const next = nextShanghaiSyncBoundary(before);
+  const next = nextSyncBoundary(before);
   assert.equal(new Date(next).toISOString(), "2026-07-24T22:00:00.000Z");
 });
 

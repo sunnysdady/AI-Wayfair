@@ -2,14 +2,11 @@ import { runScheduledSync } from "./run-scheduled-sync.mjs";
 import { pathToFileURL } from "node:url";
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
 const STARTUP_BOUNDARY_GUARD_MS = 10 * 60 * 1000;
 const RETRY_DELAY_MS = 5 * 60 * 1000;
 
-export function nextShanghaiSyncBoundary(now = Date.now()) {
-  const shanghaiTime = now + SHANGHAI_OFFSET_MS;
-  const nextSlot = (Math.floor(shanghaiTime / TWO_HOURS_MS) + 1) * TWO_HOURS_MS;
-  return nextSlot - SHANGHAI_OFFSET_MS;
+export function nextSyncBoundary(now = Date.now()) {
+  return (Math.floor(now / TWO_HOURS_MS) + 1) * TWO_HOURS_MS;
 }
 
 function wait(delayMs, signal) {
@@ -42,13 +39,13 @@ async function runWithRetry(signal) {
 }
 
 export async function runScheduler({ signal }) {
-  const firstBoundary = nextShanghaiSyncBoundary();
+  const firstBoundary = nextSyncBoundary();
   if (firstBoundary - Date.now() > STARTUP_BOUNDARY_GUARD_MS) {
     await runWithRetry(signal);
   }
 
   while (!signal.aborted) {
-    const nextRun = nextShanghaiSyncBoundary();
+    const nextRun = nextSyncBoundary();
     process.stdout.write(`next sync scheduled for ${new Date(nextRun).toISOString()}\n`);
     await wait(Math.max(0, nextRun - Date.now()), signal);
     if (!signal.aborted) await runWithRetry(signal);

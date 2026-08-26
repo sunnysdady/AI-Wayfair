@@ -133,7 +133,7 @@ test("translates a natural-language date and sales question into a bounded daily
   assert.equal(result.resultCount, 1);
   assert.match(result.answer, /2026-08-23 的销量为 6 件/);
   assert.match(calls[0].sql, /FROM orders/);
-  assert.match(calls[0].sql, /Asia\/Shanghai/);
+  assert.match(calls[0].sql, /America\/New_York/);
   assert.deepEqual(calls[0].values, ["2026-08-23"]);
   assert.deepEqual(calls[1].values, ["audit-daily-sales", "8.23 的销量是多少", 1, "2026-08-25T08:00:00.000Z"]);
 });
@@ -183,7 +183,7 @@ test("translates a SKU and month order request into a bounded SKU-month query", 
   assert.match(result.answer, /销量 7 件/);
   assert.match(result.answer, /销售额 \$123\.45/);
   assert.match(calls[0].sql, /JOIN order_items/);
-  assert.match(calls[0].sql, /Asia\/Shanghai/);
+  assert.match(calls[0].sql, /America\/New_York/);
   assert.deepEqual(calls[0].values, ["DMOM1027", "2026-08-01"]);
   assert.deepEqual(calls[1].values, ["audit-sku-month-orders", "查询DMOM1027 8 月的订单数据", 1, "2026-08-25T08:00:00.000Z"]);
 });

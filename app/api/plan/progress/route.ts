@@ -29,6 +29,7 @@ import {
 } from "../../../../lib/september-sales-plan.mjs";
 import { cachedAdSpend } from "../../../../lib/wayfair-ads";
 import { eventCycleForDate } from "../../../../lib/event-cycle.mjs";
+import { lingxingDate, lingxingDayStart } from "@/lib/lingxing-business-time.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import {
   AUGUST_AD_EXECUTION_STATUS,
@@ -56,7 +57,7 @@ function phaseRange(range: string) {
 export async function GET() {
   try {
     const env = await bindings();
-    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const today = lingxingDate();
     const start = `${CURRENT_PLAN.month}-01`;
     const totalDays = new Date(
       Date.UTC(Number(CURRENT_PLAN.month.slice(0, 4)), Number(CURRENT_PLAN.month.slice(5, 7)), 0),
@@ -64,8 +65,8 @@ export async function GET() {
     const end = `${CURRENT_PLAN.month}-${String(totalDays).padStart(2, "0")}`;
     const actualEnd = today < start ? start : today > end ? end : today;
     const endExclusive = addDays(actualEnd, 1);
-    const from = `${start}T00:00:00+08:00`;
-    const until = `${endExclusive}T00:00:00+08:00`;
+    const from = lingxingDayStart(start);
+    const until = lingxingDayStart(endExclusive);
 
     // Zero-value POs are samples: omit them from sales-plan order/volume progress, but retain
     // their items in the gross-profit query below so a known procurement cost is still deducted.

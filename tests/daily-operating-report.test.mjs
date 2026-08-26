@@ -7,24 +7,24 @@ import {
   dailyOperatingReportDue,
 } from "../lib/daily-operating-report.mjs";
 
-test("runs once per Shanghai day after 20:00 and remains retry-safe", () => {
+test("runs once per Lingxing business day after 20:00 and remains retry-safe", () => {
   assert.equal(
     dailyOperatingReportDue({
-      now: new Date("2026-07-29T11:59:59.000Z"),
+      now: new Date("2026-07-29T23:59:59.000Z"),
       existingReportDate: null,
     }),
     false,
   );
   assert.equal(
     dailyOperatingReportDue({
-      now: new Date("2026-07-29T12:00:00.000Z"),
+      now: new Date("2026-07-30T00:00:00.000Z"),
       existingReportDate: null,
     }),
     true,
   );
   assert.equal(
     dailyOperatingReportDue({
-      now: new Date("2026-07-29T14:00:00.000Z"),
+      now: new Date("2026-07-30T02:00:00.000Z"),
       existingReportDate: "2026-07-29",
     }),
     false,

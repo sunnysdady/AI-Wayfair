@@ -30,10 +30,13 @@ test("routes every business-day surface through the shared Lingxing timezone", a
     "app/api/ads/actions/execute/route.ts",
     "app/api/plan/progress/route.ts",
     "app/api/cron/sync/route.ts",
+    "app/releases/page.tsx",
+    "lib/ad-action-queue.mjs",
     "lib/ad-spend-coverage.mjs",
     "lib/assistant-search.mjs",
     "lib/daily-operating-report.mjs",
     "lib/outlook-daily-sync.mjs",
+    "lib/server-sync.mjs",
     "lib/wayfair-ads.ts",
   ];
   const contents = await Promise.all(files.map((file) => readFile(new URL(`../${file}`, import.meta.url), "utf8")));
