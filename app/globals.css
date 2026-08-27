@@ -212,6 +212,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
 .sort-header{min-width:0;padding:0;display:flex;align-items:center;gap:5px;border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;text-align:left;cursor:pointer;white-space:nowrap}
 .sort-header i{color:#a798ae;font-size:11px;font-style:normal}.sort-header.active{color:var(--purple)}.sort-header.active i{color:var(--purple)}
 .dual-sort{display:flex!important;align-items:center;gap:9px}.dual-sort .sort-header+ .sort-header{padding-left:9px;border-left:1px solid #d8cedc}
+.catalog-row{min-width:960px;grid-template-columns:1.1fr .65fr 1.25fr 1.25fr .7fr .95fr}.catalog-head .catalog-management-head{display:grid!important;min-width:0;gap:2px;align-content:center}.catalog-head .catalog-management-head .sort-header{max-width:100%}.catalog-head .catalog-management-head small{line-height:1.2;white-space:nowrap}
 .queue-actions{display:flex;align-items:center;gap:8px}.queue-actions small{max-width:180px}
 
 /* Advertising optimization: manual operating work and controlled AI writes */

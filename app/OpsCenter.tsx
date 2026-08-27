@@ -8124,7 +8124,7 @@ function Catalog({ embedded = false }: { embedded?: boolean }) {
                   setCatalogSort((value) => nextSort(value, field) as SortState)
                 }
               />
-              <span className="dual-sort">
+              <span className="dual-sort catalog-management-head">
                 <SortHeader
                   label="Product Mgmt · 90天"
                   field="pmRevenue"

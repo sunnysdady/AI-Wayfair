@@ -90,3 +90,14 @@ test("opens product attribute scoring inside 商品资料与质量 and redirects
   assert.match(source, /className="catalog-quality-workspace"/);
   assert.match(source, /<ProductAdditionWorkspace \/>/);
 });
+
+test("keeps the catalog management header vertically structured in its own column", async () => {
+  const [page, styles] = await Promise.all([
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /className="dual-sort catalog-management-head"/);
+  assert.match(styles, /\.catalog-row\{min-width:960px;grid-template-columns:1\.1fr \.65fr 1\.25fr 1\.25fr \.7fr \.95fr\}/);
+  assert.match(styles, /\.catalog-head \.catalog-management-head\{display:grid!important;min-width:0;gap:2px;align-content:center\}/);
+});
