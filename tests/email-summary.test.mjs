@@ -131,6 +131,52 @@ test("extracts organized facts from the full body when Outlook preview is incomp
   assert.doesNotMatch(result.keyFacts.join("\n"), /Best regards/i);
 });
 
+test("builds a concise, actionable brief instead of exposing ticket body lines", () => {
+  const result = normalizeEmailBriefItem({
+    category: "订单履约",
+    subject: "New comment added to ticket (CATAPINT-602)",
+    summary: "订单履约：You have a new Comment on a Ticket in your Wayfair Partner Home Inbox.",
+    bodyText: [
+      "A new comment has been posted on an open ticket in Partner Home.",
+      "Ticket CATAPINT-602 requires an updated invoice for PO# CS670434030.",
+      "Please upload the corrected invoice by 2026-08-29 to avoid a deduction.",
+      "The current invoice is missing the carrier tracking number.",
+      "Best regards, Wayfair Partner Support",
+    ].join("\n"),
+  });
+
+  assert.deepEqual(result.aiBrief, {
+    conclusion: "工单 CATAPINT-602：PO CS670434030 的发票需要更新。",
+    actions: ["上传更正后的发票，并补齐承运商追踪号。"],
+    deadline: "2026-08-29",
+    risk: "逾期可能产生扣款。",
+    context: "当前发票缺少承运商追踪号。",
+  });
+  assert.equal(result.keyFacts.length, 0);
+});
+
+test("marks newsletter mail as information-only and removes navigation boilerplate", () => {
+  const result = normalizeEmailBriefItem({
+    category: "绩效/合规",
+    subject: "Review Merchandising & Compliance notifications from Wayfair",
+    bodyText: [
+      "Account | Help Center | Your Dashboard | Privacy Policy",
+      "Please review this digest each week to keep up to date on updated or new compliance/merchandising notifications.",
+      "This guide provides some example use cases for when to submit a ticket.",
+      "To ensure delivery to your inbox, add growth@wayfair.com to your address book.",
+    ].join("\n"),
+  });
+
+  assert.deepEqual(result.aiBrief, {
+    conclusion: "Wayfair 商品与合规通知周报。",
+    actions: ["在 Partner Home 查看本周新增或更新的合规与商品通知。"],
+    deadline: "",
+    risk: "",
+    context: "该邮件为信息通知，未给出需要立即处理的单项事项。",
+  });
+  assert.equal(result.keyFacts.length, 0);
+});
+
 test("builds a complete finance daily summary from verified remittance fields", () => {
   const summary = emailSummary.financialDailySummary({
     category: "账单/回款",

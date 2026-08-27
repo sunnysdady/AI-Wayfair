@@ -21,7 +21,12 @@ test("keeps daily email details inside the operations center without clipping ro
   assert.match(daily, /email-finance-summary/);
   assert.match(daily, /实际汇款/);
   assert.match(daily, /关联发票/);
-  assert.match(daily, /邮件正文关键整理/);
+  assert.match(daily, /AI 运营提要/);
+  assert.match(daily, /previewEmail\.aiBrief/);
+  assert.match(daily, /需要处理/);
+  assert.match(daily, /截止时间/);
+  assert.match(daily, /风险提示/);
+  assert.doesNotMatch(daily, /previewEmail\.keyFacts\.map/);
   assert.match(daily, /完整邮件正文（已从 Outlook 同步）/);
   assert.match(daily, /previewEmail\.bodyText/);
   assert.match(daily, /aria-label="日报 JSON"/);
