@@ -45,45 +45,26 @@ export type ReleaseNotes = {
     platform: string;
     health: string;
     anonymousHome: string;
+    protectedProductPage: string;
+    protectedProductAdditionApi: string;
+    web: string;
     scheduler: string;
+    database: string;
+    imageTag: string;
   };
-  outlook: {
-    syncedAt: string;
-    total: number;
-    unread: number;
-    actionRequired: number;
-    highestPriority: string;
+  verification: {
+    testsPassed: number;
+    testsFailed: number;
+    build: string;
+    lintErrors: number;
+    lintWarnings: number;
+    logs: string;
   };
-  finance: {
-    remittanceId: string;
-    currency: string;
-    actualAmount: number;
-    paymentDate: string;
-    paymentMethod: string;
-    grossInvoiceValue: number;
-    qualityDeduction: number;
-    earlyPayDiscount: number;
-    serviceFee: number;
-    invoiceCount: number;
-  };
-  dailyRun: {
-    generatedAt: string;
-    orders: number;
-    units: number;
-    revenue: number;
-    adSpend: number;
-    contributionAfterAds: number;
-    monthOrders: number;
-    completedManualAds: number;
-    remainingManualAds: number;
-    adsDataLayer: string;
-  };
-  operations: {
-    total: number;
-    closed: number;
-    pendingAcceptance: number;
-    pendingReview: number;
-    failed: number;
+  guardrails: {
+    liveSubmit: string;
+    assessmentWriteScope: string;
+    maxProductsPerAssessment: number;
+    classScope: string;
   };
   followUps: string[];
 };

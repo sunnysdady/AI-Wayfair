@@ -2,6 +2,32 @@
 
 本文件记录 Wayfair AI 运营中台正式生产版本。所有日期使用 Asia/Shanghai。
 
+## [0.3.0] - 2026-08-27
+
+功能生产基线：`ea62524`。
+
+### Added
+
+- 上线商品属性详情工作台，按 SKU 展示当前属性值及 Wayfair 的必填、推荐、数据类型、候选值和多值规则。
+- 上线属性完成度评分、问题分级和修复提示，明确区分硬阻断项与建议完善项。
+- 评分结果写入操作闭环，保留 assessment ID、规则指纹、载荷指纹及发现、评估、验证和关闭证据。
+
+### Changed
+
+- 新增页面与现有运营中台统一布局、卡片、状态色和操作反馈，评分结果与属性详情保持同屏关联。
+- SKU 刷新状态清理移至事件处理的 `finally` 阶段，消除 React 状态更新器内的二次状态更新规则问题。
+- 内部评分明确标注为系统评估；正式合规结论继续以 Wayfair `validateOnly` 和状态回执为准。
+
+### Security
+
+- Product Addition 正式生产提交继续默认关闭；属性评分只写操作闭环，不写 Wayfair 商品。
+- 匿名首页、产品评分页与 Product Addition API 均保持 401 访问保护。
+
+### Verification
+
+- 全量测试 364/364 通过，Next.js 生产构建通过；源码 ESLint 0 个错误、2 个既有警告。
+- DigitalOcean Web 与 PostgreSQL 健康，Scheduler 正常运行，公开 `/api/health` 返回 200。
+
 ## [0.2.2] - 2026-07-29
 
 ### Added

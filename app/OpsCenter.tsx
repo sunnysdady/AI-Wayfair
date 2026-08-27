@@ -2285,7 +2285,7 @@ function ShellHeader({
             </button>
           ))}
           <Link className="release-link" href="/releases">
-            版本记录 · v0.2.2
+            版本记录 · v0.3.0
           </Link>
         </nav>
       </div>

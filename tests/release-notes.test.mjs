@@ -7,18 +7,18 @@ import {
   validateReleaseNotes,
 } from "../lib/release-notes.mjs";
 
-test("locks the rerun 2026-07-28 system and logic upgrade report", () => {
+test("locks the v0.3.0 product attribute scoring release record", () => {
   const release = validateReleaseNotes(RELEASE_NOTES);
 
-  assert.equal(release.version, "0.2.2");
-  assert.equal(release.releaseDate, "2026-07-28");
-  assert.equal(release.productionBaseline, "2ac14c5");
-  assert.equal(release.git.commits, 88);
+  assert.equal(release.version, "0.3.0");
+  assert.equal(release.releaseDate, "2026-08-27");
+  assert.equal(release.productionBaseline, "ea625249033f5c4c1847aa18513b28011f70906d");
+  assert.equal(release.git.commits, 4);
   assert.deepEqual(release.systemSummary, {
-    featureAreas: 6,
-    logicUpgrades: 6,
-    commits: 88,
-    tests: 316,
+    featureAreas: 3,
+    logicUpgrades: 4,
+    commits: 4,
+    tests: 364,
   });
   assert.equal(Object.keys(release.managementBrief).length, 5);
   assert.ok(release.managementBrief.completed.length >= 4);
@@ -26,88 +26,61 @@ test("locks the rerun 2026-07-28 system and logic upgrade report", () => {
   assert.ok(release.managementBrief.blockers.length >= 3);
   assert.ok(release.managementBrief.assistance.length >= 3);
   assert.ok(release.managementBrief.tomorrow.length >= 4);
-  assert.ok(release.systemUpgrades.length >= 6);
-  assert.ok(release.logicUpgrades.length >= 6);
-  assert.match(release.title, /系统功能与逻辑升级日报/);
-  assert.equal(release.outlook.total, 5);
-  assert.equal(release.outlook.unread, 2);
-  assert.equal(release.outlook.actionRequired, 5);
-  assert.equal(release.outlook.highestPriority, "P1");
-  assert.deepEqual(release.finance, {
-    remittanceId: "10002005965230",
-    currency: "USD",
-    actualAmount: 565.88,
-    paymentDate: "2026-07-31",
-    paymentMethod: "Bank transfer",
-    grossInvoiceValue: 602,
-    qualityDeduction: -24.08,
-    earlyPayDiscount: -12.04,
-    serviceFee: 0,
-    invoiceCount: 5,
+  assert.equal(release.systemUpgrades.length, 3);
+  assert.equal(release.logicUpgrades.length, 4);
+  assert.match(release.title, /产品属性评分工作台与规则修复/);
+  assert.deepEqual(release.verification, {
+    testsPassed: 364,
+    testsFailed: 0,
+    build: "PASS",
+    lintErrors: 0,
+    lintWarnings: 2,
+    logs: "No fatal, uncaught, unhandled or error events",
   });
-  assert.deepEqual(release.dailyRun, {
-    generatedAt: "2026-07-29T10:25:52.582Z",
-    orders: 2,
-    units: 2,
-    revenue: 171,
-    adSpend: 0.59,
-    contributionAfterAds: 56.51,
-    monthOrders: 53,
-    completedManualAds: 10,
-    remainingManualAds: 0,
-    adsDataLayer: "POSTGRESQL_REPORT_ROWS",
+  assert.deepEqual(release.guardrails, {
+    liveSubmit: "OFF (default)",
+    assessmentWriteScope: "仅写操作闭环，不写 Wayfair 商品",
+    maxProductsPerAssessment: 100,
+    classScope: "首期仅支持同一 Class 的商品批次",
   });
-  assert.deepEqual(release.operations, {
-    total: 25,
-    closed: 10,
-    pendingAcceptance: 15,
-    pendingReview: 0,
-    failed: 0,
-  });
-  assert.ok(release.followUps.length >= 3);
+  assert.equal(release.production.domain, "aiwayfair.sunnysdady.com");
+  assert.equal(release.production.health, "200 OK");
+  assert.equal(release.production.protectedProductPage, "401 Protected");
+  assert.equal(release.production.protectedProductAdditionApi, "401 Protected");
+  assert.equal(release.production.imageTag, "ea625249033f");
+  assert.ok(release.followUps.length >= 4);
 });
 
-test("declares system upgrades before the secondary runtime snapshot", async () => {
-  const [page, shell, changelog, daily] = await Promise.all([
+test("renders the current release before production verification and guardrails", async () => {
+  const [page, shell, changelog] = await Promise.all([
     readFile(new URL("../app/releases/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../CHANGELOG.md", import.meta.url), "utf8"),
-    readFile(new URL("../docs/daily/2026-07-28.md", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /RELEASE_NOTES/);
   assert.match(page, /系统功能升级/);
   assert.match(page, /核心逻辑升级/);
-  assert.match(page, /运行快照/);
-  assert.match(shell, /href="\/releases"/);
-  assert.match(shell, /版本记录 · v0\.2\.2/);
-  assert.match(changelog, /## \[0\.2\.2\] - 2026-07-29/);
-  assert.match(daily, /# Wayfair AI 系统功能与逻辑升级日报 · 2026-07-28/);
-  assert.match(daily, /88 个提交/);
-  assert.match(daily, /实际汇款 USD 565\.88/);
-  assert.match(daily, /今日工作日报已由 DigitalOcean Scheduler 强制重跑/);
-  assert.match(daily, /## 管理摘要/);
-  assert.match(daily, /### 今天完成了什么/);
-  assert.match(daily, /### 结果怎么样/);
-  assert.match(daily, /### 遇到的阻力/);
-  assert.match(daily, /### 需要你的协助或授权/);
-  assert.match(daily, /### 明天计划/);
-  assert.match(daily, /## 系统功能升级/);
-  assert.match(daily, /## 核心逻辑升级/);
-  assert.ok(daily.indexOf("## 系统功能升级") < daily.indexOf("## 运行快照"));
+  assert.match(page, /发布验收/);
+  assert.match(page, /生产部署/);
+  assert.match(page, /质量验证/);
+  assert.match(page, /安全与范围/);
   assert.match(page, /Wayfair AI · 版本记录/);
-  assert.match(page, /系统升级结论/);
-  assert.match(page, /今日 Orders/);
-  assert.match(page, /今天完成了什么/);
-  assert.match(page, /结果怎么样/);
-  assert.match(page, /遇到的阻力/);
-  assert.match(page, /需要你的协助或授权/);
-  assert.match(page, /明天计划/);
-  assert.ok(page.indexOf("系统功能升级") < page.indexOf("运行快照"));
+  assert.match(page, /版本发布结论/);
+  assert.match(page, /本次完成/);
+  assert.match(page, /验收结果/);
+  assert.match(page, /当前限制/);
+  assert.match(page, /协助与授权/);
+  assert.match(page, /后续计划/);
+  assert.ok(page.indexOf("系统功能升级") < page.indexOf("发布验收"));
+  assert.doesNotMatch(page, /运行快照|今日 Orders|Outlook|财务摘要/);
   const status = page.match(/<section className="release-status"[\s\S]*?<\/section>/)?.[0] || "";
   assert.match(status, /系统模块/);
   assert.match(status, /核心逻辑/);
   assert.match(status, /验证测试/);
-  assert.doesNotMatch(status, /Outlook|闭环任务/);
+  assert.match(shell, /href="\/releases"/);
+  assert.match(shell, /版本记录 · v0\.3\.0/);
+  assert.match(changelog, /## \[0\.3\.0\] - 2026-08-27/);
+  assert.match(changelog, /ea62524/);
   assert.match(page, /后续待办/);
 });
