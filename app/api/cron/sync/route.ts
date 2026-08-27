@@ -117,6 +117,9 @@ async function runSync(request: Request, env: Env, manualFull = false) {
       env.MICROSOFT_CLIENT_ID
       && env.MICROSOFT_CLIENT_SECRET,
     );
+    const outlookLookbackDays = manualFull
+      ? boundedInteger(env.OUTLOOK_MANUAL_SYNC_LOOKBACK_DAYS, 45, 90)
+      : 2;
     const requestInternal = (target: URL | Request) => {
       const upstream = target instanceof Request ? new URL(target.url) : new URL(target);
       return fetch(`${origin}${upstream.pathname}${upstream.search}`, {
@@ -129,7 +132,7 @@ async function runSync(request: Request, env: Env, manualFull = false) {
       scheduledTime: now.getTime(),
       request: requestInternal,
       syncOutlook: outlookConfigured
-        ? () => syncOutlookDaily({ env, db, now })
+        ? () => syncOutlookDaily({ env, db, now, lookbackDays: outlookLookbackDays })
         : undefined,
       mode: manualFull ? "manual-full" : undefined,
       catalogPageBudget: boundedInteger(

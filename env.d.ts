@@ -53,6 +53,7 @@ interface WayfairEnvBindings {
   MICROSOFT_CLIENT_SECRET?: string;
   MICROSOFT_REFRESH_TOKEN?: string;
   OUTLOOK_MAILBOX_USER?: string;
+  OUTLOOK_MANUAL_SYNC_LOOKBACK_DAYS?: string;
   WAYFAIR_AD_CLIENT_ID?: string;
   WAYFAIR_AD_CLIENT_SECRET?: string;
   WAYFAIR_OPS_CLIENT_ID?: string;

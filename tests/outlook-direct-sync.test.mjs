@@ -81,6 +81,21 @@ test("builds three Lingxing daily reports from all Wayfair operating categories"
   )));
 });
 
+test("builds bounded historical reports when a manual backfill requests them", () => {
+  const reports = buildDailyReports([{
+    id: "historic-scope",
+    subject: "Wayfair account update",
+    from: { emailAddress: { address: "noreply@wayfair.com" } },
+    receivedDateTime: "2026-07-24T05:00:00Z",
+    isRead: true,
+  }], "2026-07-24", 45);
+
+  assert.equal(reports.length, 46);
+  assert.equal(reports[0].briefDate, "2026-07-24");
+  assert.equal(reports.at(-1).briefDate, "2026-06-09");
+  assert.match(reports[0].sections.at(-1).body, /近46日/);
+});
+
 test("persists the complete Outlook body and its key facts instead of only bodyPreview", () => {
   const reports = buildDailyReports([{
     id: "ticket-full-body",
