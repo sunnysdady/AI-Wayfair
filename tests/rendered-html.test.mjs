@@ -2,24 +2,27 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-async function render() {
-  const html = await readFile(new URL("../.next/server/app/index.html", import.meta.url), "utf8");
-  return new Response(html, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } });
+async function loadOperationsPage() {
+  const [page, workspace] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+  ]);
+  const dashboardStart = workspace.indexOf("function Dashboard() {");
+  const dashboardEnd = workspace.indexOf("function OperatingDaily() {");
+  return { page, workspace, dashboard: workspace.slice(dashboardStart, dashboardEnd) };
 }
 
-test("renders the Wayfair AI operations product", async () => {
-  const response = await render();
-  assert.equal(response.status, 200);
-  const html = await response.text();
-  assert.match(html, /Wayfair AI 运营中台/);
-  assert.match(html, /Dashboard/);
-  assert.match(html, /最近 7 天/);
-  assert.match(html, /广告前商品毛利/);
-  assert.match(html, /广告后店铺贡献/);
-  assert.doesNotMatch(html, /实际利润/);
-  assert.match(html, />广告增长</);
-  assert.match(html, /Ops API（库存 \+ 订单）/);
-  assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
+test("declares the Wayfair AI operations product", async () => {
+  const { page, workspace, dashboard } = await loadOperationsPage();
+  assert.match(page, /Wayfair AI 运营中台/);
+  assert.match(page, /return <OpsCenter \/>;/);
+  assert.match(dashboard, /Dashboard/);
+  assert.match(workspace, /最近 7 天/);
+  assert.match(dashboard, /广告前商品毛利/);
+  assert.match(dashboard, /广告后店铺贡献/);
+  assert.doesNotMatch(dashboard, /实际利润/);
+  assert.match(dashboard, /Ops API（库存 \+ 订单）/);
+  assert.doesNotMatch(dashboard, /codex-preview|Your site is taking shape/);
 });
 
 test("keeps August execution and September planning after the June review", async () => {

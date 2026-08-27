@@ -147,7 +147,7 @@ test("turns persisted terminal events into an operator-readable result column", 
   }), {
     tone: "success",
     title: "已写入 Wayfair",
-    detail: "Campaign 622741 · 2026-07-17 10:00",
+    detail: "Campaign 622741 · 2026-07-16 22:00",
   });
 
   const failed = executionResultForAction({

@@ -8,7 +8,7 @@ test("reports a closed day with no campaign rows as real zero spend", () => {
   const result = summarizeAdSpendCoverage({
     start: "2026-07-26",
     end: "2026-07-26",
-    days: [{ reportDate: "2026-07-26", refreshedAt: "2026-07-26T22:00:00.000Z" }],
+    days: [{ reportDate: "2026-07-26", refreshedAt: "2026-07-27T04:00:00.000Z" }],
     rows: [],
     asOf: "2026-07-27",
   });

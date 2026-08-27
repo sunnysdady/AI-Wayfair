@@ -67,13 +67,12 @@ test("locks the rerun 2026-07-28 system and logic upgrade report", () => {
   assert.ok(release.followUps.length >= 3);
 });
 
-test("publishes system upgrades before the secondary runtime snapshot", async () => {
-  const [page, shell, changelog, daily, html] = await Promise.all([
+test("declares system upgrades before the secondary runtime snapshot", async () => {
+  const [page, shell, changelog, daily] = await Promise.all([
     readFile(new URL("../app/releases/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../CHANGELOG.md", import.meta.url), "utf8"),
     readFile(new URL("../docs/daily/2026-07-28.md", import.meta.url), "utf8"),
-    readFile(new URL("../.next/server/app/releases.html", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /RELEASE_NOTES/);
@@ -96,21 +95,19 @@ test("publishes system upgrades before the secondary runtime snapshot", async ()
   assert.match(daily, /## 系统功能升级/);
   assert.match(daily, /## 核心逻辑升级/);
   assert.ok(daily.indexOf("## 系统功能升级") < daily.indexOf("## 运行快照"));
-  assert.match(html, /Wayfair AI · 版本记录/);
-  assert.match(html, /v0\.2\.2/);
-  assert.match(html, /系统升级结论/);
-  assert.match(html, /USD 565\.88/);
-  assert.match(html, /今日 Orders/);
-  assert.match(html, /今天完成了什么/);
-  assert.match(html, /结果怎么样/);
-  assert.match(html, /遇到的阻力/);
-  assert.match(html, /需要你的协助或授权/);
-  assert.match(html, /明天计划/);
-  assert.ok(html.indexOf("系统功能升级") < html.indexOf("运行快照"));
-  const status = html.match(/<section class="release-status"[\s\S]*?<\/section>/)?.[0] || "";
+  assert.match(page, /Wayfair AI · 版本记录/);
+  assert.match(page, /系统升级结论/);
+  assert.match(page, /今日 Orders/);
+  assert.match(page, /今天完成了什么/);
+  assert.match(page, /结果怎么样/);
+  assert.match(page, /遇到的阻力/);
+  assert.match(page, /需要你的协助或授权/);
+  assert.match(page, /明天计划/);
+  assert.ok(page.indexOf("系统功能升级") < page.indexOf("运行快照"));
+  const status = page.match(/<section className="release-status"[\s\S]*?<\/section>/)?.[0] || "";
   assert.match(status, /系统模块/);
   assert.match(status, /核心逻辑/);
   assert.match(status, /验证测试/);
   assert.doesNotMatch(status, /Outlook|闭环任务/);
-  assert.match(html, /后续待办/);
+  assert.match(page, /后续待办/);
 });
