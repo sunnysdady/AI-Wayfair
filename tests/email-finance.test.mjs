@@ -48,6 +48,32 @@ test("extracts only the remittance id from legacy summaries and never invents an
   assert.deepEqual(details.invoiceIds, []);
 });
 
+test("uses the complete synchronized body for remittance fields", () => {
+  const details = financialDetailsForEmail({
+    subject: "Payment Remittance",
+    category: "账单/回款",
+    bodyPreview: "Payment remittance is attached.",
+    bodyText: "Payment Remittance #10002005889913\nAmount: USD 182.40\nPayment date: 2026-08-26\nPayment method: ACH\nInvoice: INV-2088",
+  });
+
+  assert.equal(details.isFinancial, true);
+  assert.equal(details.remittanceId, "10002005889913");
+  assert.equal(details.amountLabel, "$182.40");
+  assert.equal(details.paymentDate, "2026-08-26");
+  assert.equal(details.paymentMethod, "ACH");
+  assert.deepEqual(details.invoiceIds, ["INV-2088"]);
+});
+
+test("does not render an empty remittance card for a deduction notification", () => {
+  const details = financialDetailsForEmail({
+    subject: "Opened Deduction",
+    category: "账单/回款",
+    bodyText: "A deduction case was opened for the following order. Review the case details in Partner Home.",
+  });
+
+  assert.equal(details.isFinancial, false);
+});
+
 test("does not render finance details for normal operating mail", () => {
   const details = financialDetailsForEmail({
     subject: "Ship FedEx Home Delivery",

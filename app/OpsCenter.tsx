@@ -757,6 +757,8 @@ type EmailItem = {
   priority: string;
   summary: string;
   bodyPreview?: string;
+  bodyText?: string;
+  keyFacts?: string[];
   financial?: EmailFinancial;
   order?: EmailOrder;
   owner: string;
@@ -3487,7 +3489,25 @@ function Daily() {
                 </div>
               </section>
             )}
-            {!previewOrder && !previewFinancial?.isFinancial && (
+            {!!previewEmail.keyFacts?.length && (
+              <section className="email-key-facts" aria-label="邮件正文关键整理">
+                <header>
+                  <span>KEY FACTS</span>
+                  <h3>邮件正文关键整理</h3>
+                </header>
+                <ul>
+                  {previewEmail.keyFacts.map((fact, index) => (
+                    <li key={`${fact}-${index}`}>{fact}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            {previewEmail.bodyText ? (
+              <details className="email-full-body">
+                <summary>完整邮件正文（已从 Outlook 同步）</summary>
+                <p>{previewEmail.bodyText}</p>
+              </details>
+            ) : !previewOrder && !previewFinancial?.isFinancial && (
               <div className="email-preview-content">
                 <span>邮件内容预览</span>
                 <p>{previewEmail.bodyPreview || previewEmail.summary}</p>

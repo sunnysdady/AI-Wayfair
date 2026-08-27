@@ -27,6 +27,8 @@ function isBriefPayload(body: Record<string, unknown>) {
       && (financial.invoiceIds == null || (Array.isArray(financial.invoiceIds) && financial.invoiceIds.length <= 100 && financial.invoiceIds.every((id) => typeof id === "string" && id.length <= 120))));
     return ["id", "category", "subject", "sender", "receivedAt", "priority", "summary", "owner", "status", "webLink"].every((key) => typeof value[key] === "string" && value[key].length <= 500)
       && (value.bodyPreview == null || (typeof value.bodyPreview === "string" && value.bodyPreview.length <= 4000))
+      && (value.bodyText == null || (typeof value.bodyText === "string" && value.bodyText.length <= 120000))
+      && (value.keyFacts == null || (Array.isArray(value.keyFacts) && value.keyFacts.length <= 12 && value.keyFacts.every((fact) => typeof fact === "string" && fact.length <= 500)))
       && hasValidFinancial
       && typeof value.unread === "boolean";
   });
@@ -52,7 +54,7 @@ async function ensureTable(db: D1Database) {
 function remittanceIdFor(item: Record<string, unknown>) {
   const financial = item.financial && typeof item.financial === "object" ? item.financial as Record<string, unknown> : {};
   if (typeof financial.remittanceId === "string" && financial.remittanceId.trim()) return financial.remittanceId.trim();
-  const text = [item.subject, item.summary, item.bodyPreview].filter(Boolean).join("\n");
+  const text = [item.subject, item.summary, item.bodyPreview, item.bodyText].filter(Boolean).join("\n");
   return text.match(/remittance[^\n#\d]{0,24}#?\s*(\d{8,})/i)?.[1] || "";
 }
 
@@ -71,7 +73,7 @@ async function mergeStoredFinancials(db: D1Database, items: Record<string, unkno
 }
 
 function poNumberFor(item: Record<string, unknown>) {
-  const text = [item.subject, item.summary, item.bodyPreview].filter(Boolean).join("\n");
+  const text = [item.subject, item.summary, item.bodyPreview, item.bodyText].filter(Boolean).join("\n");
   return text.match(/\bPO\s*(?:number|no\.?|#)?\s*[:#-]?\s*([a-z0-9][a-z0-9-]{3,})\b/i)?.[1] || "";
 }
 

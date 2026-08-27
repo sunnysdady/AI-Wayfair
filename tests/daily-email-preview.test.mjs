@@ -21,6 +21,9 @@ test("keeps daily email details inside the operations center without clipping ro
   assert.match(daily, /email-finance-summary/);
   assert.match(daily, /实际汇款/);
   assert.match(daily, /关联发票/);
+  assert.match(daily, /邮件正文关键整理/);
+  assert.match(daily, /完整邮件正文（已从 Outlook 同步）/);
+  assert.match(daily, /previewEmail\.bodyText/);
   assert.match(daily, /aria-label="日报 JSON"/);
   assert.match(daily, /onClick=\{importDailyBrief\}/);
   assert.match(daily, /fetch\("\/api\/email\/daily"/);

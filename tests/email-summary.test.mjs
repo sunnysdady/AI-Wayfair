@@ -109,6 +109,28 @@ test("keeps identifiers, deadline, and exception for other operational mail", ()
   assert.doesNotMatch(result.bodyPreview, /Best regards/i);
 });
 
+test("extracts organized facts from the full body when Outlook preview is incomplete", () => {
+  const result = normalizeEmailBriefItem({
+    category: "订单履约",
+    subject: "New comment added to ticket (CATAPINT-602)",
+    summary: "订单履约：You have a new Comment on a Ticket in your Wayfair Partner Home Inbox.",
+    bodyPreview: "You have a new Comment on a Ticket in your Wayfair Partner Home Inbox.",
+    bodyText: [
+      "Ticket CATAPINT-602 requires an updated invoice for PO# CS670434030.",
+      "Please upload the corrected invoice by 2026-08-29 to avoid a deduction.",
+      "The current invoice is missing the carrier tracking number.",
+      "Best regards, Wayfair Partner Support",
+    ].join("\n"),
+  });
+
+  assert.match(result.bodyText, /corrected invoice by 2026-08-29/);
+  assert.match(result.keyFacts.join("\n"), /CATAPINT-602/);
+  assert.match(result.keyFacts.join("\n"), /CS670434030/);
+  assert.match(result.keyFacts.join("\n"), /2026-08-29/);
+  assert.match(result.keyFacts.join("\n"), /tracking number/i);
+  assert.doesNotMatch(result.keyFacts.join("\n"), /Best regards/i);
+});
+
 test("builds a complete finance daily summary from verified remittance fields", () => {
   const summary = emailSummary.financialDailySummary({
     category: "账单/回款",
