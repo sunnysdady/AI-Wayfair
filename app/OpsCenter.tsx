@@ -9305,8 +9305,6 @@ function SkuOperatingCenter() {
   const [error, setError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setError("");
     fetch("/api/catalog/items?page=1&pageSize=30", { signal: controller.signal })
       .then(async (response) => {
         const body = (await response.json()) as CatalogResponse;
@@ -9322,6 +9320,11 @@ function SkuOperatingCenter() {
       });
     return () => controller.abort();
   }, [refresh]);
+  const refreshQueue = () => {
+    setLoading(true);
+    setError("");
+    setRefresh((value) => value + 1);
+  };
   const rows = (data?.items || []).map(toSkuOperatingRow);
   const filters: { id: SkuOperatingFilter; label: string; count: number }[] = [
     { id: "all", label: "全部队列", count: rows.length },
@@ -9438,7 +9441,7 @@ function SkuOperatingCenter() {
             </aside>
           </div>
           )}
-          <button className="secondary sku-demo-refresh" disabled={loading} onClick={() => setRefresh((value) => value + 1)}>
+          <button className="secondary sku-demo-refresh" disabled={loading} onClick={refreshQueue}>
             {loading ? "同步中…" : "刷新只读队列"}
           </button>
         </section>
