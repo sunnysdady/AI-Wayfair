@@ -45,7 +45,7 @@ type View =
 type AdsTab = "manager" | "listings" | "ai" | "manual" | "review";
 type DailyTab = "operating" | "email";
 type PlanningTab = "plan" | "august" | "september" | "review" | "history";
-type ProductTab = "inventory" | "catalog" | "launch" | "performance" | "addition";
+type ProductTab = "inventory" | "catalog" | "launch" | "performance";
 type PlanSection = "plan" | "july" | "bfij" | "august" | "september";
 type SubView = AdsTab | DailyTab | PlanningTab | ProductTab;
 
@@ -85,7 +85,6 @@ const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
   ],
   products: [
     { id: "performance", label: "SKU 经营中心" },
-    { id: "addition", label: "新品 API" },
     { id: "catalog", label: "商品资料与质量" },
     { id: "inventory", label: "库存与供给" },
     { id: "launch", label: "新品孵化 SOP" },
@@ -9490,9 +9489,7 @@ function ProductWorkspace({
               ? "推新 SOP"
               : tab === "performance"
                 ? "SKU 经营中心"
-                : tab === "addition"
-                  ? "新品 API V2"
-                  : "商品数据"
+                : "商品资料与质量"
         }
         text=""
       />
@@ -9502,10 +9499,11 @@ function ProductWorkspace({
         <NewProductSopWorkspace />
       ) : tab === "performance" ? (
         <SkuOperatingCenter />
-      ) : tab === "addition" ? (
-        <ProductAdditionWorkspace />
       ) : (
-        <Catalog embedded />
+        <div className="catalog-quality-workspace">
+          <Catalog embedded />
+          <ProductAdditionWorkspace />
+        </div>
       )}
     </>
   );
@@ -10054,8 +10052,7 @@ export default function OpsCenter() {
       (next === "inventory" ||
         next === "catalog" ||
         next === "launch" ||
-        next === "performance" ||
-        next === "addition")
+        next === "performance")
     )
       setProductTab(next);
     updateLocation(view, next);

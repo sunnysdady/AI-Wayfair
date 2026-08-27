@@ -68,18 +68,25 @@ test("opens AI 助理 inside the operations shell instead of navigating to a sep
   assert.doesNotMatch(source, /href="\/assistant"/);
 });
 
-test("opens Product Addition V2 inside 商品经营 from a stable direct URL", async () => {
+test("opens product attribute scoring inside 商品资料与质量 and redirects the legacy URL", async () => {
   assert.deepEqual(
     navigationStateFromSearch("?view=products&tab=addition"),
-    { view: "products", tab: "addition" },
+    { view: "products", tab: "catalog" },
   );
   assert.equal(
     navigationSearch({ view: "products", tab: "addition" }),
-    "?view=products&tab=addition",
+    "?view=products&tab=catalog",
+  );
+  assert.deepEqual(
+    navigationStateFromSearch("?view=products&tab=catalog"),
+    { view: "products", tab: "catalog" },
   );
 
   const source = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
   assert.match(source, /import ProductAdditionWorkspace from "\.\/product-addition\/workspace"/);
-  assert.match(source, /\{ id: "addition", label: "新品 API" \}/);
+  assert.match(source, /\{ id: "catalog", label: "商品资料与质量" \}/);
+  assert.doesNotMatch(source, /新品 API/);
+  assert.doesNotMatch(source, /tab === "addition"/);
+  assert.match(source, /className="catalog-quality-workspace"/);
   assert.match(source, /<ProductAdditionWorkspace \/>/);
 });

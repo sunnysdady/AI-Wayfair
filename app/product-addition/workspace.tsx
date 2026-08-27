@@ -302,20 +302,20 @@ export default function ProductAdditionWorkspace() {
     }
   }
 
-  if (loading) return <section className="card product-addition-state">正在读取 Product Addition V2 状态…</section>;
+  if (loading) return <section className="card product-addition-state">正在读取商品资料质量评分状态…</section>;
 
   return (
     <div className="product-addition-workspace">
       <section className="card product-addition-summary">
         <div>
-          <span>ATTRIBUTE HEALTH CENTER</span>
-          <h2>产品属性体检中心</h2>
-          <p>读取 Wayfair Product Addition V2 的真实 Class 属性规则，展示属性要求、评分并定位缺失项；评分是系统评估，不是 Wayfair 官方评分，最终仍以 validateOnly 为准。</p>
+          <span>商品资料与质量</span>
+          <h2>产品属性评分</h2>
+          <p>按 Wayfair 类目规则检查商品属性的完整度与合规性，定位需补齐的必填项和推荐项；评分用于运营排查，不会直接创建或修改商品。</p>
         </div>
         <dl>
-          <div><dt>供应商</dt><dd>{readiness?.supplierId || "未配置"}</dd></div>
-          <div><dt>读取权限</dt><dd className={readiness?.readEnabled ? "ok" : "warn"}>{readiness?.readEnabled ? "可用" : "未就绪"}</dd></div>
-          <div><dt>正式提交</dt><dd className={readiness?.liveSubmitEnabled ? "warn" : "ok"}>{readiness?.liveSubmitEnabled ? "已打开" : "安全关闭"}</dd></div>
+          <div><dt>规则来源</dt><dd>Wayfair</dd></div>
+          <div><dt>资料检查</dt><dd className={readiness?.readEnabled ? "ok" : "warn"}>{readiness?.readEnabled ? "可用" : "未就绪"}</dd></div>
+          <div><dt>自动写入</dt><dd className={readiness?.liveSubmitEnabled ? "warn" : "ok"}>{readiness?.liveSubmitEnabled ? "已开启" : "已关闭"}</dd></div>
         </dl>
       </section>
 
@@ -324,9 +324,9 @@ export default function ProductAdditionWorkspace() {
 
       <section className="card product-addition-discovery">
         <header>
-          <div><span>WAYFAIR RULE SNAPSHOT</span><h3>属性要求与候选值</h3></div>
+          <div><span>商品资料要求</span><h3>属性要求与可选值</h3></div>
           <div className="product-addition-discovery-controls">
-            <label>Class ID<input value={classId} onChange={(event) => setClassId(event.target.value)} /></label>
+            <label>类目编号（Class ID）<input value={classId} onChange={(event) => setClassId(event.target.value)} /></label>
             <button
               className="ghost"
               disabled={busy !== "" || !readiness?.readEnabled || !classId.trim()}
@@ -335,7 +335,7 @@ export default function ProductAdditionWorkspace() {
                 setError("");
                 load(true).catch((reason) => setError(reason instanceof Error ? reason.message : "读取失败")).finally(() => setBusy(""));
               }}
-            >{busy === "discover" ? "读取中…" : "读取 Wayfair 属性规则"}</button>
+            >{busy === "discover" ? "读取中…" : "读取资料要求"}</button>
           </div>
         </header>
         {discovery ? (
@@ -378,18 +378,18 @@ export default function ProductAdditionWorkspace() {
               })}
             </div>
           </>
-        ) : <p className="product-addition-hint">只读取 OAuth、分类、品牌和属性规则，不创建、不修改商品，也不读取库存。</p>}
+        ) : <p className="product-addition-hint">只读取分类、品牌和属性规则，不创建、不修改商品，也不读取库存。</p>}
       </section>
 
       <div className="product-attribute-workbench">
         <section className="card product-addition-editor">
-          <header><div><span>DRAFT ATTRIBUTE ASSESSMENT</span><h3>商品属性草稿</h3></div><b>本地 Gate → validateOnly</b></header>
+          <header><div><span>资料完整度检查</span><h3>待评分商品资料</h3></div><b>本地检查 → 平台预检</b></header>
           <div className="product-addition-editor-label">
-            <span>PRODUCT ADDITION JSON</span>
-            <small>修改载荷后需重新评分</small>
+            <span>导入商品资料（高级 JSON）</span>
+            <small>更新资料后需重新评分</small>
           </div>
           <textarea
-            aria-label="Product Addition JSON 载荷"
+            aria-label="商品资料 JSON"
             spellCheck={false}
             value={payloadText}
             onChange={(event) => {
@@ -398,13 +398,13 @@ export default function ProductAdditionWorkspace() {
             }}
           />
           <footer>
-            <p>检查必填、推荐、数据类型、单/多值和候选值；父子条件及服务端规则由 Wayfair validateOnly 终验。</p>
+            <p>检查必填、推荐、数据类型、单/多值和可选值；复杂的父子条件由平台预检最终确认。</p>
             <div className="product-addition-editor-actions">
               <button className="ghost" disabled={busy !== "" || !readiness?.readEnabled} onClick={assess}>
-                {busy === "assess" ? "评分中…" : "生成属性评分"}
+                {busy === "assess" ? "检查中…" : "检查资料完整度"}
               </button>
               <button className="primary" disabled={busy !== "" || !readiness?.readEnabled || !assessmentGatePassed} onClick={preflight}>
-                {busy === "preflight" ? "提交预检中…" : "进入 validateOnly 终验"}
+                {busy === "preflight" ? "预检中…" : "运行平台预检"}
               </button>
             </div>
           </footer>
@@ -412,7 +412,7 @@ export default function ProductAdditionWorkspace() {
 
         <aside className={`card product-attribute-inspector ${assessmentGatePassed ? "passed" : assessment ? "blocked" : "empty"}`} aria-live="polite">
           <header>
-            <div><span>ATTRIBUTE SCORE</span><h3>属性健康评分</h3></div>
+            <div><span>资料质量评分</span><h3>属性完整度评分</h3></div>
             <b>{assessment ? (assessmentGatePassed ? "可进入终验" : "需先修复") : "等待评分"}</b>
           </header>
           {assessment && assessmentPreview ? (
@@ -427,16 +427,16 @@ export default function ProductAdditionWorkspace() {
                 </div>
                 <div>
                   <span className={`product-attribute-gate ${assessmentGatePassed ? "passed" : "blocked"}`}>
-                    {assessmentGatePassed ? "LOCAL GATE PASS" : "LOCAL GATE BLOCKED"}
+                    {assessmentGatePassed ? "资料可预检" : "需先补齐资料"}
                   </span>
-                  <h4>{assessmentGatePassed ? "可观察规则已通过" : `${assessment.aggregate.blockedProducts} 个商品存在硬性阻断`}</h4>
-                  <p>系统内部完成度评分，Wayfair 官方结果以 validateOnly 为准。</p>
+                  <h4>{assessmentGatePassed ? "当前资料可进入平台预检" : `${assessment.aggregate.blockedProducts} 个商品存在必填资料缺失`}</h4>
+                  <p>该分数用于运营排查；最终以平台预检结果为准。</p>
                 </div>
               </div>
               <dl className="product-attribute-inspector-kpis">
                 <div><dt>商品</dt><dd>{assessment.aggregate.products}</dd></div>
                 <div><dt>硬性阻断</dt><dd>{assessment.aggregate.blockedProducts}</dd></div>
-                <div><dt>可进终验</dt><dd>{assessment.aggregate.validateOnlyReadyProducts}</dd></div>
+                <div><dt>可预检</dt><dd>{assessment.aggregate.validateOnlyReadyProducts}</dd></div>
               </dl>
               <div className="product-attribute-inspector-components">
                 <h4>评分维度</h4>
@@ -459,9 +459,9 @@ export default function ProductAdditionWorkspace() {
             </>
           ) : (
             <div className="product-attribute-inspector-empty">
-              <div>01</div><p><strong>读取规则</strong><span>获取 Class 的必填、推荐和候选值。</span></p>
-              <div>02</div><p><strong>编辑草稿</strong><span>填入商品与属性 JSON，不会创建商品。</span></p>
-              <div>03</div><p><strong>生成评分</strong><span>定位缺失与不合规项，再进入终验。</span></p>
+              <div>01</div><p><strong>读取资料要求</strong><span>获取类目的必填、推荐和可选值。</span></p>
+              <div>02</div><p><strong>导入资料草稿</strong><span>填入待评分的商品资料，不会创建商品。</span></p>
+              <div>03</div><p><strong>检查完整度</strong><span>定位缺失与不合规项，再运行平台预检。</span></p>
             </div>
           )}
         </aside>
@@ -470,7 +470,7 @@ export default function ProductAdditionWorkspace() {
       {assessment ? (
         <section className="card product-attribute-assessment" id="attribute-assessment">
           <header>
-            <div><span>WAYFAIR ATTRIBUTE COMPLIANCE</span><h3>评分明细与修复清单</h3></div>
+            <div><span>资料修复清单</span><h3>评分明细与补齐建议</h3></div>
             <b>{assessment.method.name}</b>
           </header>
           <div className="product-attribute-scoreboard">
@@ -480,17 +480,17 @@ export default function ProductAdditionWorkspace() {
             <dl>
               <div><dt>商品</dt><dd>{assessment.aggregate.products}</dd></div>
               <div><dt>硬性阻断</dt><dd>{assessment.aggregate.blockedProducts}</dd></div>
-              <div><dt>可进终验</dt><dd>{assessment.aggregate.validateOnlyReadyProducts}</dd></div>
+              <div><dt>可预检</dt><dd>{assessment.aggregate.validateOnlyReadyProducts}</dd></div>
             </dl>
             <div className="product-attribute-receipt">
-              <span>闭环 operationId</span><code>{assessment.operationId}</code>
-              <span>assessmentId</span><code>{assessment.assessmentId}</code>
+              <span>检查编号</span><code>{assessment.operationId}</code>
+              <span>评分编号</span><code>{assessment.assessmentId}</code>
             </div>
           </div>
           {assessment.products.map((product) => (
             <article className="product-attribute-product" key={`${product.productId}-${product.classId}`}>
               <header>
-                <div><span>{product.hardGate === "PASS" ? "LOCAL GATE PASS" : "LOCAL GATE BLOCKED"}</span><h4>{product.productId || "未命名商品"}</h4></div>
+                <div><span>{product.hardGate === "PASS" ? "资料可预检" : "需先补齐资料"}</span><h4>{product.productId || "未命名商品"}</h4></div>
                 <div className={`product-attribute-score ${product.hardGate === "PASS" ? "passed" : "blocked"}`}><b>{product.score}</b><small>{product.band}</small></div>
               </header>
               <div className="product-attribute-components">
@@ -507,7 +507,7 @@ export default function ProductAdditionWorkspace() {
                     </article>
                   ))}
                 </div>
-              ) : <p className="product-attribute-clean">可观察规则全部通过，可以进入 Wayfair validateOnly 终验。</p>}
+              ) : <p className="product-attribute-clean">当前规则检查已通过，可以进入 Wayfair 平台预检。</p>}
             </article>
           ))}
           {assessment.limitations.map((limitation) => <p className="product-addition-hint" key={limitation.code}>{limitation.message}</p>)}
