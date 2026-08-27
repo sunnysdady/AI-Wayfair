@@ -20,15 +20,20 @@ function isBriefPayload(body: Record<string, unknown>) {
     if (!item || typeof item !== "object") return false;
     const value = item as Record<string, unknown>;
     const financial = value.financial as Record<string, unknown> | null | undefined;
+    const aiBrief = value.aiBrief as Record<string, unknown> | null | undefined;
     const hasValidFinancial = financial == null || (typeof financial === "object"
       && ["remittanceId", "currency", "paymentDate", "paymentMethod"].every((key) => financial[key] == null || (typeof financial[key] === "string" && financial[key].length <= 120))
       && (financial.amount == null || (typeof financial.amount === "number" && Number.isFinite(financial.amount) && financial.amount >= 0))
       && ["grossAmount", "allowanceAmount", "epdAmount", "serviceFeeAmount"].every((key) => financial[key] == null || (typeof financial[key] === "number" && Number.isFinite(financial[key])))
       && (financial.invoiceIds == null || (Array.isArray(financial.invoiceIds) && financial.invoiceIds.length <= 100 && financial.invoiceIds.every((id) => typeof id === "string" && id.length <= 120))));
+    const hasValidAiBrief = aiBrief == null || (typeof aiBrief === "object"
+      && ["conclusion", "deadline", "risk", "context"].every((key) => typeof aiBrief[key] === "string" && aiBrief[key].length <= 500)
+      && Array.isArray(aiBrief.actions) && aiBrief.actions.length <= 4 && aiBrief.actions.every((action) => typeof action === "string" && action.length <= 500));
     return ["id", "category", "subject", "sender", "receivedAt", "priority", "summary", "owner", "status", "webLink"].every((key) => typeof value[key] === "string" && value[key].length <= 500)
       && (value.bodyPreview == null || (typeof value.bodyPreview === "string" && value.bodyPreview.length <= 4000))
       && (value.bodyText == null || (typeof value.bodyText === "string" && value.bodyText.length <= 120000))
       && (value.keyFacts == null || (Array.isArray(value.keyFacts) && value.keyFacts.length <= 12 && value.keyFacts.every((fact) => typeof fact === "string" && fact.length <= 500)))
+      && hasValidAiBrief
       && hasValidFinancial
       && typeof value.unread === "boolean";
   });
@@ -74,7 +79,7 @@ async function mergeStoredFinancials(db: D1Database, items: Record<string, unkno
 
 function poNumberFor(item: Record<string, unknown>) {
   const text = [item.subject, item.summary, item.bodyPreview, item.bodyText].filter(Boolean).join("\n");
-  return text.match(/\bPO\s*(?:number|no\.?|#)?\s*[:#-]?\s*([a-z0-9][a-z0-9-]{3,})\b/i)?.[1] || "";
+  return text.match(/\bPO\s*(?:number|no\.?|#)?\s*[:#-]?\s*([a-z0-9-]*\d[a-z0-9-]*)\b/i)?.[1] || "";
 }
 
 async function enrichOrderEmails(db: D1Database, items: Record<string, unknown>[]) {

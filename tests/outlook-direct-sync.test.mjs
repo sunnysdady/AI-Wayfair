@@ -96,7 +96,7 @@ test("builds bounded historical reports when a manual backfill requests them", (
   assert.match(reports[0].sections.at(-1).body, /近46日/);
 });
 
-test("persists the complete Outlook body and its key facts instead of only bodyPreview", () => {
+test("persists the complete Outlook body and its structured brief instead of only bodyPreview", () => {
   const reports = buildDailyReports([{
     id: "ticket-full-body",
     subject: "New comment added to ticket (CATAPINT-602)",
@@ -117,8 +117,8 @@ test("persists the complete Outlook body and its key facts instead of only bodyP
   const item = reports[0].items[0];
   assert.match(item.bodyText, /CATAPINT-602/);
   assert.match(item.bodyText, /2026-07-29/);
-  assert.match(item.keyFacts.join("\n"), /CS670434030/);
-  assert.match(item.keyFacts.join("\n"), /tracking number/i);
+  assert.match(item.aiBrief.conclusion, /CS670434030/);
+  assert.match(item.aiBrief.context, /追踪号/);
 });
 
 test("bounds Graph pagination with a server-side received date filter", async () => {
@@ -308,6 +308,7 @@ test("direct Outlook sync reads remittance attachment content before persisting"
   assert.equal(report.items[0].financial.paymentMethod, "Bank transfer");
   assert.deepEqual(report.items[0].financial.invoiceIds, ["CS665252351"]);
   assert.match(report.items[0].bodyText, /Payment date: 2026-07-31/);
-  assert.ok(report.items[0].keyFacts.length > 0);
+  assert.equal(report.items[0].aiBrief.conclusion, "收到汇款或结算通知。");
+  assert.deepEqual(report.items[0].aiBrief.actions, ["核对回款金额、汇款单和关联发票。"]);
   assert.ok(calls.some((target) => target.endsWith("/$value")));
 });

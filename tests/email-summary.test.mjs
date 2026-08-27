@@ -109,7 +109,7 @@ test("keeps identifiers, deadline, and exception for other operational mail", ()
   assert.doesNotMatch(result.bodyPreview, /Best regards/i);
 });
 
-test("extracts organized facts from the full body when Outlook preview is incomplete", () => {
+test("extracts a structured brief from the full body when Outlook preview is incomplete", () => {
   const result = normalizeEmailBriefItem({
     category: "订单履约",
     subject: "New comment added to ticket (CATAPINT-602)",
@@ -124,11 +124,11 @@ test("extracts organized facts from the full body when Outlook preview is incomp
   });
 
   assert.match(result.bodyText, /corrected invoice by 2026-08-29/);
-  assert.match(result.keyFacts.join("\n"), /CATAPINT-602/);
-  assert.match(result.keyFacts.join("\n"), /CS670434030/);
-  assert.match(result.keyFacts.join("\n"), /2026-08-29/);
-  assert.match(result.keyFacts.join("\n"), /tracking number/i);
-  assert.doesNotMatch(result.keyFacts.join("\n"), /Best regards/i);
+  assert.match(result.aiBrief.conclusion, /CATAPINT-602/);
+  assert.match(result.aiBrief.conclusion, /CS670434030/);
+  assert.equal(result.aiBrief.deadline, "2026-08-29");
+  assert.match(result.aiBrief.context, /追踪号/);
+  assert.equal(result.keyFacts.length, 0);
 });
 
 test("builds a concise, actionable brief instead of exposing ticket body lines", () => {

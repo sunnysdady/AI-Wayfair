@@ -747,6 +747,13 @@ type EmailOrder = {
   totalAmount: number;
   items: EmailOrderItem[];
 };
+type EmailAiBrief = {
+  conclusion: string;
+  actions: string[];
+  deadline: string;
+  risk: string;
+  context: string;
+};
 type EmailItem = {
   id: string;
   category?: string;
@@ -759,6 +766,7 @@ type EmailItem = {
   bodyPreview?: string;
   bodyText?: string;
   keyFacts?: string[];
+  aiBrief?: EmailAiBrief;
   financial?: EmailFinancial;
   order?: EmailOrder;
   owner: string;
@@ -3420,7 +3428,7 @@ function Daily() {
                 <div className="email-order-action">
                   <span>履约要求</span>
                   <p>
-                    {previewEmail.bodyPreview?.split("\n")[0] ||
+                    {previewEmail.aiBrief?.actions[0] || previewEmail.bodyPreview?.split("\n")[0] ||
                       previewEmail.summary}
                   </p>
                 </div>
@@ -3489,17 +3497,40 @@ function Daily() {
                 </div>
               </section>
             )}
-            {!!previewEmail.keyFacts?.length && (
-              <section className="email-key-facts" aria-label="邮件正文关键整理">
+            {previewEmail.aiBrief && (
+              <section className="email-ai-brief" aria-label="AI 运营提要">
                 <header>
-                  <span>KEY FACTS</span>
-                  <h3>邮件正文关键整理</h3>
+                  <span>AI BRIEF</span>
+                  <h3>AI 运营提要</h3>
                 </header>
-                <ul>
-                  {previewEmail.keyFacts.map((fact, index) => (
-                    <li key={`${fact}-${index}`}>{fact}</li>
-                  ))}
-                </ul>
+                <p className="email-ai-conclusion">{previewEmail.aiBrief.conclusion}</p>
+                <div className="email-ai-details">
+                  <article>
+                    <span>需要处理</span>
+                    {previewEmail.aiBrief.actions.length ? (
+                      <ul>
+                        {previewEmail.aiBrief.actions.map((action, index) => (
+                          <li key={`${action}-${index}`}>{action}</li>
+                        ))}
+                      </ul>
+                    ) : <p>无需立即操作</p>}
+                  </article>
+                  {previewEmail.aiBrief.deadline && (
+                    <article>
+                      <span>截止时间</span>
+                      <strong>{previewEmail.aiBrief.deadline}</strong>
+                    </article>
+                  )}
+                  {previewEmail.aiBrief.risk && (
+                    <article className="risk">
+                      <span>风险提示</span>
+                      <p>{previewEmail.aiBrief.risk}</p>
+                    </article>
+                  )}
+                </div>
+                {previewEmail.aiBrief.context && (
+                  <p className="email-ai-context">背景：{previewEmail.aiBrief.context}</p>
+                )}
               </section>
             )}
             {previewEmail.bodyText ? (
