@@ -210,6 +210,23 @@ export default function ProductAdditionWorkspace() {
     assessment.aggregate.validateOnlyReadyProducts === assessment.aggregate.products,
   );
 
+  const assessmentPreview = useMemo(() => {
+    if (!assessment?.products.length) return null;
+    const componentAverages = Object.keys(COMPONENT_LABELS).map((key) => ({
+      key,
+      label: COMPONENT_LABELS[key],
+      value: Math.round(
+        assessment.products.reduce((total, product) => total + (product.components[key] || 0), 0) /
+          assessment.products.length,
+      ),
+    }));
+    const issues = assessment.products
+      .flatMap((product) => product.issues.map((issue) => ({ productId: product.productId, issue })))
+      .sort((left, right) => Number(right.issue.severity === "BLOCKER") - Number(left.issue.severity === "BLOCKER"))
+      .slice(0, 4);
+    return { componentAverages, issues };
+  }, [assessment]);
+
   async function post(action: string, input: Record<string, unknown>) {
     setBusy(action);
     setError("");
@@ -364,34 +381,96 @@ export default function ProductAdditionWorkspace() {
         ) : <p className="product-addition-hint">只读取 OAuth、分类、品牌和属性规则，不创建、不修改商品，也不读取库存。</p>}
       </section>
 
-      <section className="card product-addition-editor">
-        <header><div><span>DRAFT ATTRIBUTE ASSESSMENT</span><h3>商品属性草稿与评分</h3></div><b>本地硬性 Gate → Wayfair validateOnly</b></header>
-        <textarea
-          aria-label="Product Addition JSON 载荷"
-          spellCheck={false}
-          value={payloadText}
-          onChange={(event) => {
-            setPayloadText(event.target.value);
-            setAssessment(null);
-          }}
-        />
-        <footer>
-          <p>评分先检查必填、推荐、数据类型、单/多值和候选值；父子条件及 Wayfair 服务端规则由 validateOnly 终验。</p>
-          <div className="product-addition-editor-actions">
-            <button className="ghost" disabled={busy !== "" || !readiness?.readEnabled} onClick={assess}>
-              {busy === "assess" ? "评分中…" : "生成属性评分"}
-            </button>
-            <button className="primary" disabled={busy !== "" || !readiness?.readEnabled || !assessmentGatePassed} onClick={preflight}>
-              {busy === "preflight" ? "提交预检中…" : "进入 validateOnly 终验"}
-            </button>
+      <div className="product-attribute-workbench">
+        <section className="card product-addition-editor">
+          <header><div><span>DRAFT ATTRIBUTE ASSESSMENT</span><h3>商品属性草稿</h3></div><b>本地 Gate → validateOnly</b></header>
+          <div className="product-addition-editor-label">
+            <span>PRODUCT ADDITION JSON</span>
+            <small>修改载荷后需重新评分</small>
           </div>
-        </footer>
-      </section>
+          <textarea
+            aria-label="Product Addition JSON 载荷"
+            spellCheck={false}
+            value={payloadText}
+            onChange={(event) => {
+              setPayloadText(event.target.value);
+              setAssessment(null);
+            }}
+          />
+          <footer>
+            <p>检查必填、推荐、数据类型、单/多值和候选值；父子条件及服务端规则由 Wayfair validateOnly 终验。</p>
+            <div className="product-addition-editor-actions">
+              <button className="ghost" disabled={busy !== "" || !readiness?.readEnabled} onClick={assess}>
+                {busy === "assess" ? "评分中…" : "生成属性评分"}
+              </button>
+              <button className="primary" disabled={busy !== "" || !readiness?.readEnabled || !assessmentGatePassed} onClick={preflight}>
+                {busy === "preflight" ? "提交预检中…" : "进入 validateOnly 终验"}
+              </button>
+            </div>
+          </footer>
+        </section>
+
+        <aside className={`card product-attribute-inspector ${assessmentGatePassed ? "passed" : assessment ? "blocked" : "empty"}`} aria-live="polite">
+          <header>
+            <div><span>ATTRIBUTE SCORE</span><h3>属性健康评分</h3></div>
+            <b>{assessment ? (assessmentGatePassed ? "可进入终验" : "需先修复") : "等待评分"}</b>
+          </header>
+          {assessment && assessmentPreview ? (
+            <>
+              <div className="product-attribute-inspector-score">
+                <div
+                  className="product-attribute-score-ring"
+                  style={{ background: `conic-gradient(${assessmentGatePassed ? "#4f7758" : "#a14f58"} ${assessment.aggregate.averageScore * 3.6}deg, #ece7ed 0deg)` }}
+                  aria-label={`属性平均分 ${assessment.aggregate.averageScore} 分`}
+                >
+                  <div><strong>{assessment.aggregate.averageScore}</strong><small>/ 100</small></div>
+                </div>
+                <div>
+                  <span className={`product-attribute-gate ${assessmentGatePassed ? "passed" : "blocked"}`}>
+                    {assessmentGatePassed ? "LOCAL GATE PASS" : "LOCAL GATE BLOCKED"}
+                  </span>
+                  <h4>{assessmentGatePassed ? "可观察规则已通过" : `${assessment.aggregate.blockedProducts} 个商品存在硬性阻断`}</h4>
+                  <p>系统内部完成度评分，Wayfair 官方结果以 validateOnly 为准。</p>
+                </div>
+              </div>
+              <dl className="product-attribute-inspector-kpis">
+                <div><dt>商品</dt><dd>{assessment.aggregate.products}</dd></div>
+                <div><dt>硬性阻断</dt><dd>{assessment.aggregate.blockedProducts}</dd></div>
+                <div><dt>可进终验</dt><dd>{assessment.aggregate.validateOnlyReadyProducts}</dd></div>
+              </dl>
+              <div className="product-attribute-inspector-components">
+                <h4>评分维度</h4>
+                {assessmentPreview.componentAverages.map((component) => (
+                  <div key={component.key}>
+                    <span>{component.label}</span><b>{component.value}</b>
+                    <i><em style={{ width: `${component.value}%` }} /></i>
+                  </div>
+                ))}
+              </div>
+              <div className="product-attribute-inspector-issues">
+                <div><h4>优先处理</h4><a href="#attribute-assessment">查看全部明细</a></div>
+                {assessmentPreview.issues.length ? assessmentPreview.issues.map(({ productId, issue }, index) => (
+                  <article key={`${productId}-${issue.code}-${issue.attributeId}-${index}`}>
+                    <span className={issue.severity === "BLOCKER" ? "blocker" : "warning"}>{issue.severity === "BLOCKER" ? "阻断" : "建议"}</span>
+                    <div><strong>{issue.title}</strong><small>{productId || "未命名商品"} · {issue.attributeId}</small><p>{issue.suggestion}</p></div>
+                  </article>
+                )) : <p className="product-attribute-clean">没有待处理的可观察问题。</p>}
+              </div>
+            </>
+          ) : (
+            <div className="product-attribute-inspector-empty">
+              <div>01</div><p><strong>读取规则</strong><span>获取 Class 的必填、推荐和候选值。</span></p>
+              <div>02</div><p><strong>编辑草稿</strong><span>填入商品与属性 JSON，不会创建商品。</span></p>
+              <div>03</div><p><strong>生成评分</strong><span>定位缺失与不合规项，再进入终验。</span></p>
+            </div>
+          )}
+        </aside>
+      </div>
 
       {assessment ? (
-        <section className="card product-attribute-assessment">
+        <section className="card product-attribute-assessment" id="attribute-assessment">
           <header>
-            <div><span>WAYFAIR ATTRIBUTE COMPLIANCE</span><h3>属性合规完成度</h3></div>
+            <div><span>WAYFAIR ATTRIBUTE COMPLIANCE</span><h3>评分明细与修复清单</h3></div>
             <b>{assessment.method.name}</b>
           </header>
           <div className="product-attribute-scoreboard">
