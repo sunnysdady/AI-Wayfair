@@ -93,7 +93,12 @@ function boundedInteger(value: string | undefined, fallback: number, maximum: nu
     : fallback;
 }
 
-async function runSync(request: Request, env: Env, manualFull = false) {
+async function runSync(
+  request: Request,
+  env: Env,
+  manualFull = false,
+  outlookOnly = false,
+) {
   const db = env.DB;
   await ensureSyncTables(db);
   const now = new Date();
@@ -120,6 +125,36 @@ async function runSync(request: Request, env: Env, manualFull = false) {
     const outlookLookbackDays = manualFull
       ? boundedInteger(env.OUTLOOK_MANUAL_SYNC_LOOKBACK_DAYS, 45, 90)
       : 2;
+    if (outlookOnly) {
+      if (!outlookConfigured) {
+        throw new Error("Outlook 同步未配置 Microsoft Graph 凭据");
+      }
+      const outlook = await syncOutlookDaily({
+        env,
+        db,
+        now,
+        lookbackDays: outlookLookbackDays,
+      });
+      const result = {
+        ok: true,
+        status: "succeeded",
+        mode: "manual-outlook-backfill",
+        startedAt: now.toISOString(),
+        completedAt: new Date().toISOString(),
+        lookbackDays: outlookLookbackDays,
+        outlook,
+      };
+      await db.prepare(
+        "INSERT INTO sync_state(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",
+      ).bind(
+        "server:outlook-backfill:last-run",
+        JSON.stringify(result),
+        result.completedAt,
+      ).run();
+      return Response.json(result, {
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
     const requestInternal = (target: URL | Request) => {
       const upstream = target instanceof Request ? new URL(target.url) : new URL(target);
       return fetch(`${origin}${upstream.pathname}${upstream.search}`, {
@@ -216,5 +251,6 @@ export async function POST(request: Request) {
   if (!manuallyAuthorized(request, env)) {
     return Response.json({ error: "全站点同步需要已登录的运营账号" }, { status: 401 });
   }
-  return runSync(request, env, true);
+  const outlookOnly = new URL(request.url).searchParams.get("outlookOnly") === "1";
+  return runSync(request, env, true, outlookOnly);
 }

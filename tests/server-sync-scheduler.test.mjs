@@ -326,6 +326,8 @@ test("scheduler skips Outlook only when Microsoft Graph credentials are incomple
   assert.match(route, /env\.MICROSOFT_CLIENT_ID/);
   assert.match(route, /env\.MICROSOFT_CLIENT_SECRET/);
   assert.match(route, /OUTLOOK_MANUAL_SYNC_LOOKBACK_DAYS/);
+  assert.match(route, /outlookOnly/);
+  assert.match(route, /manual-outlook-backfill/);
   assert.match(
     route,
     /syncOutlook: outlookConfigured\s*\?\s*\(\) => syncOutlookDaily\(\{ env, db, now, lookbackDays: outlookLookbackDays \}\)\s*:\s*undefined/,
