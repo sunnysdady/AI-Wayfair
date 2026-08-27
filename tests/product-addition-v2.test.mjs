@@ -7,6 +7,7 @@ import {
   buildSubmitVariables,
   payloadHash,
   productAdditionReadiness,
+  summarizeProductAdditionStatus,
 } from "../lib/wayfair-product-addition-v2.mjs";
 
 const proposal = {
@@ -141,5 +142,26 @@ test("rejects malformed and oversized Product Addition payloads", () => {
         { validateOnly: true },
       ),
     /最多包含 100 个商品/,
+  );
+});
+
+test("summarizes polling results into pending, success, or failure terminal states", () => {
+  assert.deepEqual(
+    summarizeProductAdditionStatus({
+      productAdditionStatus: [{ validationStatus: "PROCESSING", submissionStatus: null }],
+    }),
+    { terminal: false, successful: false, statuses: ["PROCESSING"] },
+  );
+  assert.deepEqual(
+    summarizeProductAdditionStatus({
+      productAdditionStatus: [{ validationStatus: "VALIDATED", submissionStatus: "COMPLETED" }],
+    }),
+    { terminal: true, successful: true, statuses: ["VALIDATED", "COMPLETED"] },
+  );
+  assert.deepEqual(
+    summarizeProductAdditionStatus({
+      productAdditionStatus: [{ validationStatus: "VALIDATED", submissionStatus: "REJECTED" }],
+    }),
+    { terminal: true, successful: false, statuses: ["VALIDATED", "REJECTED"] },
   );
 });
