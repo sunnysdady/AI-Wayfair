@@ -24,11 +24,82 @@ type ProductAdditionRun = {
   updatedAt: string;
 };
 
+type AttributeRule = {
+  taxonomyAttributeId?: string;
+  internalName?: string;
+  title?: string;
+  description?: string;
+  requirement?: string;
+  isActive?: boolean;
+  isMultiValue?: boolean;
+  isCustomEligible?: boolean;
+  possibleAttributeValues?: Array<{ value?: string }>;
+  valueFormat?: {
+    datatype?: string;
+    canValueBeCustomized?: boolean;
+  };
+};
+
 type Discovery = {
   classId: string;
   categories: unknown[];
   brands: unknown[];
-  attributes: unknown[];
+  attributes: AttributeRule[];
+};
+
+type HealthIssue = {
+  code: string;
+  severity: "BLOCKER" | "WARNING";
+  attributeId: string;
+  title: string;
+  message: string;
+  suggestion: string;
+  currentValues: string[];
+  allowedValues: string[];
+};
+
+type AttributeAssessment = {
+  productId: string;
+  classId: string;
+  score: number;
+  band: string;
+  hardGate: "PASS" | "BLOCKED";
+  canRunValidateOnly: boolean;
+  components: Record<string, number>;
+  stats: {
+    activeRules: number;
+    required: number;
+    requiredPresent: number;
+    recommended: number;
+    recommendedPresent: number;
+    checkedValues: number;
+    validValues: number;
+    blockers: number;
+    warnings: number;
+  };
+  issues: HealthIssue[];
+};
+
+type ProductAssessment = {
+  assessmentId: string;
+  operationId: string;
+  assessedAt: string;
+  classId: string;
+  ruleFingerprint: string;
+  payloadFingerprint: string;
+  method: {
+    name: string;
+    version: string;
+    weights: Record<string, number>;
+  };
+  aggregate: {
+    products: number;
+    averageScore: number;
+    blockedProducts: number;
+    validateOnlyReadyProducts: number;
+  };
+  limitations: Array<{ code: string; message: string }>;
+  products: AttributeAssessment[];
 };
 
 type ApiResponse = {
@@ -36,7 +107,15 @@ type ApiResponse = {
   discovery?: Discovery | null;
   runs?: ProductAdditionRun[];
   run?: ProductAdditionRun;
+  assessment?: ProductAssessment;
   error?: string;
+};
+
+const COMPONENT_LABELS: Record<string, string> = {
+  requiredCompleteness: "必填完整度",
+  observableValueValidity: "可观察值合规",
+  recommendedCompleteness: "推荐项完整度",
+  identityCompleteness: "身份字段完整度",
 };
 
 const SAMPLE_PAYLOAD = JSON.stringify(
@@ -75,6 +154,9 @@ export default function ProductAdditionWorkspace() {
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [runs, setRuns] = useState<ProductAdditionRun[]>([]);
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
+  const [assessment, setAssessment] = useState<ProductAssessment | null>(null);
+  const [classId, setClassId] = useState("3");
+  const [ruleFilter, setRuleFilter] = useState<"ALL" | "REQUIRED" | "RECOMMENDED">("ALL");
   const [payloadText, setPayloadText] = useState(SAMPLE_PAYLOAD);
   const [preflightRunId, setPreflightRunId] = useState("");
   const [liveConfirmation, setLiveConfirmation] = useState("");
@@ -87,14 +169,14 @@ export default function ProductAdditionWorkspace() {
   const load = useCallback(async (discover = false) => {
     setError("");
     const response = await fetch(
-      `/api/catalog/product-addition/${discover ? "?discover=1&classId=3" : ""}`,
+      `/api/catalog/product-addition/${discover ? `?discover=1&classId=${encodeURIComponent(classId)}` : ""}`,
       { cache: "no-store" },
     );
     const body = await readBody(response);
     setReadiness(body.readiness || null);
     setRuns(body.runs || []);
     if (discover) setDiscovery(body.discovery || null);
-  }, []);
+  }, [classId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -114,6 +196,18 @@ export default function ProductAdditionWorkspace() {
   const closedPreflights = useMemo(
     () => runs.filter((run) => run.mode === "PREFLIGHT" && run.status === "CLOSED"),
     [runs],
+  );
+
+  const visibleRules = useMemo(() => {
+    const active = (discovery?.attributes || []).filter((rule) => rule.isActive !== false);
+    if (ruleFilter === "ALL") return active;
+    return active.filter((rule) => String(rule.requirement || "").toUpperCase().includes(ruleFilter));
+  }, [discovery, ruleFilter]);
+
+  const assessmentGatePassed = Boolean(
+    assessment &&
+    assessment.aggregate.blockedProducts === 0 &&
+    assessment.aggregate.validateOnlyReadyProducts === assessment.aggregate.products,
   );
 
   async function post(action: string, input: Record<string, unknown>) {
@@ -156,7 +250,24 @@ export default function ProductAdditionWorkspace() {
 
   async function preflight() {
     try {
+      if (!assessmentGatePassed) throw new Error("请先完成属性评分，并修复所有硬性阻断项");
       await post("preflight", { payload: parsedPayload() });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "载荷解析失败");
+    }
+  }
+
+  async function assess() {
+    try {
+      const body = await post("assess", { payload: parsedPayload() });
+      if (!body?.assessment) return;
+      setAssessment(body.assessment);
+      if (body.discovery) setDiscovery(body.discovery);
+      setMessage(
+        body.assessment.aggregate.blockedProducts
+          ? `评分完成：${body.assessment.aggregate.blockedProducts} 个商品被硬性闸门阻断，请按属性提示修复。`
+          : "评分完成：本地可观察规则已通过，可以进入 Wayfair validateOnly 终验。",
+      );
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "载荷解析失败");
     }
@@ -180,9 +291,9 @@ export default function ProductAdditionWorkspace() {
     <div className="product-addition-workspace">
       <section className="card product-addition-summary">
         <div>
-          <span>PRODUCTION READINESS</span>
-          <h2>Product Addition V2</h2>
-          <p>读取、预检、正式提交和验收共用 operationId；正式提交默认关闭，Secret 仅保存在服务端。</p>
+          <span>ATTRIBUTE HEALTH CENTER</span>
+          <h2>产品属性体检中心</h2>
+          <p>读取 Wayfair Product Addition V2 的真实 Class 属性规则，展示属性要求、评分并定位缺失项；评分是系统评估，不是 Wayfair 官方评分，最终仍以 validateOnly 为准。</p>
         </div>
         <dl>
           <div><dt>供应商</dt><dd>{readiness?.supplierId || "未配置"}</dd></div>
@@ -196,41 +307,137 @@ export default function ProductAdditionWorkspace() {
 
       <section className="card product-addition-discovery">
         <header>
-          <div><span>READ-ONLY CHECK</span><h3>生产读取权限</h3></div>
-          <button
-            className="ghost"
-            disabled={busy !== "" || !readiness?.readEnabled}
-            onClick={() => {
-              setBusy("discover");
-              setError("");
-              load(true).catch((reason) => setError(reason instanceof Error ? reason.message : "读取失败")).finally(() => setBusy(""));
-            }}
-          >{busy === "discover" ? "验证中…" : "验证生产读取权限"}</button>
+          <div><span>WAYFAIR RULE SNAPSHOT</span><h3>属性要求与候选值</h3></div>
+          <div className="product-addition-discovery-controls">
+            <label>Class ID<input value={classId} onChange={(event) => setClassId(event.target.value)} /></label>
+            <button
+              className="ghost"
+              disabled={busy !== "" || !readiness?.readEnabled || !classId.trim()}
+              onClick={() => {
+                setBusy("discover");
+                setError("");
+                load(true).catch((reason) => setError(reason instanceof Error ? reason.message : "读取失败")).finally(() => setBusy(""));
+              }}
+            >{busy === "discover" ? "读取中…" : "读取 Wayfair 属性规则"}</button>
+          </div>
         </header>
         {discovery ? (
-          <div className="product-addition-metrics">
-            <div><b>{discovery.categories.length}</b><span>分类</span></div>
-            <div><b>{discovery.brands.length}</b><span>品牌关联</span></div>
-            <div><b>{discovery.attributes.length}</b><span>Class {discovery.classId} 属性</span></div>
-          </div>
-        ) : <p className="product-addition-hint">只执行 OAuth 和三项读取查询，不创建或修改商品。</p>}
+          <>
+            <div className="product-addition-metrics">
+              <div><b>{discovery.categories.length}</b><span>分类</span></div>
+              <div><b>{discovery.brands.length}</b><span>品牌关联</span></div>
+              <div><b>{discovery.attributes.length}</b><span>Class {discovery.classId} 属性规则</span></div>
+            </div>
+            <div className="product-attribute-filter" aria-label="属性规则筛选">
+              {(["ALL", "REQUIRED", "RECOMMENDED"] as const).map((filter) => (
+                <button key={filter} className={ruleFilter === filter ? "active" : ""} onClick={() => setRuleFilter(filter)}>
+                  {filter === "ALL" ? "全部属性" : filter === "REQUIRED" ? "必填" : "推荐"}
+                </button>
+              ))}
+              <small>显示 {Math.min(visibleRules.length, 120)} / {visibleRules.length} 条</small>
+            </div>
+            <div className="product-attribute-rule-list">
+              {visibleRules.slice(0, 120).map((rule) => {
+                const id = rule.taxonomyAttributeId || rule.internalName || "unknown";
+                const allowed = (rule.possibleAttributeValues || []).map((item) => item.value).filter(Boolean);
+                const requirement = String(rule.requirement || "OPTIONAL").toUpperCase();
+                return (
+                  <article key={id}>
+                    <div>
+                      <span className={requirement.includes("REQUIRED") ? "required" : requirement.includes("RECOMMENDED") ? "recommended" : "optional"}>
+                        {requirement.includes("REQUIRED") ? "必填" : requirement.includes("RECOMMENDED") ? "推荐" : "选填"}
+                      </span>
+                      <strong>{rule.title || rule.internalName || id}</strong>
+                      <code>{id}</code>
+                    </div>
+                    <dl>
+                      <div><dt>类型</dt><dd>{rule.valueFormat?.datatype || "未声明"}</dd></div>
+                      <div><dt>取值</dt><dd>{rule.isMultiValue ? "多值" : "单值"}</dd></div>
+                      <div><dt>自定义</dt><dd>{rule.valueFormat?.canValueBeCustomized || rule.isCustomEligible ? "允许" : "受限"}</dd></div>
+                    </dl>
+                    <p>{rule.description || (allowed.length ? `候选值：${allowed.slice(0, 8).join("、")}${allowed.length > 8 ? "…" : ""}` : "Wayfair 未返回补充说明")}</p>
+                  </article>
+                );
+              })}
+            </div>
+          </>
+        ) : <p className="product-addition-hint">只读取 OAuth、分类、品牌和属性规则，不创建、不修改商品，也不读取库存。</p>}
       </section>
 
       <section className="card product-addition-editor">
-        <header><div><span>VALIDATE ONLY</span><h3>载荷预检</h3></div><b>不会创建商品</b></header>
+        <header><div><span>DRAFT ATTRIBUTE ASSESSMENT</span><h3>商品属性草稿与评分</h3></div><b>本地硬性 Gate → Wayfair validateOnly</b></header>
         <textarea
           aria-label="Product Addition JSON 载荷"
           spellCheck={false}
           value={payloadText}
-          onChange={(event) => setPayloadText(event.target.value)}
+          onChange={(event) => {
+            setPayloadText(event.target.value);
+            setAssessment(null);
+          }}
         />
         <footer>
-          <p>服务端固定 validateOnly=true、ignoreWarnings=false、rejectAllOnErrors=true，并记录载荷 SHA-256。</p>
-          <button className="primary" disabled={busy !== "" || !readiness?.readEnabled} onClick={preflight}>
-            {busy === "preflight" ? "提交预检中…" : "提交 validateOnly 预检"}
-          </button>
+          <p>评分先检查必填、推荐、数据类型、单/多值和候选值；父子条件及 Wayfair 服务端规则由 validateOnly 终验。</p>
+          <div className="product-addition-editor-actions">
+            <button className="ghost" disabled={busy !== "" || !readiness?.readEnabled} onClick={assess}>
+              {busy === "assess" ? "评分中…" : "生成属性评分"}
+            </button>
+            <button className="primary" disabled={busy !== "" || !readiness?.readEnabled || !assessmentGatePassed} onClick={preflight}>
+              {busy === "preflight" ? "提交预检中…" : "进入 validateOnly 终验"}
+            </button>
+          </div>
         </footer>
       </section>
+
+      {assessment ? (
+        <section className="card product-attribute-assessment">
+          <header>
+            <div><span>WAYFAIR ATTRIBUTE COMPLIANCE</span><h3>属性合规完成度</h3></div>
+            <b>{assessment.method.name}</b>
+          </header>
+          <div className="product-attribute-scoreboard">
+            <div className={assessment.aggregate.blockedProducts ? "blocked" : "passed"}>
+              <b>{assessment.aggregate.averageScore}</b><span>平均分 / 100</span>
+            </div>
+            <dl>
+              <div><dt>商品</dt><dd>{assessment.aggregate.products}</dd></div>
+              <div><dt>硬性阻断</dt><dd>{assessment.aggregate.blockedProducts}</dd></div>
+              <div><dt>可进终验</dt><dd>{assessment.aggregate.validateOnlyReadyProducts}</dd></div>
+            </dl>
+            <div className="product-attribute-receipt">
+              <span>闭环 operationId</span><code>{assessment.operationId}</code>
+              <span>assessmentId</span><code>{assessment.assessmentId}</code>
+            </div>
+          </div>
+          {assessment.products.map((product) => (
+            <article className="product-attribute-product" key={`${product.productId}-${product.classId}`}>
+              <header>
+                <div><span>{product.hardGate === "PASS" ? "LOCAL GATE PASS" : "LOCAL GATE BLOCKED"}</span><h4>{product.productId || "未命名商品"}</h4></div>
+                <div className={`product-attribute-score ${product.hardGate === "PASS" ? "passed" : "blocked"}`}><b>{product.score}</b><small>{product.band}</small></div>
+              </header>
+              <div className="product-attribute-components">
+                {Object.entries(product.components).map(([key, value]) => (
+                  <div key={key}><span>{COMPONENT_LABELS[key] || key}</span><b>{value}</b></div>
+                ))}
+              </div>
+              {product.issues.length ? (
+                <div className="product-attribute-issues">
+                  {product.issues.map((issue, index) => (
+                    <article className={issue.severity === "BLOCKER" ? "blocker" : "warning"} key={`${issue.code}-${issue.attributeId}-${index}`}>
+                      <span>{issue.severity === "BLOCKER" ? "必须修复" : "建议补充"}</span>
+                      <div><strong>{issue.title}</strong><code>{issue.attributeId}</code><p>{issue.message}</p><small>{issue.suggestion}</small></div>
+                    </article>
+                  ))}
+                </div>
+              ) : <p className="product-attribute-clean">可观察规则全部通过，可以进入 Wayfair validateOnly 终验。</p>}
+            </article>
+          ))}
+          {assessment.limitations.map((limitation) => <p className="product-addition-hint" key={limitation.code}>{limitation.message}</p>)}
+          <footer className="product-attribute-evidence">
+            <span>规则指纹 <code>{assessment.ruleFingerprint}</code></span>
+            <span>载荷指纹 <code>{assessment.payloadFingerprint}</code></span>
+          </footer>
+        </section>
+      ) : null}
 
       <section className="card product-addition-live">
         <header><div><span>LIVE MUTATION</span><h3>正式提交闸门</h3></div><b>{readiness?.liveSubmitEnabled ? "需双重确认" : "服务端已关闭"}</b></header>

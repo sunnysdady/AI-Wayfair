@@ -7,6 +7,7 @@ import {
   updateProductAdditionRun,
 } from "@/lib/product-addition-runs.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+import { assessWayfairAttributeHealth } from "@/lib/wayfair-attribute-health.mjs";
 import {
   assertProductAdditionLiveGate,
   discoverProductAddition,
@@ -71,6 +72,62 @@ function operationInput(run: NonNullable<Run>, status: string, details: Record<s
   };
 }
 
+function assessmentOperationInput(
+  assessment: ReturnType<typeof assessWayfairAttributeHealth>,
+  operationId: string,
+  status: string,
+) {
+  const result = `属性体检完成：${assessment.aggregate.products} 个商品，平均 ${assessment.aggregate.averageScore} 分，${assessment.aggregate.blockedProducts} 个被硬性闸门阻断`;
+  const closed = ["PENDING_ACCEPTANCE", "VERIFIED", "CLOSED"].includes(status);
+  return {
+    operationId,
+    sourceType: "WAYFAIR_PRODUCT_ADDITION_V2",
+    sourceId: assessment.assessmentId,
+    objectType: "PRODUCT_ATTRIBUTE_ASSESSMENT",
+    objectId: assessment.payloadFingerprint,
+    title: "Product Addition 属性合规体检",
+    owner: "Wayfair API 操作员",
+    status,
+    proposedAction: `读取 Wayfair Class ${assessment.classId} 属性规则并评估草稿，不写入 Wayfair`,
+    beforeState: {
+      classId: assessment.classId,
+      payloadFingerprint: assessment.payloadFingerprint,
+      products: assessment.aggregate.products,
+    },
+    intendedAfterState: {
+      assessmentId: assessment.assessmentId,
+      ruleFingerprint: assessment.ruleFingerprint,
+      hardGate: assessment.aggregate.blockedProducts ? "BLOCKED" : "PASS",
+    },
+    executionResult: closed ? result : "",
+    terminalReceipt: closed ? assessment.assessmentId : "",
+    evidence: closed ? [
+      { type: "ASSESSMENT_ID", value: assessment.assessmentId },
+      { type: "RULE_FINGERPRINT", value: assessment.ruleFingerprint },
+      { type: "PAYLOAD_FINGERPRINT", value: assessment.payloadFingerprint },
+    ] : [],
+    acceptanceCriteria: closed ? "规则与载荷指纹已固化，所有问题可追溯到 attributeId，且未执行 Wayfair 写入" : "",
+    acceptedBy: ["VERIFIED", "CLOSED"].includes(status) ? "system:attribute-health-engine" : "",
+    reviewVerdict: status === "CLOSED" ? "ASSESSMENT_COMPLETED" : "",
+    rollbackLink: `/product-addition?assessmentId=${encodeURIComponent(assessment.assessmentId)}`,
+  };
+}
+
+async function closeAssessmentOperation(
+  env: RuntimeEnv,
+  assessment: ReturnType<typeof assessWayfairAttributeHealth>,
+) {
+  const operationId = `WAYFAIR-AH-${crypto.randomUUID()}`;
+  for (const status of ["DISCOVERED", "ASSIGNED", "PREFLIGHTED", "EXECUTING", "PENDING_ACCEPTANCE", "VERIFIED", "CLOSED"]) {
+    await upsertOperation(
+      env.DB,
+      assessmentOperationInput(assessment, operationId, status),
+      `PRODUCT_ATTRIBUTE_ASSESSMENT_${status}`,
+    );
+  }
+  return operationId;
+}
+
 async function moveOperation(env: RuntimeEnv, run: NonNullable<Run>, statuses: string[]) {
   for (const status of statuses) {
     await upsertOperation(env.DB, operationInput(run, status), `PRODUCT_ADDITION_${status}`);
@@ -109,6 +166,24 @@ export async function POST(request: Request) {
     env = await getRuntimeBindings();
     const body = await request.json();
     const action = String(body?.action || "");
+
+    if (action === "assess") {
+      const products = Array.isArray(body?.payload?.proposedProductAdditions)
+        ? body.payload.proposedProductAdditions
+        : [];
+      const classIds: string[] = [...new Set<string>(
+        products.map((product: { classId?: unknown }) => String(product?.classId || "").trim()).filter(Boolean),
+      )];
+      if (classIds.length !== 1) throw new Error("首期属性体检一次只支持同一个 Class，且 classId 不能为空");
+      const discovery = await discoverProductAddition(env, { classId: classIds[0] });
+      const assessment = assessWayfairAttributeHealth({
+        classId: classIds[0],
+        rules: discovery.attributes,
+        payload: body.payload,
+      });
+      const operationId = await closeAssessmentOperation(env, assessment);
+      return noStore({ assessment: { ...assessment, operationId }, discovery });
+    }
 
     if (action === "preflight") {
       const hash = payloadHash(body.payload);
