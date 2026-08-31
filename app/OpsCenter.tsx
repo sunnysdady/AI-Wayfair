@@ -8570,7 +8570,7 @@ function NewProductSopWorkspace() {
 
 function SkuOperatingPerformance() {
   const retained = readClientCache<ProductOperatingAudit>(
-    "product-operating-audit:2026-07-27.v2",
+    "product-operating-audit:2026-07-27.v3",
     CLIENT_CACHE_RETENTION_MS,
   );
   const [audit, setAudit] = useState<ProductOperatingAudit | null>(retained);
@@ -8594,7 +8594,7 @@ function SkuOperatingPerformance() {
       })
       .then((body) => {
         setAudit(body);
-        writeClientCache("product-operating-audit:2026-07-27.v2", body);
+        writeClientCache("product-operating-audit:2026-07-27.v3", body);
       })
       .catch((reason) => {
         if (reason.name !== "AbortError")
@@ -8746,7 +8746,7 @@ function SkuOperatingPerformance() {
           <b>只读动作约束</b>
           <p>
             {audit?.executionRule ||
-              "G4 默认 HOLD；审计视图不生成任何执行动作。"}
+              "C/D 默认 HOLD；审计视图不生成任何执行动作。"}
           </p>
           <small>
             {audit?.profitDefinition ||
@@ -8771,7 +8771,7 @@ function SkuOperatingPerformance() {
               onChange={(event) => setTier(event.target.value)}
             >
               <option value="ALL">全部角色</option>
-              {["G1", "G2", "G3", "G4-D", "G4-R", "GX"].map((value) => (
+              {["S", "A", "B", "C", "D", "E"].map((value) => (
                 <option value={value} key={value}>
                   {value}
                 </option>
@@ -8792,7 +8792,7 @@ function SkuOperatingPerformance() {
           </div>
           {roleRows.map((row) => (
             <article
-              className={`product-audit-row ${row.tier === "GX" ? "isolated" : ""}`}
+              className={`product-audit-row ${row.tier === "E" ? "isolated" : ""}`}
               key={row.listing}
             >
               <span>
@@ -8891,7 +8891,7 @@ function SkuOperatingPerformance() {
       <details className="card legacy-data-card">
         <summary>
           <span>历史基线 · 仅作证据</span>
-          <b>2026-06旧收入层级 · 旧 A/B/C/D 不用于当前动作</b>
+          <b>2026-06历史收入层级 · 仅作当前分级的证据</b>
           <small>
             DRCI1007 曾为 A
             级，但因平台合并仍属于永久剔除，证明旧收入层级不能作为动作授权。
@@ -9225,11 +9225,6 @@ const SKU_INFORMATION_GROUPS = [
     detail: "采购价差、广告覆盖与已知贡献上限",
     source: "Operating audit",
   },
-  {
-    title: "动作边界",
-    detail: "运营角色、证据截止与只读约束",
-    source: "Operating audit",
-  },
 ];
 
 type SkuOperatingFilter = "all" | "repair" | "grow" | "protect";
@@ -9237,6 +9232,7 @@ type SkuOperatingFilter = "all" | "repair" | "grow" | "protect";
 type SkuOperatingRow = {
   part: string;
   listing: string;
+  listingIds: string[];
   category: Exclude<SkuOperatingFilter, "all">;
   lane: string;
   status: string;
@@ -9273,9 +9269,13 @@ function toSkuOperatingRow(item: CatalogItem): SkuOperatingRow {
   const lane = operatingLane(item);
   const trend = metrics?.salesTrendPct;
   const diagnosticCount = (item.insights?.problems?.length || 0) + (item.insights?.warnings?.length || 0);
+  const listingIds = (item.listings?.map((listing) => listing.listingId) || []).filter(
+    (listingId): listingId is string => Boolean(listingId),
+  );
   return {
     part: item.supplierPartNumber,
-    listing: item.listings?.map((listing) => listing.listingId).filter(Boolean).join(" / ") || "Listing 待映射",
+    listing: listingIds.join(" / ") || "Listing 待映射",
+    listingIds,
     ...lane,
     status: item.catalogItemStatus || "未知",
     revenue: metrics ? money(metrics.revenue90d || 0) : "未同步",
@@ -9295,11 +9295,16 @@ function toSkuOperatingRow(item: CatalogItem): SkuOperatingRow {
 }
 
 function SkuOperatingCenter() {
-  const [section, setSection] = useState<"queue" | "audit">("queue");
   const [filter, setFilter] = useState<SkuOperatingFilter>("all");
   const [selectedPart, setSelectedPart] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [data, setData] = useState<CatalogResponse | null>(null);
+  const [audit, setAudit] = useState<ProductOperatingAudit | null>(() =>
+    readClientCache<ProductOperatingAudit>(
+      "product-operating-audit:2026-07-27.v3",
+      CLIENT_CACHE_RETENTION_MS,
+    ),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -9319,6 +9324,21 @@ function SkuOperatingCenter() {
       });
     return () => controller.abort();
   }, [refresh]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/products/operating-audit", { signal: controller.signal })
+      .then(async (response) => {
+        const body = (await response.json()) as ProductOperatingAudit & { error?: string };
+        if (!response.ok) throw new Error(body.error || "产品分级读取失败");
+        return body;
+      })
+      .then((body) => {
+        setAudit(body);
+        writeClientCache("product-operating-audit:2026-07-27.v3", body);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
   const refreshQueue = () => {
     setLoading(true);
     setError("");
@@ -9335,39 +9355,39 @@ function SkuOperatingCenter() {
     (item) => filter === "all" || item.category === filter,
   );
   const selected = rows.find((item) => item.part === selectedPart) || visibleRows[0] || rows[0];
+  const selectedRole = selected
+    ? audit?.roles.find(
+        (row) =>
+          row.parts.includes(selected.part) ||
+          selected.listingIds.includes(row.listing),
+      )
+    : undefined;
+  const selectedAction = selectedRole?.actionGuardrail === "HARD_STOP_REQUIRED"
+    ? "先解决商品资格或映射冲突，再回到经营队列。"
+    : selectedRole?.operatorNote || selected?.action || "—";
   return (
     <div className="sku-operating-center">
       <section className="sku-demo-hero">
         <div className="sku-demo-hero-copy">
-          <span>SKU OPERATING CENTER · READ ONLY</span>
+          <span>SKU OPERATING CENTER</span>
           <h2>今天先经营该经营的 SKU</h2>
           <p>
-            将 Catalog、Product Management 和订单信号按同一套经营语义分流：增长放大、优先修复、表现守护与上架补齐。建议不直接写入生产。
+            将 Catalog、Product Management 和订单信号按同一套经营语义分流：增长放大、优先修复、表现守护与上架补齐。
           </p>
         </div>
         <dl className="sku-demo-kpis">
-          <div><dt>本页已载入</dt><dd>{loading ? "—" : rows.length}</dd><small>Catalog 只读队列</small></div>
+          <div><dt>本页已载入</dt><dd>{loading ? "—" : rows.length}</dd><small>Catalog 商品队列</small></div>
           <div><dt>优先修复</dt><dd>{loading ? "—" : filters[1].count}</dd><small>先补齐问题或转化证据</small></div>
-          <div><dt>增长候选</dt><dd>{loading ? "—" : filters[2].count}</dd><small>仍待库存与广告 Gate</small></div>
+          <div><dt>增长候选</dt><dd>{loading ? "—" : filters[2].count}</dd><small>进入下一轮经营复核</small></div>
         </dl>
       </section>
-      <WorkspaceTabs
-        label="SKU 经营中心视图"
-        items={[
-          { id: "queue", label: "SKU 队列与 360°" },
-          { id: "audit", label: "经营审计与约束" },
-        ]}
-        active={section}
-        onChange={setSection}
-      />
-      {section === "queue" ? (
-        <section className="sku-demo-board" aria-label="SKU 经营队列">
+      <section className="sku-demo-board" aria-label="SKU 经营中心">
           <div className="sku-demo-toolbar">
             <div>
               <span>DECISION QUEUE</span>
               <h3>按经营意图排队，而不是按数据来源堆叠</h3>
             </div>
-            <p>{data?.productManagement?.syncedAt ? "Product Management 已匹配 · 只读" : "Catalog 只读数据 · 不触发写操作"}</p>
+            <p>{data?.productManagement?.syncedAt ? "Product Management 已匹配" : "Catalog 数据已载入"}</p>
           </div>
           <div className="sku-demo-filter" aria-label="经营队列筛选">
             {filters.map((item) => (
@@ -9415,7 +9435,14 @@ function SkuOperatingCenter() {
                       <h3>{selected.part}</h3>
                       <p>{selected.listing} · {selected.status}</p>
                     </div>
-                    <b>{selected.lane}</b>
+                    <div className="sku-demo-tags">
+                      <b>{selected.lane}</b>
+                      {selectedRole ? (
+                        <i className={`product-audit-tier tier-${selectedRole.tier.toLowerCase()}`}>
+                          {selectedRole.tier}
+                        </i>
+                      ) : null}
+                    </div>
                   </header>
                   <dl className="sku-demo-metrics">
                     {selected.metrics.map(([label, value]) => (
@@ -9424,9 +9451,13 @@ function SkuOperatingCenter() {
                   </dl>
                   <section className="sku-demo-next-action">
                     <span>下一步</span>
-                    <p>{selected.action}</p>
-                    <button className="primary" onClick={() => setSection("audit")}>查看经营边界</button>
+                    <p>{selectedAction}</p>
                   </section>
+                  {selectedRole ? (
+                    <p className="sku-demo-tier">
+                      产品分级 <b>{selectedRole.tier}</b> · {selectedRole.role}
+                    </p>
+                  ) : null}
                   <section className="sku-demo-evidence">
                     <h4>决策证据</h4>
                     {selected.evidence.map(([label, detail]) => (
@@ -9443,12 +9474,8 @@ function SkuOperatingCenter() {
           <button className="secondary sku-demo-refresh" disabled={loading} onClick={refreshQueue}>
             {loading ? "同步中…" : "刷新只读队列"}
           </button>
-        </section>
-      ) : (
-        <SkuOperatingPerformance />
-      )}
-      {section === "queue" ? (
-        <details className="sku-data-map">
+      </section>
+      <details className="sku-data-map">
           <summary>查看这个队列使用的数据分类与来源</summary>
           <ol className="sku-information-groups">
             {SKU_INFORMATION_GROUPS.map((group, index) => (
@@ -9459,8 +9486,7 @@ function SkuOperatingCenter() {
               </li>
             ))}
           </ol>
-        </details>
-      ) : null}
+      </details>
     </div>
   );
 }

@@ -3,12 +3,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const expectedRoleCounts = {
-  G1: 1,
-  G2: 1,
-  G3: 9,
-  "G4-D": 2,
-  "G4-R": 4,
-  GX: 3,
+  S: 1,
+  A: 1,
+  B: 9,
+  C: 2,
+  D: 4,
+  E: 3,
 };
 
 test("publishes the debated 2026-07-27 product operating audit as a versioned snapshot", async () => {
@@ -51,8 +51,10 @@ test("publishes the debated 2026-07-27 product operating audit as a versioned sn
   assert.ok(audit.roles.every((row) => Array.isArray(row.parts)));
   assert.ok(audit.roles.every((row) => row.platformStatus === "NOT_VERIFIED"));
   assert.ok(audit.roles.every((row) => row.lastExecutionResult === null));
-  assert.equal(audit.roles.find((row) => row.listing === "DMOM1022")?.tier, "G3");
-  assert.equal(audit.roles.find((row) => row.listing === "DMOM1056")?.tier, "GX");
+  assert.equal(audit.roles.find((row) => row.listing === "DMOM1022")?.tier, "B");
+  assert.equal(audit.roles.find((row) => row.listing === "DMOM1029")?.tier, "C");
+  assert.equal(audit.roles.find((row) => row.listing === "DMOM1056")?.tier, "E");
+  assert.match(audit.executionRule, /C\/D 默认 HOLD/);
   assert.match(audit.profitDefinition, /不是净利润/);
   assert.equal(audit.account.find((row) => row.period === "Jul26")?.procurementMargin, 0.3437141234546328);
 
@@ -67,6 +69,13 @@ test("publishes the debated 2026-07-27 product operating audit as a versioned sn
     parts: [],
     operatorNote: "没有版本化角色，保持只读并等待运营复核。",
   });
+
+  const legacyTierAudit = structuredClone(audit);
+  legacyTierAudit.roles[0].tier = "G1";
+  assert.throws(
+    () => validateProductOperatingAudit(legacyTierAudit),
+    /S-A-B-C-D-E/,
+  );
 });
 
 test("serves the audit without mutating advertising, inventory, or procurement state", async () => {
@@ -82,25 +91,23 @@ test("serves the audit without mutating advertising, inventory, or procurement s
   assert.doesNotMatch(route, /ALLOW_WAYFAIR_AD_LIVE_CHANGES|ALLOW_WAYFAIR_LIVE_PUSH/);
 });
 
-test("makes the current operating audit primary and demotes legacy grades to evidence only", async () => {
+test("integrates the current product tier into one SKU operating center without exposing audit rules", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /api\/products\/operating-audit/);
-  assert.match(page, /当前运营角色与利润审计/);
-  assert.match(page, /G4 默认 HOLD/);
-  assert.match(page, /已知费用后贡献上限/);
-  assert.match(page, /采购价差毛利/);
-  assert.match(page, /动作约束/);
-  assert.match(page, /HARD_STOP_REQUIRED/);
-  assert.match(page, /指标完整截止/);
-  assert.match(page, /角色证据截止/);
-  assert.match(page, /成本更新时间/);
-  assert.match(page, /广告覆盖缺口/);
-  assert.match(page, /历史基线 · 仅作证据/);
-  assert.match(page, /旧 A\/B\/C\/D 不用于当前动作/);
-  assert.match(page, /<details className="card legacy-data-card"/);
+  assert.match(page, /SKU 经营中心/);
+  assert.match(page, /\["S", "A", "B", "C", "D", "E"\]/);
+  assert.match(page, /产品分级/);
+  assert.match(page, /selectedRole/);
+  assert.match(page, /product-operating-audit:2026-07-27\.v3/);
+  assert.match(page, /actionGuardrail === "HARD_STOP_REQUIRED"/);
+  assert.doesNotMatch(page, /经营审计与约束/);
+  assert.doesNotMatch(page, /SKU 队列与 360°/);
+  assert.doesNotMatch(page, /查看经营边界/);
+  assert.doesNotMatch(page, /title: "动作边界"/);
   assert.match(styles, /\.product-audit-/);
+  assert.match(styles, /\.sku-demo-tier/);
 });
