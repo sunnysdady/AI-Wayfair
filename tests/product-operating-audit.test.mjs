@@ -99,6 +99,10 @@ test("integrates the current product tier into one SKU operating center without 
 
   assert.match(page, /api\/products\/operating-audit/);
   assert.match(page, /SKU 经营中心/);
+  assert.match(page, /loadAllCatalogPages/);
+  assert.match(page, /产品分级筛选/);
+  assert.match(page, /tierFilter/);
+  assert.match(page, /UNCLASSIFIED/);
   assert.match(page, /\["S", "A", "B", "C", "D", "E"\]/);
   assert.match(page, /产品分级/);
   assert.match(page, /selectedRole/);
@@ -110,4 +114,6 @@ test("integrates the current product tier into one SKU operating center without 
   assert.doesNotMatch(page, /title: "动作边界"/);
   assert.match(styles, /\.product-audit-/);
   assert.match(styles, /\.sku-demo-tier/);
+  assert.match(styles, /\.sku-demo-board\{[^}]*overflow:visible/);
+  assert.match(styles, /\.sku-demo-detail\{[^}]*position:sticky/);
 });
