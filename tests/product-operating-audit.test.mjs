@@ -108,9 +108,12 @@ test("integrates the current product tier into one SKU operating center without 
   assert.match(page, /selectedRole/);
   assert.match(page, /product-operating-audit:2026-07-27\.v3/);
   assert.match(page, /actionGuardrail === "HARD_STOP_REQUIRED"/);
-  assert.match(page, /section === "catalog"/);
   assert.match(page, /商品资料与质量/);
-  assert.match(page, /onSectionChange/);
+  assert.match(page, /sku-demo-product-context/);
+  assert.match(page, /qualitySignals/);
+  assert.doesNotMatch(page, /label="SKU 经营中心内容"/);
+  assert.doesNotMatch(page, /<Catalog embedded \/>/);
+  assert.doesNotMatch(page, /<ProductAdditionWorkspace \/>/);
   const productNavigation = page.match(/products: \[([\s\S]*?)\n  \],\n};/);
   assert.ok(productNavigation);
   assert.doesNotMatch(productNavigation[1], /id: "catalog"/);
@@ -120,6 +123,7 @@ test("integrates the current product tier into one SKU operating center without 
   assert.doesNotMatch(page, /title: "动作边界"/);
   assert.match(styles, /\.product-audit-/);
   assert.match(styles, /\.sku-demo-tier/);
+  assert.match(styles, /\.sku-demo-product-context/);
   assert.match(styles, /\.sku-demo-board\{[^}]*overflow:visible/);
   assert.match(styles, /\.sku-demo-detail\{[^}]*position:sticky/);
 });

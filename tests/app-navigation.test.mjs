@@ -68,7 +68,7 @@ test("opens AI 助理 inside the operations shell instead of navigating to a sep
   assert.doesNotMatch(source, /href="\/assistant"/);
 });
 
-test("opens product attribute scoring inside 商品资料与质量 and redirects the legacy URL", async () => {
+test("keeps legacy product-data URLs inside the unified SKU operating center", async () => {
   assert.deepEqual(
     navigationStateFromSearch("?view=products&tab=addition"),
     { view: "products", tab: "catalog" },
@@ -83,12 +83,13 @@ test("opens product attribute scoring inside 商品资料与质量 and redirects
   );
 
   const source = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
-  assert.match(source, /import ProductAdditionWorkspace from "\.\/product-addition\/workspace"/);
-  assert.match(source, /\{ id: "catalog", label: "商品资料与质量" \}/);
+  assert.match(source, /商品资料与质量/);
+  assert.match(source, /className="sku-demo-product-context"/);
+  assert.doesNotMatch(source, /import ProductAdditionWorkspace from "\.\/product-addition\/workspace"/);
   assert.doesNotMatch(source, /新品 API/);
   assert.doesNotMatch(source, /tab === "addition"/);
-  assert.match(source, /className="catalog-quality-workspace"/);
-  assert.match(source, /<ProductAdditionWorkspace \/>/);
+  assert.doesNotMatch(source, /label="SKU 经营中心内容"/);
+  assert.doesNotMatch(source, /className="catalog-quality-workspace"/);
 });
 
 test("keeps the catalog management header vertically structured in its own column", async () => {
