@@ -22,6 +22,7 @@ import {
 import { nextSort, sortRows } from "../lib/table-sort.mjs";
 import { financialDetailsForEmail } from "../lib/email-finance.mjs";
 import { manualCompletionPayload } from "../lib/manual-ad-completions.mjs";
+import { loadAllCatalogPages } from "../lib/catalog-pagination.mjs";
 import {
   navigationSearch,
   navigationStateFromSearch,
@@ -85,7 +86,6 @@ const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
   ],
   products: [
     { id: "performance", label: "SKU 经营中心" },
-    { id: "catalog", label: "商品资料与质量" },
     { id: "inventory", label: "库存与供给" },
     { id: "launch", label: "新品孵化 SOP" },
   ],
@@ -9228,6 +9228,9 @@ const SKU_INFORMATION_GROUPS = [
 ];
 
 type SkuOperatingFilter = "all" | "repair" | "grow" | "protect";
+const PRODUCT_TIERS = ["S", "A", "B", "C", "D", "E"] as const;
+type SkuOperatingTier = (typeof PRODUCT_TIERS)[number] | "UNCLASSIFIED";
+type SkuTierFilter = "all" | SkuOperatingTier;
 
 type SkuOperatingRow = {
   part: string;
@@ -9243,6 +9246,7 @@ type SkuOperatingRow = {
   owner: string;
   metrics: [string, string][];
   evidence: [string, string][];
+  tier: SkuOperatingTier;
 };
 
 function formatSkuMetric(value: number | null | undefined, suffix = "") {
@@ -9291,11 +9295,32 @@ function toSkuOperatingRow(item: CatalogItem): SkuOperatingRow {
       ["增长信号", metrics ? `90 天趋势 ${trend === null || trend === undefined ? "未同步" : `${trend > 0 ? "+" : ""}${trend}%`} · ${formatSkuMetric(metrics.conversionRatePct, "%")} 转化` : "Product Management 尚未匹配"],
       ["商品质量", diagnosticCount ? `${diagnosticCount} 个 Catalog 待处理信号` : "未发现 Catalog 诊断信号"],
     ],
+    tier: "UNCLASSIFIED",
   };
 }
 
-function SkuOperatingCenter() {
+function productRoleForSku(item: Pick<SkuOperatingRow, "part" | "listingIds">, audit: ProductOperatingAudit | null) {
+  return audit?.roles.find(
+    (row) => row.parts.includes(item.part) || item.listingIds.includes(row.listing),
+  );
+}
+
+function productTierForSku(item: Pick<SkuOperatingRow, "part" | "listingIds">, audit: ProductOperatingAudit | null): SkuOperatingTier {
+  const tier = productRoleForSku(item, audit)?.tier;
+  return PRODUCT_TIERS.includes(tier as (typeof PRODUCT_TIERS)[number])
+    ? tier as (typeof PRODUCT_TIERS)[number]
+    : "UNCLASSIFIED";
+}
+
+function SkuOperatingCenter({
+  section = "queue",
+  onSectionChange,
+}: {
+  section?: "queue" | "catalog";
+  onSectionChange?: (section: "queue" | "catalog") => void;
+}) {
   const [filter, setFilter] = useState<SkuOperatingFilter>("all");
+  const [tierFilter, setTierFilter] = useState<SkuTierFilter>("all");
   const [selectedPart, setSelectedPart] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [data, setData] = useState<CatalogResponse | null>(null);
@@ -9309,12 +9334,15 @@ function SkuOperatingCenter() {
   const [error, setError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/catalog/items?page=1&pageSize=30", { signal: controller.signal })
-      .then(async (response) => {
-        const body = (await response.json()) as CatalogResponse;
-        if (!response.ok) throw new Error(body.error || "SKU 经营数据读取失败");
-        return body;
-      })
+    const readCatalogPage = async (page: number) => {
+      const response = await fetch(`/api/catalog/items?page=${page}&pageSize=30${refresh ? `&refresh=1&request=${refresh}` : ""}`, {
+        signal: controller.signal,
+      });
+      const body = (await response.json()) as CatalogResponse;
+      if (!response.ok) throw new Error(body.error || "SKU 经营数据读取失败");
+      return body;
+    };
+    loadAllCatalogPages(readCatalogPage)
       .then((body) => setData(body))
       .catch((reason) => {
         if (reason.name !== "AbortError") setError(reason.message || "SKU 经营数据读取失败");
@@ -9344,24 +9372,27 @@ function SkuOperatingCenter() {
     setError("");
     setRefresh((value) => value + 1);
   };
-  const rows = (data?.items || []).map(toSkuOperatingRow);
+  const rows = (data?.items || []).map((item) => {
+    const row = toSkuOperatingRow(item);
+    return { ...row, tier: productTierForSku(row, audit) };
+  });
   const filters: { id: SkuOperatingFilter; label: string; count: number }[] = [
     { id: "all", label: "全部队列", count: rows.length },
     { id: "repair", label: "优先修复", count: rows.filter((item) => item.category === "repair").length },
     { id: "grow", label: "放大增长", count: rows.filter((item) => item.category === "grow").length },
     { id: "protect", label: "守住表现", count: rows.filter((item) => item.category === "protect").length },
   ];
+  const tierFilters: { id: SkuTierFilter; label: string; count: number }[] = [
+    { id: "all", label: "全部分级", count: rows.length },
+    ...PRODUCT_TIERS.map((tier) => ({ id: tier, label: tier, count: rows.filter((item) => item.tier === tier).length })),
+    { id: "UNCLASSIFIED", label: "未分级", count: rows.filter((item) => item.tier === "UNCLASSIFIED").length },
+  ];
   const visibleRows = rows.filter(
-    (item) => filter === "all" || item.category === filter,
+    (item) => (filter === "all" || item.category === filter)
+      && (tierFilter === "all" || item.tier === tierFilter),
   );
-  const selected = rows.find((item) => item.part === selectedPart) || visibleRows[0] || rows[0];
-  const selectedRole = selected
-    ? audit?.roles.find(
-        (row) =>
-          row.parts.includes(selected.part) ||
-          selected.listingIds.includes(row.listing),
-      )
-    : undefined;
+  const selected = visibleRows.find((item) => item.part === selectedPart) || visibleRows[0];
+  const selectedRole = selected ? productRoleForSku(selected, audit) : undefined;
   const selectedAction = selectedRole?.actionGuardrail === "HARD_STOP_REQUIRED"
     ? "先解决商品资格或映射冲突，再回到经营队列。"
     : selectedRole?.operatorNote || selected?.action || "—";
@@ -9376,12 +9407,28 @@ function SkuOperatingCenter() {
           </p>
         </div>
         <dl className="sku-demo-kpis">
-          <div><dt>本页已载入</dt><dd>{loading ? "—" : rows.length}</dd><small>Catalog 商品队列</small></div>
+          <div><dt>全店已载入</dt><dd>{loading ? "—" : rows.length}</dd><small>{data?.paginationInfo?.totalCount ? `Catalog 共 ${data.paginationInfo.totalCount} 个 SKU` : "Catalog 商品队列"}</small></div>
           <div><dt>优先修复</dt><dd>{loading ? "—" : filters[1].count}</dd><small>先补齐问题或转化证据</small></div>
           <div><dt>增长候选</dt><dd>{loading ? "—" : filters[2].count}</dd><small>进入下一轮经营复核</small></div>
         </dl>
       </section>
-      <section className="sku-demo-board" aria-label="SKU 经营中心">
+      <WorkspaceTabs
+        label="SKU 经营中心内容"
+        items={[
+          { id: "queue", label: "SKU 队列" },
+          { id: "catalog", label: "商品资料与质量" },
+        ]}
+        active={section}
+        onChange={(next) => onSectionChange?.(next)}
+      />
+      {section === "catalog" ? (
+        <div className="catalog-quality-workspace">
+          <Catalog embedded />
+          <ProductAdditionWorkspace />
+        </div>
+      ) : (
+        <>
+          <section className="sku-demo-board" aria-label="SKU 经营中心">
           <div className="sku-demo-toolbar">
             <div>
               <span>DECISION QUEUE</span>
@@ -9395,6 +9442,18 @@ function SkuOperatingCenter() {
                 key={item.id}
                 className={filter === item.id ? "active" : ""}
                 onClick={() => setFilter(item.id)}
+              >
+                {item.label}<b>{item.count}</b>
+              </button>
+            ))}
+          </div>
+          <div className="sku-demo-tier-filter" aria-label="产品分级筛选">
+            <span>产品分级</span>
+            {tierFilters.map((item) => (
+              <button
+                key={item.id}
+                className={tierFilter === item.id ? "active" : ""}
+                onClick={() => setTierFilter(item.id)}
               >
                 {item.label}<b>{item.count}</b>
               </button>
@@ -9416,6 +9475,9 @@ function SkuOperatingCenter() {
                 >
                   <span className={`sku-demo-lane ${item.category}`}>{item.lane}</span>
                   <strong>{item.part}</strong>
+                  <i className={`sku-demo-row-tier ${item.tier === "UNCLASSIFIED" ? "unclassified" : `tier-${item.tier.toLowerCase()}`}>
+                    {item.tier === "UNCLASSIFIED" ? "未分级" : item.tier}
+                  </i>
                   <small>{item.listing} · {item.status}</small>
                   <p>{item.signal}</p>
                   <footer>
@@ -9453,11 +9515,9 @@ function SkuOperatingCenter() {
                     <span>下一步</span>
                     <p>{selectedAction}</p>
                   </section>
-                  {selectedRole ? (
-                    <p className="sku-demo-tier">
-                      产品分级 <b>{selectedRole.tier}</b> · {selectedRole.role}
-                    </p>
-                  ) : null}
+                  <p className="sku-demo-tier">
+                    产品分级 <b>{selected.tier === "UNCLASSIFIED" ? "未分级" : selected.tier}</b>{selectedRole ? ` · ${selectedRole.role}` : " · 尚未纳入已版本化分级"}
+                  </p>
                   <section className="sku-demo-evidence">
                     <h4>决策证据</h4>
                     {selected.evidence.map(([label, detail]) => (
@@ -9474,8 +9534,8 @@ function SkuOperatingCenter() {
           <button className="secondary sku-demo-refresh" disabled={loading} onClick={refreshQueue}>
             {loading ? "同步中…" : "刷新只读队列"}
           </button>
-      </section>
-      <details className="sku-data-map">
+          </section>
+          <details className="sku-data-map">
           <summary>查看这个队列使用的数据分类与来源</summary>
           <ol className="sku-information-groups">
             {SKU_INFORMATION_GROUPS.map((group, index) => (
@@ -9486,7 +9546,9 @@ function SkuOperatingCenter() {
               </li>
             ))}
           </ol>
-      </details>
+          </details>
+        </>
+      )}
     </div>
   );
 }
@@ -9503,7 +9565,7 @@ function ProductWorkspace({
       <WorkspaceTabs
         label="商品经营视图"
         items={SUB_NAV.products as { id: ProductTab; label: string }[]}
-        active={tab}
+        active={tab === "catalog" ? "performance" : tab}
         onChange={onTabChange}
       />
       <Hero
@@ -9513,9 +9575,7 @@ function ProductWorkspace({
             ? "库存更新"
             : tab === "launch"
               ? "推新 SOP"
-              : tab === "performance"
-                ? "SKU 经营中心"
-                : "商品资料与质量"
+              : "SKU 经营中心"
         }
         text=""
       />
@@ -9523,13 +9583,11 @@ function ProductWorkspace({
         <Inventory embedded />
       ) : tab === "launch" ? (
         <NewProductSopWorkspace />
-      ) : tab === "performance" ? (
-        <SkuOperatingCenter />
       ) : (
-        <div className="catalog-quality-workspace">
-          <Catalog embedded />
-          <ProductAdditionWorkspace />
-        </div>
+        <SkuOperatingCenter
+          section={tab === "catalog" ? "catalog" : "queue"}
+          onSectionChange={(section) => onTabChange(section === "catalog" ? "catalog" : "performance")}
+        />
       )}
     </>
   );

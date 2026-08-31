@@ -108,6 +108,12 @@ test("integrates the current product tier into one SKU operating center without 
   assert.match(page, /selectedRole/);
   assert.match(page, /product-operating-audit:2026-07-27\.v3/);
   assert.match(page, /actionGuardrail === "HARD_STOP_REQUIRED"/);
+  assert.match(page, /section === "catalog"/);
+  assert.match(page, /商品资料与质量/);
+  assert.match(page, /onSectionChange/);
+  const productNavigation = page.match(/products: \[([\s\S]*?)\n  \],\n};/);
+  assert.ok(productNavigation);
+  assert.doesNotMatch(productNavigation[1], /id: "catalog"/);
   assert.doesNotMatch(page, /经营审计与约束/);
   assert.doesNotMatch(page, /SKU 队列与 360°/);
   assert.doesNotMatch(page, /查看经营边界/);
