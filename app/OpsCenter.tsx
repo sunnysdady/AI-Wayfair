@@ -9475,7 +9475,7 @@ function SkuOperatingCenter({
                 >
                   <span className={`sku-demo-lane ${item.category}`}>{item.lane}</span>
                   <strong>{item.part}</strong>
-                  <i className={`sku-demo-row-tier ${item.tier === "UNCLASSIFIED" ? "unclassified" : `tier-${item.tier.toLowerCase()}`}>
+                  <i className={`sku-demo-row-tier ${item.tier === "UNCLASSIFIED" ? "unclassified" : `tier-${item.tier.toLowerCase()}`}`}>
                     {item.tier === "UNCLASSIFIED" ? "未分级" : item.tier}
                   </i>
                   <small>{item.listing} · {item.status}</small>
