@@ -1,4 +1,4 @@
-import { createFulfillmentCsv, fulfillmentExportFileName } from "@/lib/fulfillment-downloads.mjs";
+import { createFulfillmentWorkbook, fulfillmentExportFileName } from "@/lib/fulfillment-downloads.mjs";
 import { listFulfillmentRecordsForExport, parseFulfillmentFilters } from "@/lib/fulfillment-ledger.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
@@ -12,11 +12,11 @@ export async function GET(request: Request) {
       status: url.searchParams.get("status") || undefined,
     });
     const records = await listFulfillmentRecordsForExport(env.DB, filters);
-    return new Response(createFulfillmentCsv(records), {
+    return new Response(await createFulfillmentWorkbook(records), {
       headers: {
         "cache-control": "private, no-store",
         "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(fulfillmentExportFileName(filters))}`,
-        "content-type": "text/csv; charset=utf-8",
+        "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "x-content-type-options": "nosniff",
       },
     });
