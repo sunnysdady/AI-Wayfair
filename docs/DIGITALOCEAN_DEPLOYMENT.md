@@ -159,6 +159,12 @@ install -o root -g root -m 0440 deploy/digitalocean/wayfair-deploy.sudoers /etc/
 
 `deploy` 用户不能读取 `.env.production`、不能直接操作 Docker，也没有通用 root 权限；它只能请求包装器部署 GitHub `production` 当前完整 SHA。包装器本身验证固定仓库地址和远程分支后，才以 root 执行目标提交中的部署脚本。
 
+日常只读验收使用同一个包装器的 `status` 动作，只输出 Git/部署 SHA、容器状态、HTTP 状态和最近一次审计摘要：
+
+```bash
+ssh wayfair-production 'sudo -n /usr/local/sbin/wayfair-deploy status'
+```
+
 ## 7. 配置生产变量
 
 编辑 `.env.production`，至少完成以下内容：

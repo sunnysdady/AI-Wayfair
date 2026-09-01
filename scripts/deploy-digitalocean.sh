@@ -22,7 +22,7 @@ fail() {
 [[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]] || fail "invalid deployment branch"
 [[ -f "$env_file" ]] || fail "missing $env_file"
 
-for command_name in git docker curl flock; do
+for command_name in git docker curl flock visudo; do
   command -v "$command_name" >/dev/null || fail "missing command: $command_name"
 done
 
@@ -142,6 +142,10 @@ object_count > "$audit_dir/object-count-before.txt"
 git switch --detach "$target_sha"
 rollback_ready=true
 compose=(docker compose --env-file "$env_file" -f "$compose_file" --profile sync)
+
+visudo -cf deploy/digitalocean/wayfair-deploy.sudoers >/dev/null
+install -o root -g root -m 0755 deploy/digitalocean/wayfair-deploy /usr/local/sbin/wayfair-deploy
+install -o root -g root -m 0440 deploy/digitalocean/wayfair-deploy.sudoers /etc/sudoers.d/wayfair-deploy
 
 echo "Deploying release $target_sha from $remote/$branch"
 APP_IMAGE_TAG="$target_tag" "${compose[@]}" config --quiet

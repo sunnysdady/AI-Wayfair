@@ -75,6 +75,11 @@ test("production releases are Git-first, SHA-pinned, locked, audited, and revers
   assert.match(wrapper, /expected_origin="https:\/\/github\.com\/sunnysdady\/AI-Wayfair\.git"/);
   assert.match(wrapper, /git show "\$target_sha:scripts\/deploy-digitalocean\.sh"/);
   assert.match(wrapper, /\[\[ "\$\(id -u\)" == "0" \]\]/);
+  assert.match(wrapper, /\[\[ "\$action" == "status" \]\]/);
+  assert.match(wrapper, /health_http=/);
+  assert.match(wrapper, /objects_before=/);
+  assert.doesNotMatch(wrapper, /cat .*\.env\.production|printenv|docker compose config/);
+  assert.match(deploy, /install -o root -g root -m 0755 deploy\/digitalocean\/wayfair-deploy/);
   assert.match(sudoers, /^deploy ALL=\(root\) NOPASSWD: \/usr\/local\/sbin\/wayfair-deploy \*$/m);
   assert.doesNotMatch(`${release}\n${deploy}\n${wrapper}`, /reset --hard|checkout --force/);
 });

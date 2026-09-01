@@ -35,6 +35,12 @@ bash scripts/release-digitalocean.sh
 
 代码备份以远程 `production` 分支为准；生产密钥、PostgreSQL 数据和对象文件不进入 Git。
 
+只读验收无需 Docker 或通用 sudo 权限：
+
+```bash
+ssh wayfair-production 'sudo -n /usr/local/sbin/wayfair-deploy status'
+```
+
 ## 本地启动
 
 要求 Node.js 22.13 或更高版本。
