@@ -68,6 +68,19 @@ test("opens AI 助理 inside the operations shell instead of navigating to a sep
   assert.doesNotMatch(source, /href="\/assistant"/);
 });
 
+test("opens the fulfillment ledger inside the operations shell", async () => {
+  assert.deepEqual(
+    navigationStateFromSearch("?view=fulfillment"),
+    { view: "fulfillment", tab: null },
+  );
+  assert.equal(navigationSearch({ view: "fulfillment" }), "?view=fulfillment");
+
+  const source = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
+  assert.match(source, /import FulfillmentWorkspace from "\.\/fulfillment\/workspace"/);
+  assert.match(source, /\{ id: "fulfillment", label: "订单履约" \}/);
+  assert.match(source, /fulfillment:\s*<FulfillmentWorkspace \/>/);
+});
+
 test("keeps legacy product-data URLs inside the unified SKU operating center", async () => {
   assert.deepEqual(
     navigationStateFromSearch("?view=products&tab=addition"),

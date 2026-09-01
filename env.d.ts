@@ -70,6 +70,10 @@ interface WayfairEnvBindings {
   ALLOW_WAYFAIR_LIVE_PUSH?: string;
   ALLOW_WAYFAIR_PRODUCT_ADDITION_LIVE_SUBMIT?: string;
   OUTLOOK_INGEST_TOKEN?: string;
+  FEISHU_APP_ID?: string;
+  FEISHU_APP_SECRET?: string;
+  FEISHU_BITABLE_APP_TOKEN?: string;
+  FEISHU_BITABLE_TABLE_ID?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
