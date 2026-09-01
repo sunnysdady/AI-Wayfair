@@ -2583,31 +2583,8 @@ function Dashboard() {
     ...(data?.daily || []).map((item) => Number(item[chartMetric])),
   );
   const rangeLabel = start === end ? start : `${start} - ${end}`;
-  const loadingLabel = (retained: boolean) =>
-    retained ? "后台更新中" : "同步中";
   return (
     <>
-      <Hero
-        eyebrow="ORDERS API · OPERATING BRIEF"
-        title="Dashboard"
-        text={`${rangeLabel} · 订单业绩与经营概览`}
-        side={
-          <div className="hero-side">
-            <b>
-              {refreshing
-                ? loadingLabel(true)
-                : loading
-                  ? loadingLabel(false)
-                  : error
-                    ? "需检查"
-                    : "已更新"}
-            </b>
-            <span>
-              {data?.sync.stale ? "正在使用最近缓存" : "Ops API（库存 + 订单）"}
-            </span>
-          </div>
-        }
-      />
       <section className="date-console" aria-label="经营周期">
         <div className="preset-list">
           {presetOptions.map(([id, label]) => (
@@ -2653,7 +2630,9 @@ function Dashboard() {
         <div className="dashboard-sync-tools">
           <span className={error ? "sync-state error" : "sync-state"}>
             {error ||
-              (data?.sync.stale
+              (refreshing
+                ? "后台更新中"
+                : data?.sync.stale
                 ? `同步失败，显示缓存：${data.sync.error}`
                 : data?.sync.syncedAt
                   ? `最近同步 ${formatLingxingDateTime(data.sync.syncedAt)}`
@@ -10195,7 +10174,9 @@ export default function OpsCenter() {
         onNavigate={navigateView}
       />
       <div className="content-shell">
-        <main>{page}</main>
+        <main className={view === "dashboard" ? "dashboard-main" : undefined}>
+          {page}
+        </main>
         <footer>
           <span>Wayfair AI 运营中台</span>
           <span>个人测试阶段</span>
