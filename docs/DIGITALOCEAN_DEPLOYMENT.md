@@ -122,13 +122,12 @@ docker version
 docker compose version
 ```
 
-创建无密码的普通部署用户和目录：
+创建无密码、无通用 sudo 权限的普通部署用户；生产仓库与密钥仍由 root 持有：
 
 ```bash
 adduser --disabled-password --gecos "" deploy
-usermod -aG docker deploy
 mkdir -p /opt/wayfair-ai-ops
-chown deploy:deploy /opt/wayfair-ai-ops
+chown root:root /opt/wayfair-ai-ops
 ```
 
 把本机项目专用公钥加入 `deploy` 用户的 `authorized_keys`，并在本机 `~/.ssh/config` 固定主机身份：
@@ -141,7 +140,7 @@ Host wayfair-production
   IdentitiesOnly yes
 ```
 
-服务器配置只读 GitHub Deploy Key 后：
+服务器 root 配置只读 GitHub Deploy Key 后：
 
 ```bash
 git clone --branch production --single-branch git@github.com:sunnysdady/AI-Wayfair.git /opt/wayfair-ai-ops
@@ -149,6 +148,16 @@ cd /opt/wayfair-ai-ops
 cp .env.example .env.production
 chmod 600 .env.production
 ```
+
+安装仓库内受审计的发布包装器和最小 sudo 规则：
+
+```bash
+install -o root -g root -m 0755 deploy/digitalocean/wayfair-deploy /usr/local/sbin/wayfair-deploy
+visudo -cf deploy/digitalocean/wayfair-deploy.sudoers
+install -o root -g root -m 0440 deploy/digitalocean/wayfair-deploy.sudoers /etc/sudoers.d/wayfair-deploy
+```
+
+`deploy` 用户不能读取 `.env.production`、不能直接操作 Docker，也没有通用 root 权限；它只能请求包装器部署 GitHub `production` 当前完整 SHA。包装器本身验证固定仓库地址和远程分支后，才以 root 执行目标提交中的部署脚本。
 
 ## 7. 配置生产变量
 

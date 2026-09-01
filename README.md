@@ -31,7 +31,7 @@ bash scripts/release-digitalocean.sh
 ```
 
 发布脚本只允许快进更新 `production`，核对远程完整 Commit SHA 后，使用本机 SSH 别名
-`wayfair-production` 调用服务器上的指定版本部署脚本。服务器部署会加互斥锁，备份 PostgreSQL，记录逐表行数与对象数，运行迁移和 Scheduler 同步，验证生产健康与登录保护，并在应用启动失败时恢复上一版应用。数据库迁移不会自动反向回滚。
+`wayfair-production` 登录无特权 `deploy` 用户，再通过仅允许调用 `/usr/local/sbin/wayfair-deploy` 的 sudo 规则执行指定版本。服务器部署会加互斥锁，备份 PostgreSQL，记录逐表行数与对象数，运行迁移和 Scheduler 同步，验证生产健康与登录保护，并在应用启动失败时恢复上一版应用。数据库迁移不会自动反向回滚。
 
 代码备份以远程 `production` 分支为准；生产密钥、PostgreSQL 数据和对象文件不进入 Git。
 

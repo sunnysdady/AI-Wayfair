@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+project_root="/opt/wayfair-ai-ops"
+remote="origin"
+branch="production"
+expected_origin="https://github.com/sunnysdady/AI-Wayfair.git"
+
+fail() {
+  echo "Deployment wrapper refused: $*" >&2
+  exit 1
+}
+
+(( $# == 1 )) || fail "exactly one commit SHA is required"
+target_sha="$1"
+[[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || fail "invalid commit SHA"
+[[ "$(id -u)" == "0" ]] || fail "wrapper must run as root"
+[[ -d "$project_root/.git" ]] || fail "production repository is missing"
+
+cd "$project_root"
+[[ "$(git remote get-url "$remote")" == "$expected_origin" ]] || fail "unexpected Git origin"
+git fetch --prune "$remote" "$branch"
+remote_sha="$(git rev-parse "refs/remotes/$remote/$branch")"
+[[ "$target_sha" == "$remote_sha" ]] || fail "target is not the production branch head"
+
+script_file="$(mktemp /run/wayfair-deploy.XXXXXX)"
+trap 'rm -f "$script_file"' EXIT
+git show "$target_sha:scripts/deploy-digitalocean.sh" > "$script_file"
+chmod 700 "$script_file"
+
+PROJECT_ROOT="$project_root" DEPLOY_REMOTE="$remote" DEPLOY_BRANCH="$branch" \
+  bash "$script_file" "$target_sha"

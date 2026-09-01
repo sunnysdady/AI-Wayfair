@@ -38,6 +38,14 @@ test("production releases are Git-first, SHA-pinned, locked, audited, and revers
     new URL("../scripts/deploy-digitalocean.sh", import.meta.url),
     "utf8",
   );
+  const wrapper = await readFile(
+    new URL("../deploy/digitalocean/wayfair-deploy", import.meta.url),
+    "utf8",
+  );
+  const sudoers = await readFile(
+    new URL("../deploy/digitalocean/wayfair-deploy.sudoers", import.meta.url),
+    "utf8",
+  );
 
   assert.match(release, /branch="\$\{DEPLOY_BRANCH:-production\}"/);
   assert.match(release, /git status --porcelain=v1 --untracked-files=all/);
@@ -46,6 +54,7 @@ test("production releases are Git-first, SHA-pinned, locked, audited, and revers
   assert.match(release, /git ls-remote --heads/);
   assert.match(release, /BatchMode=yes/);
   assert.match(release, /IdentitiesOnly=yes/);
+  assert.match(release, /sudo -n \/usr\/local\/sbin\/wayfair-deploy/);
 
   assert.match(deploy, /\^\[0-9a-f\]\{40\}\$/);
   assert.match(deploy, /flock -n 9/);
@@ -61,7 +70,11 @@ test("production releases are Git-first, SHA-pinned, locked, audited, and revers
   assert.match(deploy, /Database migrations are not rolled back automatically/);
   assert.match(deploy, /api\/health/);
   assert.match(deploy, /homepage_status.*401/s);
-  assert.doesNotMatch(`${release}\n${deploy}`, /reset --hard|checkout --force/);
+  assert.match(wrapper, /expected_origin="https:\/\/github\.com\/sunnysdady\/AI-Wayfair\.git"/);
+  assert.match(wrapper, /git show "\$target_sha:scripts\/deploy-digitalocean\.sh"/);
+  assert.match(wrapper, /\[\[ "\$\(id -u\)" == "0" \]\]/);
+  assert.match(sudoers, /^deploy ALL=\(root\) NOPASSWD: \/usr\/local\/sbin\/wayfair-deploy \*$/m);
+  assert.doesNotMatch(`${release}\n${deploy}\n${wrapper}`, /reset --hard|checkout --force/);
 });
 
 test("health route is public for infrastructure checks but cron remains secret-protected", async () => {

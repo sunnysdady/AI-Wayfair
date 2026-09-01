@@ -7,7 +7,6 @@ cd "$project_root"
 remote="${DEPLOY_REMOTE:-origin}"
 branch="${DEPLOY_BRANCH:-production}"
 host="${DEPLOY_HOST:-wayfair-production}"
-remote_dir="${DEPLOY_REMOTE_DIR:-/opt/wayfair-ai-ops}"
 
 fail() {
   echo "Release refused: $*" >&2
@@ -17,7 +16,6 @@ fail() {
 [[ "$remote" =~ ^[A-Za-z0-9._-]+$ ]] || fail "invalid Git remote"
 [[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]] || fail "invalid deployment branch"
 [[ "$host" =~ ^[A-Za-z0-9._@-]+$ ]] || fail "invalid SSH host"
-[[ "$remote_dir" =~ ^/[A-Za-z0-9._/-]+$ ]] || fail "invalid remote directory"
 
 for command_name in git ssh; do
   command -v "$command_name" >/dev/null || fail "missing command: $command_name"
@@ -39,9 +37,8 @@ fi
 verified_sha="$(git ls-remote --heads "$remote" "refs/heads/$branch" | awk 'NR == 1 { print $1 }')"
 [[ "$verified_sha" == "$target_sha" ]] || fail "remote production branch verification failed"
 
-echo "Releasing $target_sha to $host:$remote_dir"
-git show "$target_sha:scripts/deploy-digitalocean.sh" |
-  ssh -o BatchMode=yes -o IdentitiesOnly=yes "$host" \
-    "cd '$remote_dir' && PROJECT_ROOT='$remote_dir' DEPLOY_REMOTE='$remote' DEPLOY_BRANCH='$branch' bash -s -- '$target_sha'"
+echo "Releasing $target_sha to $host"
+ssh -o BatchMode=yes -o IdentitiesOnly=yes "$host" \
+  "sudo -n /usr/local/sbin/wayfair-deploy '$target_sha'"
 
 echo "Release completed: $target_sha"
