@@ -86,6 +86,8 @@ export default function FulfillmentWorkspace() {
   const [quickRange, setQuickRange] = useState<QuickRange>("7天");
   const [range, setRange] = useState(() => rangeFor("7天"));
   const [status, setStatus] = useState("");
+  const [selectedLabelKeys, setSelectedLabelKeys] = useState<string[]>([]);
+  const [downloadingLabels, setDownloadingLabels] = useState(false);
 
   const load = async (refresh = false) => {
     setLoading(true);
@@ -97,6 +99,7 @@ export default function FulfillmentWorkspace() {
       const body = await response.json() as { records?: FulfillmentRecord[]; error?: string };
       if (!response.ok) throw new Error(body.error || "履约订单读取失败");
       setRecords(body.records || []);
+      setSelectedLabelKeys((current) => current.filter((key) => (body.records || []).some((record) => record.sourceKey === key && record.labelObjectKey)));
       setMessage("");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "履约订单读取失败");
@@ -113,6 +116,51 @@ export default function FulfillmentWorkspace() {
     labels: records.filter((record) => record.labelObjectKey).length,
     incomplete: records.filter((record) => !record.labelObjectKey).length,
   }), [records]);
+  const downloadableRecords = useMemo(() => records.filter((record) => Boolean(record.labelObjectKey)), [records]);
+  const selectedDownloadableKeys = useMemo(() => selectedLabelKeys.filter((key) => downloadableRecords.some((record) => record.sourceKey === key)), [downloadableRecords, selectedLabelKeys]);
+
+  const downloadOrders = () => {
+    const params = new URLSearchParams({ start: range.start, end: range.end });
+    if (status) params.set("status", status);
+    window.location.assign(`/api/fulfillment/orders/export?${params}`);
+  };
+
+  const toggleLabel = (sourceKey: string, checked: boolean) => {
+    setSelectedLabelKeys((current) => checked ? [...new Set([...current, sourceKey])] : current.filter((key) => key !== sourceKey));
+  };
+
+  const toggleAllLabels = (checked: boolean) => {
+    setSelectedLabelKeys(checked ? downloadableRecords.map((record) => record.sourceKey) : []);
+  };
+
+  const downloadSelectedLabels = async () => {
+    if (!selectedDownloadableKeys.length) return;
+    setDownloadingLabels(true);
+    try {
+      const response = await fetch("/api/fulfillment/labels/download", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sourceKeys: selectedDownloadableKeys }),
+      });
+      if (!response.ok) {
+        const body = await response.json() as { error?: string };
+        throw new Error(body.error || "面单下载失败");
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `Wayfair面单_${selectedDownloadableKeys.length}张.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setMessage(`已下载 ${selectedDownloadableKeys.length} 张面单`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "面单下载失败");
+    } finally {
+      setDownloadingLabels(false);
+    }
+  };
 
   const updateSelected = (field: keyof FulfillmentRecord, value: string) => {
     setSelected((current) => current ? { ...current, [field]: field === "quantity" ? Number(value) : value } : current);
@@ -143,7 +191,11 @@ export default function FulfillmentWorkspace() {
     <section className={styles.workspace} aria-labelledby="fulfillment-title">
       <header className={styles.header}>
         <h1 id="fulfillment-title">订单履约</h1>
-        <button className={styles.refresh} onClick={() => void load(true)} disabled={loading}>{loading ? "同步中…" : "API 同步订单"}</button>
+        <div className={styles.headerActions}>
+          <button className={styles.export} onClick={downloadOrders} disabled={loading}>下载订单</button>
+          <button className={styles.export} onClick={() => void downloadSelectedLabels()} disabled={downloadingLabels || !selectedDownloadableKeys.length}>{downloadingLabels ? "下载中…" : `下载已选面单${selectedDownloadableKeys.length ? ` (${selectedDownloadableKeys.length})` : ""}`}</button>
+          <button className={styles.refresh} onClick={() => void load(true)} disabled={loading}>{loading ? "同步中…" : "API 同步订单"}</button>
+        </div>
       </header>
 
       <div className={styles.filters} aria-label="订单筛选">
@@ -163,14 +215,18 @@ export default function FulfillmentWorkspace() {
       {message && <p className={styles.message} role="status">{message}</p>}
       <div className={styles.tableWrap}>
         <table>
-          <thead><tr>{columns.map(([letter, label]) => <th key={letter}><small>{letter}</small>{label}</th>)}<th><small>附</small>面单</th><th>操作</th></tr></thead>
+          <thead><tr><th className={styles.selection}><input type="checkbox" aria-label="全选已归档面单" checked={downloadableRecords.length > 0 && selectedDownloadableKeys.length === downloadableRecords.length} onChange={(event) => toggleAllLabels(event.target.checked)} disabled={!downloadableRecords.length} /></th>{columns.map(([letter, label]) => <th key={letter}><small>{letter}</small>{label}</th>)}<th><small>附</small>面单</th><th>操作</th></tr></thead>
           <tbody>
-            {!loading && records.length === 0 && <tr><td colSpan={18} className={styles.empty}>暂无可履约订单。订单同步后会自动展示可拆分的包裹。</td></tr>}
-            {records.map((record) => <tr key={record.sourceKey}>
-              {columns.map(([, , field]) => <td key={field}>{display(record[field])}</td>)}
-              <td>{record.labelObjectKey ? record.labelFileName : "待回传"}</td>
-              <td><button className={styles.edit} onClick={() => setSelected({ ...record })}>编辑</button></td>
-            </tr>)}
+            {!loading && records.length === 0 && <tr><td colSpan={19} className={styles.empty}>暂无可履约订单。订单同步后会自动展示可拆分的包裹。</td></tr>}
+            {records.map((record) => {
+              const hasLabel = Boolean(record.labelObjectKey);
+              return <tr key={record.sourceKey}>
+                <td className={styles.selection}><input type="checkbox" aria-label={`选择 ${record.orderNumber} 面单`} checked={selectedLabelKeys.includes(record.sourceKey)} onChange={(event) => toggleLabel(record.sourceKey, event.target.checked)} disabled={!hasLabel} /></td>
+                {columns.map(([, , field]) => <td key={field}>{display(record[field])}</td>)}
+                <td>{hasLabel ? <a className={styles.labelLink} href={`/api/fulfillment/labels/download?sourceKey=${encodeURIComponent(record.sourceKey)}`}>{record.labelFileName}</a> : "未归档"}</td>
+                <td><button className={styles.edit} onClick={() => setSelected({ ...record })}>编辑</button></td>
+              </tr>;
+            })}
           </tbody>
         </table>
       </div>
