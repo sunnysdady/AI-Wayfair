@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { LINGXING_TIME_ZONE } from "@/lib/lingxing-business-time.mjs";
 import styles from "./workspace.module.css";
 
 type FulfillmentRecord = {
@@ -37,15 +38,15 @@ const columns: Array<[string, string, keyof FulfillmentRecord]> = [
 ];
 
 const editableFields: Array<[string, keyof FulfillmentRecord]> = columns.slice(0, -1).map(([, label, field]) => [label, field]);
-const quickRanges = ["7天", "14天", "本月", "上个月", "今年"] as const;
+const quickRanges = ["今天", "昨天", "7天", "14天", "本月", "上个月", "今年"] as const;
 type QuickRange = typeof quickRanges[number] | "自定义";
 const formalStart = "2026-09-01";
 
 function isoDate(value: Date) { return value.toISOString().slice(0, 10); }
 
-function newYorkToday() {
+function businessToday() {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: LINGXING_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(new Date());
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "";
   return new Date(Date.UTC(Number(part("year")), Number(part("month")) - 1, Number(part("day"))));
@@ -63,9 +64,14 @@ function withinFormalRange(range: { start: string; end: string }) {
 }
 
 function rangeFor(label: typeof quickRanges[number]) {
-  const today = newYorkToday();
+  const today = businessToday();
   const year = today.getUTCFullYear();
   const month = today.getUTCMonth();
+  if (label === "今天") return withinFormalRange({ start: isoDate(today), end: isoDate(today) });
+  if (label === "昨天") {
+    const yesterday = isoDate(addDays(today, -1));
+    return withinFormalRange({ start: yesterday, end: yesterday });
+  }
   if (label === "7天") return withinFormalRange({ start: isoDate(addDays(today, -6)), end: isoDate(today) });
   if (label === "14天") return withinFormalRange({ start: isoDate(addDays(today, -13)), end: isoDate(today) });
   if (label === "本月") return withinFormalRange({ start: `${year}-${String(month + 1).padStart(2, "0")}-01`, end: isoDate(today) });
