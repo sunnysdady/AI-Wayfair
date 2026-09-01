@@ -67,6 +67,9 @@ test("label lookup requests only the supported tracking field from ShippingLabel
   const source = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
   const query = source.match(/const LABEL_QUERY = `([\s\S]*?)`;/)?.[1] || "";
 
+  assert.match(query, /query FulfillmentLabel\(\$number: String!\)/);
+  assert.match(query, /equals: \$number/);
+  assert.doesNotMatch(query, /\bin:\s*\$numbers/);
   assert.match(query, /shippingLabelInfo \{ trackingNumber \}/);
   assert.doesNotMatch(query, /shippingLabelInfo \{[^}]*\b(poNumber|fullPoNumber|numberOfLabels)\b/);
 });
