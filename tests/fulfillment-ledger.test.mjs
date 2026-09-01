@@ -103,8 +103,8 @@ test("label lookup requests only the supported tracking field from ShippingLabel
   assert.doesNotMatch(query, /shippingLabelInfo \{[^}]*\b(poNumber|fullPoNumber|numberOfLabels)\b/);
 });
 
-test("label lookup tries bounded PO formats and prioritizes downloadable events", () => {
-  assert.deepEqual(labelLookupNumbers("CS677571095"), ["677571095", "CS677571095"]);
+test("label lookup uses the required numeric PO and prioritizes downloadable events", () => {
+  assert.deepEqual(labelLookupNumbers("CS677571095"), ["677571095"]);
   assert.deepEqual(labelLookupNumbers("invalid"), []);
   const ready = { consolidatedShippingLabel: { url: "https://labels.example/one.pdf" }, shippingLabelInfo: [] };
   const trackingOnly = { consolidatedShippingLabel: null, shippingLabelInfo: [{ trackingNumber: "TRACK" }] };
