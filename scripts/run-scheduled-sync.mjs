@@ -23,16 +23,23 @@ export async function runScheduledSync({
     signal: AbortSignal.timeout(timeoutMs),
   });
   await response.arrayBuffer();
+  if (response.status === 409) {
+    return { status: response.status, skipped: true };
+  }
   if (!response.ok) {
     throw new Error(`Scheduled sync failed with HTTP ${response.status}`);
   }
-  return { status: response.status };
+  return { status: response.status, skipped: false };
 }
 
 async function main() {
   try {
     const result = await runScheduledSync();
-    process.stdout.write(`scheduled sync completed (HTTP ${result.status})\n`);
+    process.stdout.write(
+      result.skipped
+        ? `scheduled sync already running; duplicate skipped (HTTP ${result.status})\n`
+        : `scheduled sync completed (HTTP ${result.status})\n`,
+    );
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : "Scheduled sync failed"}\n`);
     process.exitCode = 1;
