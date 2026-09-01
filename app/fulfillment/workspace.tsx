@@ -28,6 +28,11 @@ type FulfillmentRecord = {
   labelFileName: string;
 };
 
+type FulfillmentSync = {
+  records: number;
+  labels: { archived: number; checked: number; matched?: number; ready?: number; unavailable?: number; errors?: number };
+};
+
 const columns: Array<[string, string, keyof FulfillmentRecord]> = [
   ["A", "日期", "orderDate"], ["B", "系统单号", "systemOrderNumber"], ["C", "单号", "orderNumber"],
   ["D", "国家", "country"], ["E", "客人姓名", "customerName"], ["F", "地址1", "addressLine1"],
@@ -116,11 +121,19 @@ export default function FulfillmentWorkspace() {
       if (status) params.set("status", status);
       if (refresh) params.set("refresh", "1");
       const response = await fetch(`/api/fulfillment/orders?${params}`, { cache: "no-store" });
-      const body = await response.json() as { records?: FulfillmentRecord[]; error?: string };
+      const body = await response.json() as { records?: FulfillmentRecord[]; sync?: FulfillmentSync | null; error?: string };
       if (!response.ok) throw new Error(body.error || "履约订单读取失败");
       setRecords(body.records || []);
       setSelectedLabelKeys((current) => current.filter((key) => (body.records || []).some((record) => record.sourceKey === key && record.labelObjectKey)));
-      setMessage("");
+      if (refresh && body.sync) {
+        const { checked, archived, matched = 0, errors = 0 } = body.sync.labels;
+        if (errors) setMessage(`已更新 ${body.sync.records} 个包裹；${errors} 个面单处理异常，请稍后重试`);
+        else if (archived) setMessage(`已更新 ${body.sync.records} 个包裹，并获取 ${archived} 张面单`);
+        else if (checked) setMessage(`已检查 ${checked} 个未归档订单，Wayfair 暂未返回可下载面单（命中 ${matched} 个事件）；系统每 30 分钟自动重试`);
+        else setMessage(`已更新 ${body.sync.records} 个包裹，暂无待获取面单`);
+      } else {
+        setMessage("");
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "履约订单读取失败");
     } finally {

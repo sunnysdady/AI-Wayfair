@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { labelArchiveMode, labelFileNameForOrder, listFulfillmentRecords, parseFulfillmentFilters, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
+import { labelLookupNumbers, selectLabelEvent } from "../lib/fulfillment-api-sync.mjs";
 import { toPostgresSql } from "../lib/postgres-d1.mjs";
 
 test("one multi-unit order is split into deterministic one-parcel orders", () => {
@@ -96,9 +97,20 @@ test("label lookup requests only the supported tracking field from ShippingLabel
 
   assert.match(query, /query FulfillmentLabel\(\$number: String!\)/);
   assert.match(query, /equals: \$number/);
+  assert.match(query, /limit: 10/);
   assert.doesNotMatch(query, /\bin:\s*\$numbers/);
   assert.match(query, /shippingLabelInfo \{ trackingNumber \}/);
   assert.doesNotMatch(query, /shippingLabelInfo \{[^}]*\b(poNumber|fullPoNumber|numberOfLabels)\b/);
+});
+
+test("label lookup tries bounded PO formats and prioritizes downloadable events", () => {
+  assert.deepEqual(labelLookupNumbers("CS677571095"), ["677571095", "CS677571095"]);
+  assert.deepEqual(labelLookupNumbers("invalid"), []);
+  const ready = { consolidatedShippingLabel: { url: "https://labels.example/one.pdf" }, shippingLabelInfo: [] };
+  const trackingOnly = { consolidatedShippingLabel: null, shippingLabelInfo: [{ trackingNumber: "TRACK" }] };
+  assert.equal(selectLabelEvent([trackingOnly, ready]), ready);
+  assert.equal(selectLabelEvent([trackingOnly]), trackingOnly);
+  assert.equal(selectLabelEvent([]), null);
 });
 
 test("label downloads follow the signed URL redirect", async () => {
@@ -118,5 +130,5 @@ test("label verification is automatic and keeps unambiguous single-order PDFs in
   const workspace = await readFile(new URL("../app/fulfillment/workspace.tsx", import.meta.url), "utf8");
   const sync = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(`${ledger}\n${workspace}\n${sync}`, /面单待核验/);
-  assert.match(sync, /catch \{ for \(const record of recordsForParent\) record\.shippingStatus = keepMoreAdvancedStatus\(record\.shippingStatus, "异常"\); \}/);
+  assert.match(sync, /catch \{[\s\S]*errors \+= 1;[\s\S]*record\.shippingStatus = keepMoreAdvancedStatus\(record\.shippingStatus, "异常"\);/);
 });
