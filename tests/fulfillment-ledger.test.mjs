@@ -68,8 +68,8 @@ test("ledger queries include the full end date and sort newest order timestamps 
   };
 
   await listFulfillmentRecords(db, { start: "2026-09-01", end: "2026-09-01", limit: 25 });
-  assert.match(query, /order_date >= CAST\(\? AS DATE\)/);
-  assert.match(query, /order_date < CAST\(\? AS DATE\) \+ INTERVAL '1 day'/);
+  assert.match(query, /order_date >= \(CAST\(\? AS DATE\)::timestamp AT TIME ZONE 'Etc\/GMT\+4'\)/);
+  assert.match(query, /order_date < \(\(CAST\(\? AS DATE\) \+ INTERVAL '1 day'\)::timestamp AT TIME ZONE 'Etc\/GMT\+4'\)/);
   assert.match(query, /ORDER BY order_date DESC NULLS LAST, order_number ASC/);
   assert.deepEqual(values, ["2026-09-01", "2026-09-01", 25]);
 });
