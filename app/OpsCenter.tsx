@@ -1064,7 +1064,7 @@ const ZOMBIE_METHOD_OPTIONS: Record<
 function zombieResolutionKey(row: ZombieCampaignFinding) {
   return `${row.campaignId}:${row.listing}:${row.actionType}`;
 }
-let dashboardSnapshot: OrderSummary | null = null;
+let dashboardSnapshot: { cacheKey: string; data: OrderSummary } | null = null;
 type PlanProgress = {
   plan: {
     month: string;
@@ -2434,15 +2434,19 @@ function Dashboard() {
   const initialRange = rangeFor("today");
   const initialDashboardCacheKey = `orders:${initialRange.start}:${initialRange.end}`;
   const retainedDashboard =
-    dashboardSnapshot ??
-    readClientCache<OrderSummary>(
-      initialDashboardCacheKey,
-      CLIENT_CACHE_RETENTION_MS,
-    );
+    dashboardSnapshot?.cacheKey === initialDashboardCacheKey
+      ? dashboardSnapshot.data
+      : readClientCache<OrderSummary>(
+          initialDashboardCacheKey,
+          CLIENT_CACHE_RETENTION_MS,
+        );
   const [preset, setPreset] = useState("today");
   const [start, setStart] = useState(initialRange.start);
   const [end, setEnd] = useState(initialRange.end);
   const [data, setData] = useState<OrderSummary | null>(retainedDashboard);
+  const [chartMetric, setChartMetric] = useState<"revenue" | "orders">(
+    "revenue",
+  );
   const [loading, setLoading] = useState(!retainedDashboard);
   const [refreshing, setRefreshing] = useState(false);
   const [syncingAll, setSyncingAll] = useState(false);
@@ -2460,19 +2464,17 @@ function Dashboard() {
     if (fresh && !forceRefresh) {
       queueMicrotask(() => {
         if (!controller.signal.aborted) {
-          dashboardSnapshot = fresh;
+          dashboardSnapshot = { cacheKey, data: fresh };
           setData(fresh);
           setLoading(false);
-          setRefreshing(false);
+          setRefreshing(true);
           setError("");
         }
       });
-      return () => controller.abort();
-    }
-    if (retained)
+    } else if (retained)
       queueMicrotask(() => {
         if (!controller.signal.aborted) {
-          dashboardSnapshot = retained;
+          dashboardSnapshot = { cacheKey, data: retained };
           setData(retained);
           setLoading(false);
           setRefreshing(true);
@@ -2489,7 +2491,7 @@ function Dashboard() {
       });
     fetch(
       `/api/orders/summary?start=${start}&end=${end}${forceRefresh ? "&refresh=1" : ""}`,
-      { signal: controller.signal },
+      { signal: controller.signal, cache: "no-store" },
     )
       .then(async (response) => {
         const body = (await response.json()) as OrderSummary;
@@ -2497,7 +2499,7 @@ function Dashboard() {
         return body;
       })
       .then((body) => {
-        dashboardSnapshot = body;
+        dashboardSnapshot = { cacheKey, data: body };
         setData(body);
         writeClientCache(cacheKey, body);
       })
@@ -2578,7 +2580,7 @@ function Dashboard() {
       : `已扣广告费 ${money(current.advertisingSpend)} · ${current.advertisingCoverage === "FULL" ? "完整覆盖" : "部分覆盖（当期仍在累计）"}`;
   const chartMax = Math.max(
     1,
-    ...(data?.daily || []).map((item) => Number(item.revenue)),
+    ...(data?.daily || []).map((item) => Number(item[chartMetric])),
   );
   const rangeLabel = start === end ? start : `${start} - ${end}`;
   const loadingLabel = (retained: boolean) =>
@@ -2715,31 +2717,62 @@ function Dashboard() {
         <div className="section-head">
           <div>
             <span>订单业绩</span>
-            <h2>{rangeLabel} 订单走势</h2>
+            <h2>
+              {rangeLabel} {chartMetric === "revenue" ? "销售额走势" : "订单走势"}
+            </h2>
           </div>
-          <b>
-            {data?.sync.refreshed
-              ? "API 已刷新并写入缓存"
-              : "每小时后台同步，读取已保存快照"}
-          </b>
+          <div className="order-performance-tools">
+            <div
+              className="order-performance-metric-toggle"
+              role="group"
+              aria-label="柱状图指标"
+            >
+              {([
+                ["revenue", "销售额"],
+                ["orders", "订单"],
+              ] as const).map(([metric, label]) => (
+                <button
+                  key={metric}
+                  type="button"
+                  className={chartMetric === metric ? "active" : ""}
+                  aria-pressed={chartMetric === metric}
+                  onClick={() => setChartMetric(metric)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <b>
+              {data?.sync.refreshed
+                ? "API 已刷新并写入缓存"
+                : "每小时后台同步，读取已保存快照"}
+            </b>
+          </div>
         </div>
         <div className="order-performance-body">
           <div className="daily-bars">
             {(data?.daily || []).length ? (
-              data?.daily.map((item) => (
-                <div
-                  key={item.date}
-                  title={`${item.date} · ${money(item.revenue)} · ${item.orders} 单`}
-                >
-                  <span>{money(item.revenue)}</span>
-                  <i
-                    style={{
-                      height: `${Math.max(4, (Number(item.revenue) / chartMax) * 100)}%`,
-                    }}
-                  ></i>
-                  <b>{item.date.slice(5)}</b>
-                </div>
-              ))
+              data?.daily.map((item) => {
+                const chartValue = Number(item[chartMetric]);
+                return (
+                  <div
+                    key={item.date}
+                    title={`${item.date} · ${money(item.revenue)} · ${item.orders} 单`}
+                  >
+                    <span>
+                      {chartMetric === "revenue"
+                        ? money(Number(item.revenue))
+                        : `${Number(item.orders)} 单`}
+                    </span>
+                    <i
+                      style={{
+                        height: `${Math.max(4, (chartValue / chartMax) * 100)}%`,
+                      }}
+                    ></i>
+                    <b>{item.date.slice(5)}</b>
+                  </div>
+                );
+              })
             ) : (
               <p>{loading ? "正在拉取订单数据…" : "所选周期暂无订单"}</p>
             )}
