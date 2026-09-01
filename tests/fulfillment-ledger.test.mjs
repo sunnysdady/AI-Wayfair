@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { labelArchiveMode, labelFileNameForOrder, parseFulfillmentFilters, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
+import { labelArchiveMode, labelFileNameForOrder, listFulfillmentRecords, parseFulfillmentFilters, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
 
 test("one multi-unit order is split into deterministic one-parcel orders", () => {
   const records = splitOrderLines(
@@ -16,6 +16,7 @@ test("one multi-unit order is split into deterministic one-parcel orders", () =>
   assert.deepEqual(records.map((record) => record.quantity), [1, 1, 1]);
   assert.deepEqual(records.map((record) => record.labelFileName), ["CS675819934-1.pdf", "CS675819934-2.pdf", "CS675819934-3.pdf"]);
   assert.equal(records[2].sku, "SKU-B");
+  assert.equal(records[0].orderDate, "2026-08-25T00:00:00.000Z");
 });
 
 test("one physical parcel keeps its source order number", () => {
@@ -51,6 +52,28 @@ test("formal ledger filters reject historical dates and unknown statuses", () =>
   assert.throws(() => parseFulfillmentFilters({ status: "未知" }), /状态/);
 });
 
+test("ledger queries include the full end date and sort newest order timestamps first", async () => {
+  let query = "";
+  let values = [];
+  const db = {
+    prepare(sql) {
+      query = sql;
+      return {
+        bind(...bound) {
+          values = bound;
+          return { all: async () => ({ results: [] }) };
+        },
+      };
+    },
+  };
+
+  await listFulfillmentRecords(db, { start: "2026-09-01", end: "2026-09-01", limit: 25 });
+  assert.match(query, /order_date >= CAST\(\? AS DATE\)/);
+  assert.match(query, /order_date < CAST\(\? AS DATE\) \+ INTERVAL '1 day'/);
+  assert.match(query, /ORDER BY order_date DESC NULLS LAST, order_number ASC/);
+  assert.deepEqual(values, ["2026-09-01", "2026-09-01", 25]);
+});
+
 test("fulfillment records reject package quantities other than one and unsafe split names", () => {
   const valid = validateFulfillmentRecord({
     sourceKey: "wayfair:PO:A:1", source: "wayfair_orders", orderDate: "2026-08-25",
@@ -58,6 +81,7 @@ test("fulfillment records reject package quantities other than one and unsafe sp
   });
   assert.equal(valid.country, "US");
   assert.equal(valid.labelFileName, "PO-1.pdf");
+  assert.equal(validateFulfillmentRecord({ ...valid, orderDate: "2026-09-01T15:04:05-04:00" }).orderDate, "2026-09-01T19:04:05.000Z");
   assert.throws(() => validateFulfillmentRecord({ ...valid, quantity: 2 }), /数量/);
   assert.throws(() => validateFulfillmentRecord({ ...valid, orderNumber: "OTHER-1" }), /拆分单号/);
   assert.equal(labelFileNameForOrder("CS 67/58:19934-1"), "CS_67_58_19934-1.pdf");

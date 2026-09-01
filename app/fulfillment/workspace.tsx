@@ -83,6 +83,20 @@ function display(value: unknown) {
   return value === "" || value == null ? "—" : String(value);
 }
 
+function displayOrderDateTime(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw || /^\d{4}-\d{2}-\d{2}$/.test(raw)) return display(raw);
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: LINGXING_TIME_ZONE,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(parsed);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")}`;
+}
+
 export default function FulfillmentWorkspace() {
   const [records, setRecords] = useState<FulfillmentRecord[]>([]);
   const [selected, setSelected] = useState<FulfillmentRecord | null>(null);
@@ -228,7 +242,7 @@ export default function FulfillmentWorkspace() {
               const hasLabel = Boolean(record.labelObjectKey);
               return <tr key={record.sourceKey}>
                 <td className={styles.selection}><input type="checkbox" aria-label={`选择 ${record.orderNumber} 面单`} checked={selectedLabelKeys.includes(record.sourceKey)} onChange={(event) => toggleLabel(record.sourceKey, event.target.checked)} disabled={!hasLabel} /></td>
-                {columns.map(([, , field]) => <td key={field}>{display(record[field])}</td>)}
+                {columns.map(([, , field]) => <td key={field}>{field === "orderDate" ? displayOrderDateTime(record[field]) : display(record[field])}</td>)}
                 <td>{hasLabel ? <a className={styles.labelLink} href={`/api/fulfillment/labels/download?sourceKey=${encodeURIComponent(record.sourceKey)}`}>{record.labelFileName}</a> : "未归档"}</td>
                 <td><button className={styles.edit} onClick={() => setSelected({ ...record })}>编辑</button></td>
               </tr>;
@@ -248,8 +262,8 @@ export default function FulfillmentWorkspace() {
             <span>{label}</span>
             <input
               value={String(selected[field] ?? "")}
-              type={field === "orderDate" ? "date" : "text"}
-              readOnly={["orderNumber", "sku", "quantity"].includes(String(field))}
+              type="text"
+              readOnly={["orderDate", "orderNumber", "sku", "quantity"].includes(String(field))}
               onChange={(event) => updateSelected(field, event.target.value)}
             />
           </label>)}
