@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { labelArchiveMode, labelFileNameForOrder, listFulfillmentRecords, parseFulfillmentFilters, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
+import { toPostgresSql } from "../lib/postgres-d1.mjs";
 
 test("one multi-unit order is split into deterministic one-parcel orders", () => {
   const records = splitOrderLines(
@@ -68,9 +69,11 @@ test("ledger queries include the full end date and sort newest order timestamps 
   };
 
   await listFulfillmentRecords(db, { start: "2026-09-01", end: "2026-09-01", limit: 25 });
-  assert.match(query, /order_date >= \(CAST\(\? AS DATE\)::timestamp AT TIME ZONE 'Etc\/GMT\+4'\)/);
-  assert.match(query, /order_date < \(\(CAST\(\? AS DATE\) \+ INTERVAL '1 day'\)::timestamp AT TIME ZONE 'Etc\/GMT\+4'\)/);
+  assert.match(query, /order_date >= \(\?::date::timestamp AT TIME ZONE 'Etc\/GMT\+4'\)/);
+  assert.match(query, /order_date < \(\(\?::date \+ INTERVAL '1 day'\)::timestamp AT TIME ZONE 'Etc\/GMT\+4'\)/);
   assert.match(query, /ORDER BY order_date DESC NULLS LAST, order_number ASC/);
+  assert.match(toPostgresSql(query), /order_date >= \(\$1::date::timestamp/);
+  assert.doesNotMatch(toPostgresSql(query), /"DATE"/);
   assert.deepEqual(values, ["2026-09-01", "2026-09-01", 25]);
 });
 
