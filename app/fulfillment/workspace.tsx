@@ -37,6 +37,41 @@ const columns: Array<[string, string, keyof FulfillmentRecord]> = [
 ];
 
 const editableFields: Array<[string, keyof FulfillmentRecord]> = columns.slice(0, -1).map(([, label, field]) => [label, field]);
+const quickRanges = ["7天", "14天", "本月", "上个月", "今年"] as const;
+type QuickRange = typeof quickRanges[number] | "自定义";
+const formalStart = "2026-09-01";
+
+function isoDate(value: Date) { return value.toISOString().slice(0, 10); }
+
+function newYorkToday() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date());
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "";
+  return new Date(Date.UTC(Number(part("year")), Number(part("month")) - 1, Number(part("day"))));
+}
+
+function addDays(value: Date, days: number) {
+  const next = new Date(value);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function withinFormalRange(range: { start: string; end: string }) {
+  if (range.end < formalStart) return { start: formalStart, end: formalStart };
+  return { start: range.start < formalStart ? formalStart : range.start, end: range.end };
+}
+
+function rangeFor(label: typeof quickRanges[number]) {
+  const today = newYorkToday();
+  const year = today.getUTCFullYear();
+  const month = today.getUTCMonth();
+  if (label === "7天") return withinFormalRange({ start: isoDate(addDays(today, -6)), end: isoDate(today) });
+  if (label === "14天") return withinFormalRange({ start: isoDate(addDays(today, -13)), end: isoDate(today) });
+  if (label === "本月") return withinFormalRange({ start: `${year}-${String(month + 1).padStart(2, "0")}-01`, end: isoDate(today) });
+  if (label === "上个月") return withinFormalRange({ start: isoDate(new Date(Date.UTC(year, month - 1, 1))), end: isoDate(new Date(Date.UTC(year, month, 0))) });
+  return withinFormalRange({ start: `${year}-01-01`, end: isoDate(today) });
+}
 
 function display(value: unknown) {
   return value === "" || value == null ? "—" : String(value);
@@ -48,11 +83,17 @@ export default function FulfillmentWorkspace() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [quickRange, setQuickRange] = useState<QuickRange>("7天");
+  const [range, setRange] = useState(() => rangeFor("7天"));
+  const [status, setStatus] = useState("");
 
-  const load = async () => {
+  const load = async (refresh = false) => {
     setLoading(true);
     try {
-      const response = await fetch("/api/fulfillment/orders", { cache: "no-store" });
+      const params = new URLSearchParams({ start: range.start, end: range.end, limit: "2000" });
+      if (status) params.set("status", status);
+      if (refresh) params.set("refresh", "1");
+      const response = await fetch(`/api/fulfillment/orders?${params}`, { cache: "no-store" });
       const body = await response.json() as { records?: FulfillmentRecord[]; error?: string };
       if (!response.ok) throw new Error(body.error || "履约订单读取失败");
       setRecords(body.records || []);
@@ -64,13 +105,13 @@ export default function FulfillmentWorkspace() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [range.start, range.end, status]);
 
   const overview = useMemo(() => ({
     total: records.length,
     tracked: records.filter((record) => record.trackingNumber).length,
     labels: records.filter((record) => record.labelObjectKey).length,
-    incomplete: records.filter((record) => record.shippingStatus === "待补全").length,
+    incomplete: records.filter((record) => !record.labelObjectKey).length,
   }), [records]);
 
   const updateSelected = (field: keyof FulfillmentRecord, value: string) => {
@@ -106,18 +147,25 @@ export default function FulfillmentWorkspace() {
           <h1 id="fulfillment-title">订单履约</h1>
           <p>一单多件按订单行和数量拆成独立包裹：<b>原订单号-1、-2…</b>。每张面单也使用对应拆分单号命名。</p>
         </div>
-        <button className={styles.refresh} onClick={() => void load()} disabled={loading}>{loading ? "加载中…" : "刷新订单"}</button>
+        <button className={styles.refresh} onClick={() => void load(true)} disabled={loading}>{loading ? "同步中…" : "API 同步订单"}</button>
       </header>
 
       <div className={styles.notice}>
-        当前 Wayfair 订单接口已带入日期、订单号、SKU 和数量；收件信息、云仓 SKU、跟踪号和已生成面单将由履约/仓储接口回写。系统不会自动购买、打印或上传面单。
+        仅显示 2026-09-01 起的正式订单。订单和面单均从 Wayfair API 获取；库存同步映射自动填入云仓 SKU。已归档面单不会重复拉取，系统不会购买、打印或上传面单。
+      </div>
+
+      <div className={styles.filters} aria-label="订单筛选">
+        <div className={styles.quickRanges}>{quickRanges.map((item) => <button key={item} className={quickRange === item ? styles.activeRange : ""} onClick={() => { setQuickRange(item); setRange(rangeFor(item)); }}>{item}</button>)}</div>
+        <label><span>开始日期</span><input type="date" min="2026-09-01" value={range.start} onChange={(event) => { setQuickRange("自定义"); setRange((current) => ({ ...current, start: event.target.value })); }} /></label>
+        <label><span>结束日期</span><input type="date" min="2026-09-01" value={range.end} onChange={(event) => { setQuickRange("自定义"); setRange((current) => ({ ...current, end: event.target.value })); }} /></label>
+        <label><span>订单状态</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">全部状态</option><option value="待获取面单">待获取面单</option><option value="SKU待映射">SKU待映射</option><option value="面单待核验">面单待核验</option><option value="已归档面单">已归档面单</option><option value="待出库">待出库</option><option value="已出库">已出库</option><option value="已发货">已发货</option><option value="异常">异常</option></select></label>
       </div>
 
       <div className={styles.metrics} aria-label="履约概况">
         <Metric label="拆分包裹" value={overview.total} />
         <Metric label="已有跟踪号" value={overview.tracked} />
         <Metric label="已归档面单" value={overview.labels} />
-        <Metric label="待补全" value={overview.incomplete} />
+        <Metric label="待面单/补全" value={overview.incomplete} />
       </div>
 
       {message && <p className={styles.message} role="status">{message}</p>}
@@ -152,7 +200,7 @@ export default function FulfillmentWorkspace() {
             />
           </label>)}
           <label><span>发货状态</span><select value={selected.shippingStatus} onChange={(event) => updateSelected("shippingStatus", event.target.value)}>
-            <option value="待补全">待补全</option><option value="待出库">待出库</option><option value="已出库">已出库</option><option value="已发货">已发货</option><option value="异常">异常</option>
+            <option value="待获取面单">待获取面单</option><option value="SKU待映射">SKU待映射</option><option value="面单待核验">面单待核验</option><option value="已归档面单">已归档面单</option><option value="待出库">待出库</option><option value="已出库">已出库</option><option value="已发货">已发货</option><option value="异常">异常</option>
           </select></label>
           <label><span>面单文件名</span><input value={selected.labelFileName} readOnly /></label>
         </div>

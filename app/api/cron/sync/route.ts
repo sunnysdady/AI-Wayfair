@@ -7,6 +7,7 @@ import {
   dailyOperatingReportDue,
 } from "@/lib/daily-operating-report.mjs";
 import { lingxingDate } from "@/lib/lingxing-business-time.mjs";
+import { syncFulfillmentOrders } from "@/lib/fulfillment-api-sync.mjs";
 
 export const maxDuration = 800;
 export const dynamic = "force-dynamic";
@@ -220,7 +221,10 @@ async function runSync(
       force: new URL(request.url).searchParams.get("forceDailyReport") === "1",
       requestInternal,
     });
-    return Response.json({ ...result, dailyOperatingReport }, {
+    let fulfillment;
+    try { fulfillment = await syncFulfillmentOrders(env); }
+    catch (error) { fulfillment = { error: error instanceof Error ? error.message : "履约订单同步失败" }; }
+    return Response.json({ ...result, dailyOperatingReport, fulfillment }, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {

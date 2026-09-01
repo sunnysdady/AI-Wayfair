@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { labelFileNameForOrder, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
+import { labelFileNameForOrder, parseFulfillmentFilters, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
 
 test("one multi-unit order is split into deterministic one-parcel orders", () => {
   const records = splitOrderLines(
@@ -24,6 +24,30 @@ test("one physical parcel keeps its source order number", () => {
   );
   assert.equal(record.orderNumber, "CA675883443");
   assert.equal(record.labelFileName, "CA675883443.pdf");
+});
+
+test("split records inherit API recipient fields and cloud SKU mappings", () => {
+  const [record] = splitOrderLines(
+    {
+      poNumber: "CA675883443", poDate: "2026-09-01", orderId: "SYSTEM-123",
+      customerName: "Recipient", customerAddress1: "1 Main St", customerAddress2: "Suite 2",
+      customerCity: "New York", customerState: "NY", customerPostalCode: "10001", customerCountry: "us",
+    },
+    [{ lineKey: "SKU:0", partNumber: "SKU", quantity: 1 }],
+    new Map([["SKU", "CLOUD-SKU-A|CLOUD-SKU-B"]]),
+  );
+  assert.equal(record.systemOrderNumber, "SYSTEM-123");
+  assert.equal(record.country, "US");
+  assert.equal(record.warehouseSkuCode, "CLOUD-SKU-A|CLOUD-SKU-B");
+  assert.equal(record.shippingStatus, "待获取面单");
+});
+
+test("formal ledger filters reject historical dates and unknown statuses", () => {
+  assert.deepEqual(parseFulfillmentFilters({ start: "2026-09-01", end: "2026-09-14", status: "待出库" }), {
+    start: "2026-09-01", end: "2026-09-14", status: "待出库", limit: 500,
+  });
+  assert.throws(() => parseFulfillmentFilters({ start: "2026-08-31" }), /2026-09-01/);
+  assert.throws(() => parseFulfillmentFilters({ status: "未知" }), /状态/);
 });
 
 test("fulfillment records reject package quantities other than one and unsafe split names", () => {
