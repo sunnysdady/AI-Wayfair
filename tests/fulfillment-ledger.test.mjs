@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { labelFileNameForOrder, parseFulfillmentFilters, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
 
 test("one multi-unit order is split into deterministic one-parcel orders", () => {
@@ -60,4 +61,12 @@ test("fulfillment records reject package quantities other than one and unsafe sp
   assert.throws(() => validateFulfillmentRecord({ ...valid, quantity: 2 }), /数量/);
   assert.throws(() => validateFulfillmentRecord({ ...valid, orderNumber: "OTHER-1" }), /拆分单号/);
   assert.equal(labelFileNameForOrder("CS 67/58:19934-1"), "CS_67_58_19934-1.pdf");
+});
+
+test("label lookup requests only the supported tracking field from ShippingLabelInterface", async () => {
+  const source = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
+  const query = source.match(/const LABEL_QUERY = `([\s\S]*?)`;/)?.[1] || "";
+
+  assert.match(query, /shippingLabelInfo \{ trackingNumber \}/);
+  assert.doesNotMatch(query, /shippingLabelInfo \{[^}]*\b(poNumber|fullPoNumber|numberOfLabels)\b/);
 });
