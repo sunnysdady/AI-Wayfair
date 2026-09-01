@@ -22,6 +22,19 @@ DNS、代理或 SSL 配置，也不得使用其他托管平台作为本项目的
 
 应用不通过其他托管平台读取或发布生产数据。
 
+## 固定发布通道
+
+远程 Git 的 `production` 分支是唯一生产代码源。Codex 必须先完成专项测试、提交并保持本地工作树干净，再执行：
+
+```bash
+bash scripts/release-digitalocean.sh
+```
+
+发布脚本只允许快进更新 `production`，核对远程完整 Commit SHA 后，使用本机 SSH 别名
+`wayfair-production` 调用服务器上的指定版本部署脚本。服务器部署会加互斥锁，备份 PostgreSQL，记录逐表行数与对象数，运行迁移和 Scheduler 同步，验证生产健康与登录保护，并在应用启动失败时恢复上一版应用。数据库迁移不会自动反向回滚。
+
+代码备份以远程 `production` 分支为准；生产密钥、PostgreSQL 数据和对象文件不进入 Git。
+
 ## 本地启动
 
 要求 Node.js 22.13 或更高版本。

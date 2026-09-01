@@ -19,7 +19,7 @@ Next.js Web/API ───── DigitalOcean Managed PostgreSQL
    │
    └──────────────── Microsoft Graph
 
-Scheduler（Droplet）每两小时调用受 CRON_SECRET 保护的同步接口
+Scheduler（Droplet）每 30 分钟调用受 CRON_SECRET 保护的同步接口
 ```
 
 ## 1. 购买清单
@@ -112,9 +112,9 @@ Caddy 会在 80/443 可访问且 DNS 生效后自动申请和续期 HTTPS 证书
 
 ## 6. 把代码放到服务器
 
-当前生产代码必须先合并并推送到 GitHub `main`。私有仓库建议给服务器配置只读 GitHub Deploy Key，不要把个人 Token 写进命令历史。
+当前生产代码必须先提交并快进推送到 GitHub `production`。该分支是唯一生产代码备份与部署来源；历史 `main` 不作为服务器部署输入。私有仓库给服务器配置只读 GitHub Deploy Key，不要把个人 Token 写进命令历史。
 
-首次登录：
+首次引导可以通过 DigitalOcean 控制台登录；完成专用 SSH 后不再把网页控制台作为日常部署通道：
 
 ```bash
 ssh root@<Droplet Reserved IP>
@@ -122,19 +122,29 @@ docker version
 docker compose version
 ```
 
-创建普通部署用户和目录：
+创建无密码的普通部署用户和目录：
 
 ```bash
-adduser deploy
-usermod -aG sudo,docker deploy
+adduser --disabled-password --gecos "" deploy
+usermod -aG docker deploy
 mkdir -p /opt/wayfair-ai-ops
 chown deploy:deploy /opt/wayfair-ai-ops
 ```
 
-重新以 `deploy` 登录，配置 GitHub Deploy Key 后：
+把本机项目专用公钥加入 `deploy` 用户的 `authorized_keys`，并在本机 `~/.ssh/config` 固定主机身份：
+
+```sshconfig
+Host wayfair-production
+  HostName <Droplet Reserved IP>
+  User deploy
+  IdentityFile ~/.ssh/aiwayfair_deploy
+  IdentitiesOnly yes
+```
+
+服务器配置只读 GitHub Deploy Key 后：
 
 ```bash
-git clone git@github.com:sunnysdady/AI-Wayfair.git /opt/wayfair-ai-ops
+git clone --branch production --single-branch git@github.com:sunnysdady/AI-Wayfair.git /opt/wayfair-ai-ops
 cd /opt/wayfair-ai-ops
 cp .env.example .env.production
 chmod 600 .env.production
@@ -179,21 +189,24 @@ ALLOW_WAYFAIR_LIVE_PUSH=false
 openssl rand -base64 48
 ```
 
-## 8. 首次部署
+## 8. 固定发布
 
-在仓库目录执行：
+日常发布只从本地干净仓库执行：
 
 ```bash
-bash scripts/deploy-digitalocean.sh
+bash scripts/release-digitalocean.sh
 ```
 
 脚本会依次：
 
-1. 校验 Docker Compose；
-2. 按当前 Git commit 构建不可混淆的镜像标签；
-3. 运行 PostgreSQL 迁移；
-4. 启动 Web、Scheduler 和 Caddy；
-5. 输出容器状态。
+1. 拒绝本地未提交文件，并要求远程 `production` 只能快进；
+2. 先将当前完整 Commit SHA 推送并读回核验，确保 Git 已保存待部署代码；
+3. 通过 `wayfair-production` 专用 SSH 通道调用该 SHA 对应的部署脚本；
+4. 服务器获取部署锁，拒绝生产漂移，只允许保留 `backups/` 与 `DEPLOYED_SHA`；
+5. 记录旧 SHA、逐表行数、对象数，并在迁移前生成 PostgreSQL 备份；
+6. 构建固定 SHA 镜像、运行迁移、启动 Web、Scheduler、Caddy、PostgreSQL 与 MinIO；
+7. 验证 `/api/health` 为 `200`、未登录首页为 `401`，并执行一次 Scheduler 同步；
+8. 成功后原子写入 `DEPLOYED_SHA`；应用启动失败时恢复上一版应用，数据库迁移不自动反向回滚。
 
 ## 9. 上线验收
 
