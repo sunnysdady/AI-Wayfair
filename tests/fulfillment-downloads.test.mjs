@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
+import ExcelJS from "exceljs";
 import {
-  createFulfillmentCsv,
+  createFulfillmentWorkbook,
   fulfillmentExportFileName,
   selectDownloadableLabelRecords,
 } from "../lib/fulfillment-downloads.mjs";
@@ -30,16 +31,25 @@ const record = {
   labelFileName: "PO-1.pdf",
 };
 
-test("order export keeps the A-P template and neutralizes spreadsheet formulas", () => {
-  const csv = createFulfillmentCsv([record]);
+test("order export reproduces the 16-column A-P workbook template", async () => {
+  const content = await createFulfillmentWorkbook([record]);
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(content);
+  const sheet = workbook.getWorksheet("订单处理");
 
-  assert.match(csv, /^\uFEFFA,日期,B,系统单号,C,单号,D,国家,E,客人姓名,F,地址1,G,地址2,H,城市,I,州,J,邮编,K,电话,L,云仓SKU编码,M,跟踪号,N,SKU,O,数量,P,发货状态\r\n/m);
-  assert.match(csv, /'=?Recipient/);
-  assert.doesNotMatch(csv, /labelObjectKey/);
+  assert.ok(sheet);
+  assert.equal(sheet.columnCount, 16);
+  assert.deepEqual(sheet.getRow(1).values.slice(1), [
+    "日期", "系统单号", "单号", "国家", "客人姓名", "地址1", "地址2", "城市", "州", "邮编", "电话",
+    "云仓SKU编码\n(公式填充)", "跟踪号", "SKU", "数量", "发货状态",
+  ]);
+  assert.equal(sheet.getCell("E2").value, "'=Recipient");
+  assert.equal(sheet.getCell("P2").value, "已归档面单");
+  assert.equal(sheet.getCell("Q1").value, null);
 });
 
 test("export file name reflects the selected date range", () => {
-  assert.equal(fulfillmentExportFileName({ start: "2026-09-01", end: "2026-09-14" }), "Wayfair订单_2026-09-01_2026-09-14.csv");
+  assert.equal(fulfillmentExportFileName({ start: "2026-09-01", end: "2026-09-14" }), "Wayfair订单_2026-09-01_2026-09-14.xlsx");
 });
 
 test("label download selection accepts only stored fulfillment PDFs for selected records", () => {
