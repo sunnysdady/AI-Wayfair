@@ -73,3 +73,8 @@ test("label lookup requests only the supported tracking field from ShippingLabel
   assert.match(query, /shippingLabelInfo \{ trackingNumber \}/);
   assert.doesNotMatch(query, /shippingLabelInfo \{[^}]*\b(poNumber|fullPoNumber|numberOfLabels)\b/);
 });
+
+test("label downloads follow the signed URL redirect", async () => {
+  const source = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
+  assert.match(source, /fetch\(url, \{ redirect: "follow", signal: AbortSignal\.timeout\(60_000\) \}\)/);
+});
