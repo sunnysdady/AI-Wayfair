@@ -200,7 +200,7 @@ export default function FulfillmentWorkspace() {
         <div className={styles.headerActions}>
           <button className={styles.export} onClick={downloadOrders} disabled={loading}>下载订单</button>
           <button className={styles.export} onClick={() => void downloadSelectedLabels()} disabled={downloadingLabels || !selectedDownloadableKeys.length}>{downloadingLabels ? "下载中…" : `下载已选面单${selectedDownloadableKeys.length ? ` (${selectedDownloadableKeys.length})` : ""}`}</button>
-          <button className={styles.refresh} onClick={() => void load(true)} disabled={loading}>{loading ? "同步中…" : "API 同步订单"}</button>
+          <button className={styles.refresh} onClick={() => void load(true)} disabled={loading}>{loading ? "获取中…" : "手动获取订单信息+面单信息"}</button>
         </div>
       </header>
 

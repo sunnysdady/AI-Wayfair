@@ -67,6 +67,8 @@ test("workspace exposes date-range order export and selectable archived label do
 
   assert.match(source, /下载订单/);
   assert.match(source, /下载已选面单/);
+  assert.match(source, /手动获取订单信息\+面单信息/);
+  assert.doesNotMatch(source, /API 同步订单/);
   assert.match(source, /type="checkbox"/);
   assert.doesNotMatch(source, /"待回传"/);
 });
