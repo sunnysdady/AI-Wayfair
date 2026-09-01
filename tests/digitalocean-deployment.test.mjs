@@ -65,6 +65,8 @@ test("production releases are Git-first, SHA-pinned, locked, audited, and revers
   assert.match(deploy, /pg_dump/);
   assert.match(deploy, /table-counts-before\.txt/);
   assert.match(deploy, /object-count-after\.txt/);
+  assert.match(deploy, /objects="\$\(mc find/);
+  assert.doesNotMatch(deploy, /mc find[^\n]*--type/);
   assert.match(deploy, /git switch --detach/);
   assert.match(deploy, /DEPLOYED_SHA/);
   assert.match(deploy, /Database migrations are not rolled back automatically/);

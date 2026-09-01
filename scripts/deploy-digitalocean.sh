@@ -45,7 +45,7 @@ remote_sha="$(git rev-parse "refs/remotes/$remote/$branch")"
 git cat-file -e "$target_sha^{commit}" || fail "target SHA is not a commit"
 
 chmod 600 "$env_file"
-enable_scheduler="$(awk -F= '$1 == "ENABLE_SCHEDULER" { value=tolower($2); gsub(/[[:space:]\"\047]/, "", value); print value }' "$env_file" | tail -1)"
+enable_scheduler="$(awk -F= '$1 == "ENABLE_SCHEDULER" { value=tolower($2); gsub(/[[:space:]]/, "", value); gsub(/"/, "", value); print value }' "$env_file" | tail -1)"
 [[ "$enable_scheduler" == "true" ]] || fail "ENABLE_SCHEDULER must be true in production"
 
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -81,8 +81,14 @@ SQL
 
 object_count() {
   "${compose[@]}" run --rm --no-deps --entrypoint /bin/sh minio-init -c '
+    set -eu
     mc alias set audit http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
-    mc find "audit/$S3_BUCKET" --type f | wc -l
+    objects="$(mc find "audit/$S3_BUCKET")"
+    if [ -z "$objects" ]; then
+      printf "0\n"
+    else
+      printf "%s\n" "$objects" | wc -l
+    fi
   '
 }
 
