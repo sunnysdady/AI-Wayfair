@@ -142,17 +142,9 @@ export default function FulfillmentWorkspace() {
   return (
     <section className={styles.workspace} aria-labelledby="fulfillment-title">
       <header className={styles.header}>
-        <div>
-          <p className={styles.eyebrow}>订单履约台账 · A–P 标准模板</p>
-          <h1 id="fulfillment-title">订单履约</h1>
-          <p>一单多件按订单行和数量拆成独立包裹：<b>原订单号-1、-2…</b>。每张面单也使用对应拆分单号命名。</p>
-        </div>
+        <h1 id="fulfillment-title">订单履约</h1>
         <button className={styles.refresh} onClick={() => void load(true)} disabled={loading}>{loading ? "同步中…" : "API 同步订单"}</button>
       </header>
-
-      <div className={styles.notice}>
-        仅显示 2026-09-01 起的正式订单。订单和面单均从 Wayfair API 获取；库存同步映射自动填入云仓 SKU。已归档面单不会重复拉取，系统不会购买、打印或上传面单。
-      </div>
 
       <div className={styles.filters} aria-label="订单筛选">
         <div className={styles.quickRanges}>{quickRanges.map((item) => <button key={item} className={quickRange === item ? styles.activeRange : ""} onClick={() => { setQuickRange(item); setRange(rangeFor(item)); }}>{item}</button>)}</div>
