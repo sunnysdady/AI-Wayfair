@@ -51,6 +51,11 @@ type ProductTab = "inventory" | "catalog" | "launch" | "performance";
 type PlanSection = "plan" | "july" | "bfij" | "august" | "september";
 type SubView = AdsTab | DailyTab | PlanningTab | ProductTab;
 
+// The report files are retained in public/reports, but their shared preview
+// route is currently unavailable. Keep the library out of navigation until the
+// access path has been restored and verified.
+const REVIEW_LIBRARY_VISIBLE = false;
+
 const PRIMARY_NAV: { id: View; label: string }[] = [
   { id: "dashboard", label: "经营总览" },
   { id: "tasks", label: "工作台" },
@@ -83,7 +88,9 @@ const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
     { id: "plan", label: "运营目标" },
     { id: "august", label: "8月执行计划" },
     { id: "september", label: "9月销售计划" },
-    { id: "review", label: "复盘资料" },
+    ...(REVIEW_LIBRARY_VISIBLE
+      ? [{ id: "review" as const, label: "复盘资料" }]
+      : []),
     { id: "history", label: "历史月度" },
   ],
   products: [
@@ -3632,11 +3639,11 @@ function Plan({
           eyebrow="MONTHLY OPERATING PLAN"
           title="目标与执行"
           text="6月复盘 → 8月执行中 → 9月销售计划已确认；目标、利润与广告共用同一套运营计划"
-          side={
+          side={REVIEW_LIBRARY_VISIBLE ? (
             <button className="hero-button" onClick={onOpenReview}>
               查看完整复盘证据
             </button>
-          }
+          ) : undefined}
         />
       )}
       {tab === "plan" && (
@@ -3663,13 +3670,15 @@ function Plan({
                 >
                   BFIJ 活动广告策略
                 </button>
-                <button
-                  className="objective-link"
-                  aria-label="打开6月复盘资料"
-                  onClick={onOpenReview}
-                >
-                  查看6月复盘
-                </button>
+                {REVIEW_LIBRARY_VISIBLE ? (
+                  <button
+                    className="objective-link"
+                    aria-label="打开6月复盘资料"
+                    onClick={onOpenReview}
+                  >
+                    查看6月复盘
+                  </button>
+                ) : null}
               </div>
             </div>
             <div className="objective-progress-main">
@@ -9160,6 +9169,8 @@ function PlanningWorkspace({
   tab: PlanningTab;
   onTabChange: (tab: PlanningTab) => void;
 }) {
+  const activeTab =
+    !REVIEW_LIBRARY_VISIBLE && tab === "review" ? "plan" : tab;
   const [planSection, setPlanSection] = useState<PlanSection>("plan");
   function openPlanSection(section: PlanSection) {
     setPlanSection(section);
@@ -9170,49 +9181,49 @@ function PlanningWorkspace({
       <WorkspaceTabs
         label="计划与复盘视图"
         items={SUB_NAV.planning as { id: PlanningTab; label: string }[]}
-        active={tab}
+        active={activeTab}
         onChange={onTabChange}
       />
       <Hero
         eyebrow=""
         title={
-          tab === "august"
+          activeTab === "august"
             ? "8月执行计划"
-            : tab === "september"
+            : activeTab === "september"
               ? "9月销售计划"
-            : tab === "plan"
+            : activeTab === "plan"
               ? "运营目标"
-              : tab === "history"
+              : activeTab === "history"
                 ? "历史月度"
                 : "复盘资料"
         }
         text=""
       />
-      {tab === "august" ? (
+      {activeTab === "august" ? (
         <Plan
           embedded
           tab="august"
           onTabChange={openPlanSection}
           onOpenReview={() => onTabChange("review")}
         />
-      ) : tab === "september" ? (
+      ) : activeTab === "september" ? (
         <Plan
           embedded
           tab="september"
           onTabChange={openPlanSection}
           onOpenReview={() => onTabChange("review")}
         />
-      ) : tab === "plan" ? (
+      ) : activeTab === "history" ? (
+        <MonthlyOperatingHistory />
+      ) : activeTab === "review" && REVIEW_LIBRARY_VISIBLE ? (
+        <Review embedded onOpenPlan={openPlanSection} />
+      ) : (
         <Plan
           embedded
           tab={planSection}
           onTabChange={openPlanSection}
           onOpenReview={() => onTabChange("review")}
         />
-      ) : tab === "history" ? (
-        <MonthlyOperatingHistory />
-      ) : (
-        <Review embedded onOpenPlan={openPlanSection} />
       )}
     </>
   );
@@ -10089,7 +10100,11 @@ export default function OpsCenter() {
       if (state.view === "daily" && state.tab)
         setDailyTab(state.tab as DailyTab);
       if (state.view === "planning" && state.tab)
-        setPlanningTab(state.tab as PlanningTab);
+        setPlanningTab(
+          !REVIEW_LIBRARY_VISIBLE && state.tab === "review"
+            ? "plan"
+            : (state.tab as PlanningTab),
+        );
       if (state.view === "ads" && state.tab) setAdsTab(state.tab as AdsTab);
       if (state.view === "products" && state.tab)
         setProductTab(state.tab as ProductTab);
@@ -10141,7 +10156,7 @@ export default function OpsCenter() {
       (next === "plan" ||
         next === "august" ||
         next === "september" ||
-        next === "review" ||
+        (REVIEW_LIBRARY_VISIBLE && next === "review") ||
         next === "history")
     )
       setPlanningTab(next);
