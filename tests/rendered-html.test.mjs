@@ -21,19 +21,20 @@ test("declares the Wayfair AI operations product", async () => {
   assert.match(dashboard, /广告前商品毛利/);
   assert.match(dashboard, /广告后店铺贡献/);
   assert.doesNotMatch(dashboard, /实际利润/);
-  assert.match(dashboard, /Ops API（库存 \+ 订单）/);
+  assert.match(dashboard, /同步全站点数据/);
   assert.doesNotMatch(dashboard, /codex-preview|Your site is taking shape/);
 });
 
-test("keeps August execution and September planning after the June review", async () => {
+test("rolls the active operating month into September and archives August", async () => {
   const [page, plan] = await Promise.all([
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/operating-plan.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /6月复盘 → 8月执行中 → 9月销售计划已确认/);
-  assert.match(page, /8月执行计划/);
-  assert.match(page, /9月销售计划/);
-  assert.match(page, /BFIJ 活动广告策略/);
+  assert.match(page, /6月复盘 → 8月归档 → 9月执行中/);
+  assert.match(page, /9月执行计划/);
+  assert.match(page, /2026年8月 · 目标与执行计划已归档/);
+  assert.match(page, /8月归档计划/);
+  assert.doesNotMatch(page, /\{ id: "august", label: "8月执行计划" \}/);
   assert.doesNotMatch(page, /7月 · 目标未建档/);
   assert.match(plan, /orderTarget: 128/);
   assert.match(plan, /adBudget: 790/);
@@ -213,7 +214,7 @@ test("keeps global navigation shallow and moves module choices into the workspac
   assert.match(page, /className="workspace-tabs"/);
   assert.match(page, /广告管理器/);
   assert.match(page, /AI 优化/);
-  assert.match(page, /运营计划/);
+  assert.match(page, /运营目标/);
   assert.match(page, /复盘资料/);
   assert.match(page, /库存更新/);
   assert.match(page, /商品数据/);
@@ -250,10 +251,9 @@ test("does not render dead button affordances in operating workspaces", async ()
     assert.match(button, /onClick=/, `button is missing an action: ${button}`);
   }
   assert.match(page, /aria-label="打开6月复盘资料"/);
-  assert.match(page, /aria-label="查看8月执行计划"/);
-  assert.match(page, /aria-label="查看9月销售计划"/);
+  assert.match(page, /aria-label="查看8月归档计划"/);
+  assert.match(page, /aria-label="查看9月执行计划"/);
   assert.match(page, /aria-label="查看6月月度复盘"/);
-  assert.match(page, /aria-label="返回8月执行计划"/);
   assert.doesNotMatch(page, /<button className="text-link">/);
 });
 

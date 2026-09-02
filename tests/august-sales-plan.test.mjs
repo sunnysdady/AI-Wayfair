@@ -99,7 +99,7 @@ test("marks the confirmed sales plan ready for promotion rebuilding without unlo
   assert.equal(AUGUST_SALES_PLAN.canExecuteAds, false);
 });
 
-test("presents a focused August promotion workspace after sales-plan approval", async () => {
+test("preserves the August promotion workspace as a read-only archive", async () => {
   const [route, page, styles] = await Promise.all([
     readFile(new URL("../app/api/plan/progress/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
@@ -109,16 +109,19 @@ test("presents a focused August promotion workspace after sales-plan approval", 
   assert.match(route, /AUGUST_SALES_PLAN_ROWS/);
   assert.match(route, /summarizeAugustSalesPlan/);
   assert.match(route, /SYNCED_AFTER_SUBMISSION/);
+  assert.match(route, /augustArchive/);
   assert.match(page, /8月执行状态/);
+  assert.match(page, /2026年8月 · 已归档/);
   assert.match(page, /150 Orders/);
   assert.match(page, /利润款.*跑量款/);
-  assert.match(page, /销售计划已确认/);
+  assert.match(page, /8月目标与执行控制项保留为只读历史资料/);
   assert.match(page, /SKU 执行优先级/);
   assert.match(page, /只看这 4 条红线/);
   assert.match(page, /8月作战节奏/);
   assert.match(page, /完整 Listing 执行表/);
   assert.match(page, /逐 Part 折扣与利润明细/);
-  assert.match(page, /tab === "august" \? \(/);
+  assert.match(page, /tab === "august" && \(/);
+  assert.match(page, /查看8月归档计划/);
   assert.doesNotMatch(page, /8月活动审核/);
   assert.doesNotMatch(page, /PAUSED · SALES PLAN FIRST/);
   assert.doesNotMatch(page, /销售计划审核后再重算促销/);

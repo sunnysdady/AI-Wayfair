@@ -127,6 +127,21 @@ test("switches to the authorized 150-Order target and contribution floor in Augu
   assert.equal(report.target.ordersToTarget, 144);
 });
 
+test("uses the current September plan instead of the archived August target", () => {
+  const report = buildDailyOperatingReport({
+    now: new Date("2026-09-02T12:00:00.000Z"),
+    monthOrders: { current: { orders: 12 } },
+    planProgress: {
+      plan: { orderTarget: 180 },
+      augustArchive: { executionPolicy: { stretchOrderTarget: 150 } },
+    },
+  });
+
+  assert.equal(report.target.targetMonth, "2026-09");
+  assert.equal(report.target.orderTarget, 180);
+  assert.equal(report.target.ordersToTarget, 168);
+});
+
 test("keeps the report available and discloses an Advertising API refresh fallback", () => {
   const report = buildDailyOperatingReport({
     now: new Date("2026-07-29T12:00:00.000Z"),

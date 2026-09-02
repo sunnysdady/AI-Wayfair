@@ -86,8 +86,7 @@ const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
   ],
   planning: [
     { id: "plan", label: "运营目标" },
-    { id: "august", label: "8月执行计划" },
-    { id: "september", label: "9月销售计划" },
+    { id: "september", label: "9月执行计划" },
     ...(REVIEW_LIBRARY_VISIBLE
       ? [{ id: "review" as const, label: "复盘资料" }]
       : []),
@@ -1205,7 +1204,7 @@ type PlanProgress = {
       wspWscRoas: number;
     };
   };
-  nextPlan: {
+  augustArchive: {
     advertisingExecution: {
       asOf: string;
       walletDailyCap: number;
@@ -3607,12 +3606,12 @@ function Plan({
   }, []);
   const p = data?.progress;
   const actual = data?.actual;
-  const salesSummary = data?.nextPlan?.salesPlanSummary;
-  const promotionSummary = data?.nextPlan?.promotionSummary;
-  const advertisingExecution = data?.nextPlan?.advertisingExecution;
-  const executionPolicy = data?.nextPlan?.executionPolicy;
-  const executionStage = data?.nextPlan?.executionStage;
-  const currentMonth = data?.plan.month || "2026-08";
+  const salesSummary = data?.augustArchive?.salesPlanSummary;
+  const promotionSummary = data?.augustArchive?.promotionSummary;
+  const advertisingExecution = data?.augustArchive?.advertisingExecution;
+  const executionPolicy = data?.augustArchive?.executionPolicy;
+  const executionStage = data?.augustArchive?.executionStage;
+  const currentMonth = data?.plan.month || "2026-09";
   const currentMonthLabel = `${Number(currentMonth.slice(5, 7))}月`;
   const septemberPlan = data?.septemberPlan;
   const hasObjectiveProgress = Boolean(data && actual && p);
@@ -3638,7 +3637,7 @@ function Plan({
         <Hero
           eyebrow="MONTHLY OPERATING PLAN"
           title="目标与执行"
-          text="6月复盘 → 8月执行中 → 9月销售计划已确认；目标、利润与广告共用同一套运营计划"
+          text="6月复盘 → 8月归档 → 9月执行中；目标、利润与广告以当前运营月为准"
           side={REVIEW_LIBRARY_VISIBLE ? (
             <button className="hero-button" onClick={onOpenReview}>
               查看完整复盘证据
@@ -3658,17 +3657,10 @@ function Plan({
                 <b>{data?.asOf ? `数据截至 ${data.asOf}` : "数据同步中"}</b>
                 <button
                   className="objective-link"
-                  aria-label="查看8月执行计划"
-                  onClick={() => onTabChange("august")}
+                  aria-label="查看9月执行计划"
+                  onClick={() => onTabChange("september")}
                 >
-                  查看执行计划
-                </button>
-                <button
-                  className="objective-link"
-                  aria-label="打开BFIJ活动广告策略"
-                  onClick={() => onTabChange("bfij")}
-                >
-                  BFIJ 活动广告策略
+                  查看9月执行计划
                 </button>
                 {REVIEW_LIBRARY_VISIBLE ? (
                   <button
@@ -3977,15 +3969,13 @@ function Plan({
         <div className="august-brief">
           <section className="execution-context card" aria-label="8月执行状态">
             <div>
-              <span>2026年8月 · 执行中</span>
+              <span>2026年8月 · 已归档</span>
               <strong>
-                {hasObjectiveProgress
-                  ? `截至 ${data?.asOf}：${actual?.orders ?? 0}/${data?.plan.orderTarget ?? 150} · ${objectiveStatus}`
-                  : "目标完成度正在同步"}
+                8月目标与执行控制项保留为只读历史资料
               </strong>
-              <small>销量、节奏与预测统一在“运营目标”中追踪；本页只呈现执行安排与控制项。</small>
+              <small>本页不再展示为当前进度；8月实际月结请以历史订单与广告报表为准。</small>
             </div>
-            <button onClick={() => onTabChange("plan")}>查看运营目标</button>
+            <button onClick={() => onTabChange("plan")}>查看9月运营目标</button>
           </section>
 
           <section className="execution-group" aria-labelledby="execution-control-title">
@@ -4004,7 +3994,7 @@ function Plan({
                 <b>按本月计划单量排序</b>
               </div>
               <div className="august-allocation-list">
-                {[...(data?.nextPlan.salesPlanRows || [])]
+                {[...(data?.augustArchive.salesPlanRows || [])]
                   .sort((a, b) => b.targetOrders - a.targetOrders)
                   .map((item) => (
                     <article key={item.listing}>
@@ -4029,7 +4019,7 @@ function Plan({
               <footer>
                 <b>
                   前三组承担{" "}
-                  {(data?.nextPlan.salesPlanRows || [])
+                  {(data?.augustArchive.salesPlanRows || [])
                     .slice()
                     .sort((a, b) => b.targetOrders - a.targetOrders)
                     .slice(0, 3)
@@ -4137,7 +4127,7 @@ function Plan({
               <b>按周次执行</b>
             </div>
             <div className="august-rhythm-track">
-              {(data?.nextPlan.salesMilestones || []).map((item, index) => (
+              {(data?.augustArchive.salesMilestones || []).map((item, index) => (
                 <article key={item.label}>
                   <span>0{index + 1}</span>
                   <div>
@@ -4155,7 +4145,7 @@ function Plan({
               ))}
             </div>
             <div className="august-event-strip">
-              {(data?.nextPlan.promotionEvents || []).map((event) => (
+              {(data?.augustArchive.promotionEvents || []).map((event) => (
                 <article key={event.id}>
                   <div>
                     <b>
@@ -4191,7 +4181,7 @@ function Plan({
               <span>多件优惠</span>
               <b>买 2 件额外 5%</b>
               <small>
-                #{data?.nextPlan.quantityPromotion.projectId || "-"} ·{" "}
+                #{data?.augustArchive.quantityPromotion.projectId || "-"} ·{" "}
                 {promotionSummary?.quantityPromotionParts || 0} SKU
               </small>
             </article>
@@ -4226,7 +4216,7 @@ function Plan({
                 <span>广告池</span>
                 <span>执行Gate / 止损</span>
               </div>
-              {(data?.nextPlan.salesPlanRows || []).map((item) => (
+              {(data?.augustArchive.salesPlanRows || []).map((item) => (
                 <article className="sales-plan-row compact" key={item.listing}>
                   <span>
                     <b>{item.listing}</b>
@@ -4297,7 +4287,7 @@ function Plan({
                 <span>叠加后毛利</span>
                 <span>活动 / 状态</span>
               </div>
-              {(data?.nextPlan.promotionPlan || []).map((item) => (
+              {(data?.augustArchive.promotionPlan || []).map((item) => (
                 <article
                   className="promotion-review-row"
                   key={`${item.listing}-${item.part}`}
@@ -4355,7 +4345,7 @@ function Plan({
       )}
       {tab === "september" && (
         <>
-          <section className="context-strip september-summary" aria-label="9月销售计划摘要">
+          <section className="context-strip september-summary" aria-label="9月执行计划摘要">
             <div>
               <span>计划月份</span>
               <b>{septemberPlan?.plan.month || "2026-09"}</b>
@@ -4377,7 +4367,7 @@ function Plan({
               <div className="section-head">
                 <div>
                   <span>SEPTEMBER ORDER OWNERSHIP</span>
-                  <h2>180 单销售目标清单</h2>
+                  <h2>180 单销售目标与执行计划</h2>
                 </div>
                 <b>按确认顺序列示</b>
               </div>
@@ -4396,8 +4386,8 @@ function Plan({
                     <span><b>{item.targetOrders} 单</b></span>
                     <span>{percent(item.targetOrders / (septemberPlan?.summary.targetOrders || 180))}</span>
                     <span>未分摊</span>
-                    <span><b>待月初执行核验</b></span>
-                    <span><small>目标由运营负责人确认；不自动触发广告或商品操作。</small></span>
+                    <span><b>执行中 · 日核验</b></span>
+                    <span><small>目标由运营负责人确认；实际订单、库存与投放资格按日核验。</small></span>
                   </div>
                 ))}
               </div>
@@ -7893,17 +7883,17 @@ function Review({
           <b>2026-06 · 已归档</b>
         </button>
         <i>→</i>
-        <button aria-label="返回8月执行计划" onClick={() => onOpenPlan("august")}>
-          <span>当前经营月</span>
-          <b>2026-08 · 150 Orders执行中</b>
+        <button aria-label="查看8月归档计划" onClick={() => onOpenPlan("august")}>
+          <span>历史经营月</span>
+          <b>2026-08 · 150 Orders已归档</b>
         </button>
         <i>→</i>
         <button
-          aria-label="查看9月销售计划"
+          aria-label="查看9月执行计划"
           onClick={() => onOpenPlan("september")}
         >
-          <span>下一计划月</span>
-          <b>2026-09 · 180 Orders计划已确认</b>
+          <span>当前经营月</span>
+          <b>2026-09 · 180 Orders执行中</b>
         </button>
       </section>
       {uploadMessage && <div className="upload-message">{uploadMessage}</div>}
@@ -9057,7 +9047,11 @@ function SkuOperatingPerformance() {
   );
 }
 
-function MonthlyOperatingHistory() {
+function MonthlyOperatingHistory({
+  onOpenAugustArchive,
+}: {
+  onOpenAugustArchive: () => void;
+}) {
   const monthlyByNumber = new Map(
     LEGACY_OPERATING_DATA.acct_monthly.map((item) => [item.m, item]),
   );
@@ -9080,6 +9074,27 @@ function MonthlyOperatingHistory() {
   });
   return (
     <div className="history-workspace">
+      <section className="card legacy-data-card monthly-archive-card">
+        <div className="section-head">
+          <div>
+            <span>MONTHLY ARCHIVE</span>
+            <h2>2026年8月 · 目标与执行计划已归档</h2>
+          </div>
+          <button onClick={onOpenAugustArchive}>查看8月归档计划</button>
+        </div>
+        <div className="milestones">
+          <div>
+            <b>计划目标<small>已确认的月度计划</small></b>
+            <strong>150 Orders</strong>
+            <p>SKU 分配、广告控制项、促销排期及执行 Gate 保留为只读资料。</p>
+          </div>
+          <div>
+            <b>历史口径<small>不沿用为当前目标</small></b>
+            <strong>只读归档</strong>
+            <p>8月实际月结须以历史订单与广告报表核验，不用旧页面快照替代。</p>
+          </div>
+        </div>
+      </section>
       <section className="card legacy-data-card">
         <div className="section-head">
           <div>
@@ -9188,9 +9203,9 @@ function PlanningWorkspace({
         eyebrow=""
         title={
           activeTab === "august"
-            ? "8月执行计划"
+            ? "8月归档计划"
             : activeTab === "september"
-              ? "9月销售计划"
+              ? "9月执行计划"
             : activeTab === "plan"
               ? "运营目标"
               : activeTab === "history"
@@ -9214,7 +9229,7 @@ function PlanningWorkspace({
           onOpenReview={() => onTabChange("review")}
         />
       ) : activeTab === "history" ? (
-        <MonthlyOperatingHistory />
+        <MonthlyOperatingHistory onOpenAugustArchive={() => onTabChange("august")} />
       ) : activeTab === "review" && REVIEW_LIBRARY_VISIBLE ? (
         <Review embedded onOpenPlan={openPlanSection} />
       ) : (

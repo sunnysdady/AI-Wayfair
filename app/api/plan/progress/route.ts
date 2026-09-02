@@ -38,8 +38,12 @@ import {
 } from "@/lib/august-execution-policy.mjs";
 
 const DEFAULT_MARGIN_RATE = .2826;
-const CURRENT_PLAN = AUGUST_PLAN;
-const CURRENT_PLAN_LISTINGS = AUGUST_PLAN_LISTINGS;
+const CURRENT_PLAN = Object.freeze({
+  ...SEPTEMBER_SALES_PLAN,
+  status: "ACTIVE",
+  baseAdBudget: SEPTEMBER_SALES_PLAN.adBudget,
+  scopeWarning: "9月目标按运营负责人确认的销售计划执行；8月计划已转入历史归档。",
+});
 
 const bindings = getRuntimeBindings;
 
@@ -68,39 +72,10 @@ export async function GET() {
     const from = lingxingDayStart(start);
     const until = lingxingDayStart(endExclusive);
 
-    // Zero-value POs are samples: omit them from sales-plan order/volume progress, but retain
-    // their items in the gross-profit query below so a known procurement cost is still deducted.
     const actual = await env.DB.prepare(`SELECT COUNT(*) AS orders, COALESCE(SUM(units),0) AS units, COALESCE(SUM(revenue_cents),0)/100.0 AS revenue FROM orders WHERE po_date>=? AND po_date<? AND revenue_cents > 0`).bind(from, until).first<{ orders: number; units: number; revenue: number }>();
-    const orderItems = await env.DB.prepare(`SELECT i.po_number AS poNumber, i.part_number AS partNumber, i.quantity AS quantity, i.unit_price_cents AS unitPriceCents FROM order_items i JOIN orders o ON o.po_number=i.po_number WHERE o.po_date>=? AND o.po_date<? AND o.revenue_cents > 0 AND i.unit_price_cents > 0`).bind(from, until).all();
-    const rows = (orderItems.results || []) as { poNumber: string; partNumber: string; quantity: number; unitPriceCents: number }[];
-    const byPart = new Map<string, { orders: Set<string>; units: number; revenue: number }>();
-    for (const row of rows) {
-      const current = byPart.get(String(row.partNumber)) || { orders: new Set<string>(), units: 0, revenue: 0 };
-      current.orders.add(String(row.poNumber));
-      current.units += Number(row.quantity || 0);
-      current.revenue += Number(row.unitPriceCents || 0) * Number(row.quantity || 0) / 100;
-      byPart.set(String(row.partNumber), current);
-    }
-    const listings = CURRENT_PLAN_LISTINGS.filter((item) => Number(item.augustUnits || 0) > 0).map((item) => {
-      const orders = new Set<string>();
-      let units = 0;
-      let revenue = 0;
-      for (const part of item.parts) {
-        const partActual = byPart.get(part);
-        partActual?.orders.forEach((order) => orders.add(order));
-        units += partActual?.units || 0;
-        revenue += partActual?.revenue || 0;
-      }
-      return {
-        ...item,
-        juneBaselineOrders: Number(item.juneUnits || 0),
-        julyTargetOrders: Number(item.augustUnits || 0),
-        estimatedNetProfit: 0,
-        actualOrders: orders.size,
-        actualUnits: units,
-        actualRevenue: Number(revenue.toFixed(2)),
-      };
-    });
+    // September has a confirmed SKU target list, but not a verified part-number
+    // mapping. Do not fabricate per-SKU actuals from the August mapping.
+    const listings: never[] = [];
 
     const elapsedDays = today < start ? 0 : today > end ? totalDays : Number(today.slice(8, 10));
     const orders = Number(actual?.orders || 0);
@@ -162,7 +137,7 @@ export async function GET() {
       listingPortfolioPolicy: LISTING_PORTFOLIO_POLICY,
       activity: { ...BFIJ_PLAN, activePhase },
       cpcPlan: MAKEACE_CPC_PLAN,
-      nextPlan: {
+      augustArchive: {
         advertisingExecution: AUGUST_AD_EXECUTION_STATUS,
         executionPolicy: AUGUST_EXECUTION_POLICY,
         executionStage: evaluateAugustStageTwo({
