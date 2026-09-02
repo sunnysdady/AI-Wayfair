@@ -1465,11 +1465,43 @@ type PlanProgress = {
       adBudget: number;
       source: string;
       sourceAsOf: string;
+      financialSource: string;
+      financialSourceAsOf: string;
+      financialLookbackDays: number;
       note: string;
       executionNote: string;
+      profitScopeNote: string;
     };
-    rows: { listing: string; targetOrders: number }[];
-    summary: { listingCount: number; targetOrders: number; adBudget: number };
+    rows: {
+      listing: string;
+      targetOrders: number;
+      forecastRevenue: number;
+      forecastProcurementProfit: number;
+      executionStatus: "ACTIVE" | "HARD_STOP";
+    }[];
+    summary: {
+      listingCount: number;
+      targetOrders: number;
+      adBudget: number;
+      forecastRevenue: number;
+      forecastProcurementProfit: number;
+      forecastContributionAfterAd: number;
+      forecastProcurementMargin: number;
+      executableBaseline: {
+        targetOrders: number;
+        forecastRevenue: number;
+        forecastProcurementProfit: number;
+        forecastContributionAfterAd: number;
+      };
+      conditionalTransfer: {
+        from: string | null;
+        to: string | null;
+        targetOrders: number;
+        forecastRevenue: number;
+        forecastProcurementProfit: number;
+        forecastContributionAfterAd: number;
+      };
+    };
   };
   error?: string;
 };
@@ -4357,9 +4389,24 @@ function Plan({
               <small>{septemberPlan?.summary.listingCount || 11} 个 SKU</small>
             </div>
             <div>
-              <span>广告月预算</span>
-              <b>{money(septemberPlan?.summary.adBudget || 1000)}</b>
-              <small>店铺总预算，未按 SKU 分摊</small>
+              <span>计划销售额</span>
+              <b>{money(septemberPlan?.summary.forecastRevenue || 0)}</b>
+              <small>180 单原计划，含受限 SKU</small>
+            </div>
+            <div>
+              <span>采购利润</span>
+              <b>{money(septemberPlan?.summary.forecastProcurementProfit || 0)}</b>
+              <small>广告前 · {percent(septemberPlan?.summary.forecastProcurementMargin || 0)}</small>
+            </div>
+            <div>
+              <span>广告后贡献利润</span>
+              <b>{money(septemberPlan?.summary.forecastContributionAfterAd || 0)}</b>
+              <small>已扣店铺广告 {money(septemberPlan?.summary.adBudget || 1000)}</small>
+            </div>
+            <div>
+              <span>可执行基线</span>
+              <b>{septemberPlan?.summary.executableBaseline?.targetOrders || 150} 单 · {money(septemberPlan?.summary.executableBaseline?.forecastContributionAfterAd || 0)}</b>
+              <small>排除 DRCI1007 后的广告后贡献</small>
             </div>
           </section>
           <div className="plan-workspace">
@@ -4375,19 +4422,23 @@ function Plan({
                 <div className="plan-row head">
                   <span>SKU</span>
                   <span>9月目标</span>
-                  <span>目标占比</span>
+                  <span>销售额预估</span>
+                  <span>采购利润预估</span>
+                  <span>采购利润率</span>
                   <span>广告预算</span>
                   <span>执行状态</span>
                   <span>说明</span>
                 </div>
                 {(septemberPlan?.rows || []).map((item) => (
-                  <div className="plan-row" key={item.listing}>
+                  <div className="plan-row september-plan-row" key={item.listing}>
                     <span><b>{item.listing}</b></span>
                     <span><b>{item.targetOrders} 单</b></span>
-                    <span>{percent(item.targetOrders / (septemberPlan?.summary.targetOrders || 180))}</span>
+                    <span><b>{money(item.forecastRevenue)}</b></span>
+                    <span><b>{money(item.forecastProcurementProfit)}</b></span>
+                    <span>{percent(item.forecastRevenue ? item.forecastProcurementProfit / item.forecastRevenue : 0)}</span>
                     <span>未分摊</span>
-                    <span><b>执行中 · 日核验</b></span>
-                    <span><small>目标由运营负责人确认；实际订单、库存与投放资格按日核验。</small></span>
+                    <span><b>{item.executionStatus === "HARD_STOP" ? "不可执行 · HARD STOP" : "执行中 · 日核验"}</b></span>
+                    <span><small>{item.executionStatus === "HARD_STOP" ? "平台合并限制：不纳入可执行基线；仅在合规与可售条件恢复后再调整。" : "目标由运营负责人确认；实际订单、库存与投放资格按日核验。"}</small></span>
                   </div>
                 ))}
               </div>
@@ -4401,8 +4452,10 @@ function Plan({
               </div>
               <div className="milestones">
                 <div><b>预算口径<small>月度店铺总预算</small></b><strong>{money(septemberPlan?.plan.adBudget || 1000)}</strong><p>{septemberPlan?.plan.note || "广告预算尚未按 SKU 分摊。"}</p></div>
+                <div><b>利润口径<small>采购利润 → 广告后贡献</small></b><strong>{money(septemberPlan?.summary.forecastContributionAfterAd || 0)}</strong><p>{septemberPlan?.plan.profitScopeNote || "广告后贡献利润不等同于最终净利润。"}</p></div>
+                <div><b>可执行基线<small>排除受限 SKU</small></b><strong>{septemberPlan?.summary.executableBaseline?.targetOrders || 150} 单 · {money(septemberPlan?.summary.executableBaseline?.forecastContributionAfterAd || 0)}</strong><p>DRCI1007 目前为 HARD STOP；若其 30 单经库存与资格核验后转入 {septemberPlan?.summary.conditionalTransfer?.to || "DMOM1021"}，广告后贡献预估为 {money(septemberPlan?.summary.conditionalTransfer?.forecastContributionAfterAd || 0)}。</p></div>
                 <div><b>执行前核验<small>每个 SKU</small></b><strong>必做</strong><p>{septemberPlan?.plan.executionNote || "核验可售、库存与投放资格。"}</p></div>
-                <div><b>数据来源<small>{septemberPlan?.plan.sourceAsOf || "2026-08-25"}</small></b><strong>已确认</strong><p>{septemberPlan?.plan.source || "运营负责人确认的销售计划。"}</p></div>
+                <div><b>数据来源<small>{septemberPlan?.plan.financialSourceAsOf || "2026-07-27"}</small></b><strong>{septemberPlan?.plan.financialLookbackDays || 28} 天回溯</strong><p>{septemberPlan?.plan.financialSource || "订单收入与采购成本快照。"}</p></div>
               </div>
             </aside>
           </div>
