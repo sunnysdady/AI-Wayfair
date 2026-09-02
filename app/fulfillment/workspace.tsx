@@ -30,7 +30,7 @@ type FulfillmentRecord = {
 
 type FulfillmentSync = {
   records: number;
-  labels: { archived: number; checked: number; matched?: number; ready?: number; unavailable?: number; errors?: number };
+  labels: { archived: number; checked: number; matched?: number; ready?: number; unavailable?: number; requested?: number; errors?: number };
 };
 
 const columns: Array<[string, string, keyof FulfillmentRecord]> = [
@@ -126,10 +126,11 @@ export default function FulfillmentWorkspace() {
       setRecords(body.records || []);
       setSelectedLabelKeys((current) => current.filter((key) => (body.records || []).some((record) => record.sourceKey === key && record.labelObjectKey)));
       if (refresh && body.sync) {
-        const { checked, archived, matched = 0, errors = 0 } = body.sync.labels;
+        const { checked, archived, matched = 0, requested = 0, errors = 0 } = body.sync.labels;
         if (errors) setMessage(`已更新 ${body.sync.records} 个包裹；${errors} 个面单处理异常，请稍后重试`);
         else if (archived) setMessage(`已更新 ${body.sync.records} 个包裹，并获取 ${archived} 张面单`);
-        else if (checked) setMessage(`已检查 ${checked} 个未归档订单，Wayfair 暂未返回可下载面单（命中 ${matched} 个事件）。请先在 Partner Home 选中 New Orders，执行 Print Documents → Print Label；平台生成后，系统将在下次同步自动归档。`);
+        else if (requested) setMessage(`已通过 Wayfair API 发起 ${requested} 个订单的面单生成；平台事件返回后系统会自动逐单校验并归档。`);
+        else if (checked) setMessage(`已检查 ${checked} 个未归档订单，命中 ${matched} 个可校验的 Wayfair 面单事件；未返回下载文件的订单会由系统继续自动同步。`);
         else setMessage(`已更新 ${body.sync.records} 个包裹，暂无待获取面单`);
       } else {
         setMessage("");
