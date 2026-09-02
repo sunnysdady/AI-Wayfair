@@ -202,7 +202,7 @@ export default function FulfillmentWorkspace() {
         <div className={styles.quickRanges}>{quickRanges.map((item) => <button key={item} className={quickRange === item ? styles.activeRange : ""} onClick={() => { setQuickRange(item); setRange(rangeFor(item)); }}>{item}</button>)}</div>
         <label><span>开始日期</span><input type="date" min="2026-09-01" value={range.start} onChange={(event) => { setQuickRange("自定义"); setRange((current) => ({ ...current, start: event.target.value })); }} /></label>
         <label><span>结束日期</span><input type="date" min="2026-09-01" value={range.end} onChange={(event) => { setQuickRange("自定义"); setRange((current) => ({ ...current, end: event.target.value })); }} /></label>
-        <label><span>订单状态</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">全部状态</option><option value="待获取面单">待获取面单</option><option value="待平台生成面单">待平台生成面单</option><option value="SKU待映射">SKU待映射</option><option value="面单待核验">面单待核验</option><option value="已归档面单">已归档面单</option><option value="待出库">待出库</option><option value="已出库">已出库</option><option value="已发货">已发货</option><option value="异常">异常</option></select></label>
+        <label><span>订单状态</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">全部状态</option><option value="待获取面单">待获取面单</option><option value="待平台生成面单">待平台生成面单</option><option value="SKU待映射">SKU待映射</option><option value="已归档面单">已归档面单</option><option value="待出库">待出库</option><option value="已出库">已出库</option><option value="已发货">已发货</option><option value="异常">异常</option></select></label>
       </div>
 
       <div className={styles.metrics} aria-label="履约概况">
@@ -248,7 +248,7 @@ export default function FulfillmentWorkspace() {
             />
           </label>)}
           <label><span>发货状态</span><select value={selected.shippingStatus} onChange={(event) => updateSelected("shippingStatus", event.target.value)}>
-            <option value="待获取面单">待获取面单</option><option value="待平台生成面单">待平台生成面单</option><option value="SKU待映射">SKU待映射</option><option value="面单待核验">面单待核验</option><option value="已归档面单">已归档面单</option><option value="待出库">待出库</option><option value="已出库">已出库</option><option value="已发货">已发货</option><option value="异常">异常</option>
+            <option value="待获取面单">待获取面单</option><option value="待平台生成面单">待平台生成面单</option><option value="SKU待映射">SKU待映射</option><option value="已归档面单">已归档面单</option><option value="待出库">待出库</option><option value="已出库">已出库</option><option value="已发货">已发货</option><option value="异常">异常</option>
           </select></label>
           <label><span>面单文件名</span><input value={selected.labelFileName} readOnly /></label>
         </div>

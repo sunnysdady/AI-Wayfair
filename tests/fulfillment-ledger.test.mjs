@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { labelFileNameForOrder, parseFulfillmentFilters, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
+import { labelArchiveMode, labelFileNameForOrder, parseFulfillmentFilters, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
 
 test("one multi-unit order is split into deterministic one-parcel orders", () => {
   const records = splitOrderLines(
@@ -80,6 +80,19 @@ test("label downloads follow the signed URL redirect", async () => {
   assert.match(source, /fetch\(url, \{ headers: \{ authorization: `Bearer \$\{token\}` \}, redirect: "follow", signal: AbortSignal\.timeout\(60_000\) \}\)/);
   assert.match(source, /const archiveResult = await splitAndArchivePdf\(/);
   assert.match(source, /record\.shippingStatus = keepMoreAdvancedStatus\(record\.shippingStatus, archiveResult\.status\)/);
+});
+
+test("label verification is automatic and keeps unambiguous single-order PDFs intact", async () => {
+  assert.equal(labelArchiveMode(1, 1), "whole");
+  assert.equal(labelArchiveMode(2, 1), "whole");
+  assert.equal(labelArchiveMode(2, 2), "split");
+  assert.equal(labelArchiveMode(3, 2), "error");
+
+  const ledger = await readFile(new URL("../lib/fulfillment-ledger.mjs", import.meta.url), "utf8");
+  const workspace = await readFile(new URL("../app/fulfillment/workspace.tsx", import.meta.url), "utf8");
+  const sync = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(`${ledger}\n${workspace}\n${sync}`, /面单待核验/);
+  assert.match(sync, /catch \{ for \(const record of recordsForParent\) record\.shippingStatus = keepMoreAdvancedStatus\(record\.shippingStatus, "异常"\); \}/);
 });
 
 test("an absent Wayfair label event is shown as waiting for platform generation", async () => {

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+project_root="/opt/wayfair-ai-ops"
+remote="origin"
+branch="production"
+expected_origin="https://github.com/sunnysdady/AI-Wayfair.git"
+
+fail() {
+  echo "Deployment wrapper refused: $*" >&2
+  exit 1
+}
+
+(( $# == 1 )) || fail "exactly one action or commit SHA is required"
+action="$1"
+[[ "$(id -u)" == "0" ]] || fail "wrapper must run as root"
+[[ -d "$project_root/.git" ]] || fail "production repository is missing"
+
+cd "$project_root"
+[[ "$(git remote get-url "$remote")" == "$expected_origin" ]] || fail "unexpected Git origin"
+
+if [[ "$action" == "status" ]]; then
+  env_file="$project_root/.env.production"
+  compose=(docker compose --env-file "$env_file" -f docker-compose.production.yml --profile sync)
+  deployed_sha="$(tr -d '[:space:]' < DEPLOYED_SHA 2>/dev/null || true)"
+  health_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 15 https://aiwayfair.sunnysdady.com/api/health || true)"
+  homepage_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 15 https://aiwayfair.sunnysdady.com/ || true)"
+  latest_audit="$(find "$project_root/backups" -mindepth 1 -maxdepth 1 -type d -name 'deploy-*' 2>/dev/null | sort | tail -1)"
+  printf 'git_head=%s\ndeployed_sha=%s\nhealth_http=%s\nhomepage_http=%s\n' "$(git rev-parse HEAD)" "$deployed_sha" "$health_status" "$homepage_status"
+  if [[ -n "$latest_audit" ]]; then
+    printf 'latest_audit=%s\n' "$(basename "$latest_audit")"
+    awk -F= '$1 == "status" || $1 == "completed_at" { print }' "$latest_audit/release.env" 2>/dev/null || true
+    printf 'objects_before=%s\nobjects_after=%s\n' \
+      "$(tr -d '[:space:]' < "$latest_audit/object-count-before.txt" 2>/dev/null || true)" \
+      "$(tr -d '[:space:]' < "$latest_audit/object-count-after.txt" 2>/dev/null || true)"
+  fi
+  "${compose[@]}" ps
+  exit 0
+fi
+
+target_sha="$action"
+[[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || fail "invalid commit SHA"
+git fetch --prune "$remote" "$branch"
+remote_sha="$(git rev-parse "refs/remotes/$remote/$branch")"
+[[ "$target_sha" == "$remote_sha" ]] || fail "target is not the production branch head"
+
+script_file="$(mktemp /run/wayfair-deploy.XXXXXX)"
+trap 'rm -f "$script_file"' EXIT
+git show "$target_sha:scripts/deploy-digitalocean.sh" > "$script_file"
+chmod 700 "$script_file"
+
+PROJECT_ROOT="$project_root" DEPLOY_REMOTE="$remote" DEPLOY_BRANCH="$branch" \
+  bash "$script_file" "$target_sha"

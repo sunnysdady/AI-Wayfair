@@ -1,26 +1,45 @@
 # Wayfair AI 运营中台
 
-独立运行的 Wayfair 运营数据中台。页面只读取 PostgreSQL 中已保存的快照；服务端定时任务负责同步 Wayfair 订单、广告、Catalog 与 Microsoft Outlook 邮件。当前支持 Vercel，也可使用仓库内的 Docker Compose 方案部署到 DigitalOcean Droplet 和自有域名。
+独立运行的 Wayfair 运营数据中台。页面只读取 PostgreSQL 中已保存的快照；服务端定时任务负责同步 Wayfair 订单、广告、Catalog 与 Microsoft Outlook 邮件。生产环境只使用仓库内的 Docker Compose 方案部署到现有 DigitalOcean Droplet。
 
 DigitalOcean 完整操作手册见 [`docs/DIGITALOCEAN_DEPLOYMENT.md`](./docs/DIGITALOCEAN_DEPLOYMENT.md)。
 
 ## 固定生产地址
 
-本项目以后统一部署到 `https://aiwayfair.sunnysdady.com`。不得部署到
+本项目的页面、API、静态内容和自动任务全部统一部署到 `https://aiwayfair.sunnysdady.com`。不得部署到
 `sunnysdady.com` 根域或 `www.sunnysdady.com`，也不得为本项目修改这两个入口的
-DNS、代理或 SSL 配置。完整的仓库级约束见 [`AGENTS.md`](./AGENTS.md)。
+DNS、代理或 SSL 配置，也不得使用其他托管平台作为本项目的生产或同步部署目标。完整的仓库级约束见 [`AGENTS.md`](./AGENTS.md)。
 
 ## 运行架构
 
-| 层 | 当前方案 | 自有服务器迁移 |
-|---|---|---|
-| Web/API | Next.js Node runtime on Vercel | Node.js 进程或 Docker |
-| 定时任务 | Vercel Cron 调用 `/api/cron/sync` | Docker Scheduler 调用同一路由 |
-| 数据库 | 托管 PostgreSQL | 托管或自建 PostgreSQL |
-| 报告文件 | S3 兼容对象存储 | 同一存储或 MinIO |
-| 邮件 | Microsoft Graph | 不变 |
+| 层 | 生产方案 |
+|---|---|
+| Web/API | DigitalOcean Droplet 上的 Next.js Docker 服务 |
+| 定时任务 | Docker Scheduler 每 30 分钟调用 `/api/cron/sync` |
+| 数据库 | DigitalOcean Managed PostgreSQL |
+| 报告文件 | DigitalOcean Spaces（S3 兼容） |
+| 邮件 | Microsoft Graph |
 
-应用不再通过 Sites 或 Cloudflare 代理读取生产数据。
+应用不通过其他托管平台读取或发布生产数据。
+
+## 固定发布通道
+
+远程 Git 的 `production` 分支是唯一生产代码源。Codex 必须先完成专项测试、提交并保持本地工作树干净，再执行：
+
+```bash
+bash scripts/release-digitalocean.sh
+```
+
+发布脚本只允许快进更新 `production`，核对远程完整 Commit SHA 后，使用本机 SSH 别名
+`wayfair-production` 登录无特权 `deploy` 用户，再通过仅允许调用 `/usr/local/sbin/wayfair-deploy` 的 sudo 规则执行指定版本。服务器部署会加互斥锁，备份 PostgreSQL，记录逐表行数与对象数，运行迁移和 Scheduler 同步，验证生产健康与登录保护，并在应用启动失败时恢复上一版应用。数据库迁移不会自动反向回滚。
+
+代码备份以远程 `production` 分支为准；生产密钥、PostgreSQL 数据和对象文件不进入 Git。
+
+只读验收无需 Docker 或通用 sudo 权限：
+
+```bash
+ssh wayfair-production 'sudo -n /usr/local/sbin/wayfair-deploy status'
+```
 
 ## 本地启动
 
@@ -94,9 +113,9 @@ AI_MODEL_NAME=<model-name>
 Authorization: Bearer <CRON_SECRET>
 ```
 
-每两小时同步当月订单和近三日 Outlook 日报；领星站点时间 06:00 的运行额外同步成熟周广告及 Catalog 前 10 页。Outlook 会扫描收件箱与所有名称含 “Wayfair” 的自定义文件夹，分页覆盖领星站点时间今天减两天的 00:00。
+每 30 分钟同步当月订单和近三日 Outlook 日报；领星站点时间 06:00 的运行额外同步成熟周广告及 Catalog 前 10 页。Outlook 会扫描收件箱与所有名称含 “Wayfair” 的自定义文件夹，分页覆盖领星站点时间今天减两天的 00:00。
 
-`vercel.json` 已配置两小时一次的 Cron。若 Vercel 套餐不支持该频率，可用 GitHub Actions、Uptime Kuma 或自有服务器 cron 调用同一受保护端点。
+生产环境由 Docker Scheduler 每 30 分钟调用同一受保护端点，并保留幂等锁与失败记录。
 
 ## Product Management 中台导入
 
@@ -112,15 +131,12 @@ node scripts/ingest-product-management-snapshot.mjs data/product-management-2026
 
 ## 部署顺序
 
-1. 创建 PostgreSQL 数据库与 S3 兼容 bucket。
-2. 在本地执行 PostgreSQL 迁移。
-3. 在 Vercel 配置 `.env.example` 中的生产变量。
-4. 将 Microsoft Graph 应用配置为允许读取目标邮箱。
-5. 部署后先访问 `/api/system/readiness` 检查只读数据源。
-6. 手工调用一次受保护的 `/api/cron/sync`，确认订单、邮件、广告和 Catalog 快照。
-7. 核对 Supplier ID 后，再按需启用库存或广告写入开关。
-
-迁移到自有服务器时，保留 PostgreSQL、S3 和 Graph 配置；仓库内置的 Docker Scheduler 会按领星站点时间计算业务日期，并每两小时调用同一同步端点。
+1. 将待发布提交推送到 GitHub，并在现有 DigitalOcean 应用目录快进更新。
+2. 保留服务器 `.env.production`、PostgreSQL、Spaces 与 Microsoft Graph 配置。
+3. 运行 `bash scripts/deploy-digitalocean.sh`，依次校验 Compose、构建镜像、执行迁移并更新 Web 与 Scheduler。
+4. 访问 `/api/health` 和 `/api/system/readiness` 检查服务与只读数据源。
+5. 确认未登录首页为 `401`、已登录首页为 `200`，并手工核对最近一次 Scheduler 同步。
+6. 核对 Supplier ID 后，再按需启用库存或广告写入开关。
 
 ## DigitalOcean Droplet
 

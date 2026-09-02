@@ -29,6 +29,61 @@ test("DigitalOcean deployment separates web, scheduler, migration, and TLS proxy
   assert.match(caddy, /Permissions-Policy "camera=\(\), microphone=\(\), geolocation=\(\)"/);
 });
 
+test("production releases are Git-first, SHA-pinned, locked, audited, and reversible", async () => {
+  const release = await readFile(
+    new URL("../scripts/release-digitalocean.sh", import.meta.url),
+    "utf8",
+  );
+  const deploy = await readFile(
+    new URL("../scripts/deploy-digitalocean.sh", import.meta.url),
+    "utf8",
+  );
+  const wrapper = await readFile(
+    new URL("../deploy/digitalocean/wayfair-deploy", import.meta.url),
+    "utf8",
+  );
+  const sudoers = await readFile(
+    new URL("../deploy/digitalocean/wayfair-deploy.sudoers", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(release, /branch="\$\{DEPLOY_BRANCH:-production\}"/);
+  assert.match(release, /git status --porcelain=v1 --untracked-files=all/);
+  assert.match(release, /git merge-base --is-ancestor/);
+  assert.match(release, /git push "\$remote" "\$target_sha:refs\/heads\/\$branch"/);
+  assert.match(release, /git ls-remote --heads/);
+  assert.match(release, /BatchMode=yes/);
+  assert.match(release, /IdentitiesOnly=yes/);
+  assert.match(release, /sudo -n \/usr\/local\/sbin\/wayfair-deploy/);
+
+  assert.match(deploy, /\^\[0-9a-f\]\{40\}\$/);
+  assert.match(deploy, /flock -n 9/);
+  assert.match(deploy, /umask 077/);
+  assert.match(deploy, /--profile sync/);
+  assert.match(deploy, /target SHA is not the current/);
+  assert.match(deploy, /ENABLE_SCHEDULER must be true/);
+  assert.match(deploy, /pg_dump/);
+  assert.match(deploy, /table-counts-before\.txt/);
+  assert.match(deploy, /object-count-after\.txt/);
+  assert.match(deploy, /objects="\$\(mc find/);
+  assert.doesNotMatch(deploy, /mc find[^\n]*--type/);
+  assert.match(deploy, /git switch --detach/);
+  assert.match(deploy, /DEPLOYED_SHA/);
+  assert.match(deploy, /Database migrations are not rolled back automatically/);
+  assert.match(deploy, /api\/health/);
+  assert.match(deploy, /homepage_status.*401/s);
+  assert.match(wrapper, /expected_origin="https:\/\/github\.com\/sunnysdady\/AI-Wayfair\.git"/);
+  assert.match(wrapper, /git show "\$target_sha:scripts\/deploy-digitalocean\.sh"/);
+  assert.match(wrapper, /\[\[ "\$\(id -u\)" == "0" \]\]/);
+  assert.match(wrapper, /\[\[ "\$action" == "status" \]\]/);
+  assert.match(wrapper, /health_http=/);
+  assert.match(wrapper, /objects_before=/);
+  assert.doesNotMatch(wrapper, /cat .*\.env\.production|printenv|docker compose config/);
+  assert.match(deploy, /install -o root -g root -m 0755 deploy\/digitalocean\/wayfair-deploy/);
+  assert.match(sudoers, /^deploy ALL=\(root\) NOPASSWD: \/usr\/local\/sbin\/wayfair-deploy \*$/m);
+  assert.doesNotMatch(`${release}\n${deploy}\n${wrapper}`, /reset --hard|checkout --force/);
+});
+
 test("health route is public for infrastructure checks but cron remains secret-protected", async () => {
   const proxy = await readFile(new URL("../proxy.ts", import.meta.url), "utf8");
   const health = await readFile(
