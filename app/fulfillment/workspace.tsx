@@ -182,12 +182,12 @@ export default function FulfillmentWorkspace() {
       const url = URL.createObjectURL(await response.blob());
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `Wayfair面单_${selectedDownloadableKeys.length}张.pdf`;
+      anchor.download = `Wayfair面单_${selectedDownloadableKeys.length}张.zip`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(url);
-      setMessage(`已下载 ${selectedDownloadableKeys.length} 张面单`);
+      setMessage(`已下载 ${selectedDownloadableKeys.length} 张面单压缩包`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "面单下载失败");
     } finally {
@@ -226,7 +226,7 @@ export default function FulfillmentWorkspace() {
         <h1 id="fulfillment-title">订单履约</h1>
         <div className={styles.headerActions}>
           <button className={styles.export} onClick={downloadOrders} disabled={loading}>下载订单</button>
-          <button className={styles.export} onClick={() => void downloadSelectedLabels()} disabled={downloadingLabels || !selectedDownloadableKeys.length}>{downloadingLabels ? "下载中…" : `下载已选面单${selectedDownloadableKeys.length ? ` (${selectedDownloadableKeys.length})` : ""}`}</button>
+          <button className={styles.export} onClick={() => void downloadSelectedLabels()} disabled={downloadingLabels || !selectedDownloadableKeys.length}>{downloadingLabels ? "下载中…" : `下载已选面单（ZIP）${selectedDownloadableKeys.length ? ` (${selectedDownloadableKeys.length})` : ""}`}</button>
           <button className={styles.refresh} onClick={() => void load(true)} disabled={loading}>{loading ? "获取中…" : "手动获取订单信息+面单信息"}</button>
         </div>
       </header>
