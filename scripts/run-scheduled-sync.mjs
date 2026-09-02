@@ -22,12 +22,23 @@ export async function runScheduledSync({
     redirect: "error",
     signal: AbortSignal.timeout(timeoutMs),
   });
-  await response.arrayBuffer();
+  const raw = await response.text();
   if (response.status === 409) {
     return { status: response.status, skipped: true };
   }
   if (!response.ok) {
     throw new Error(`Scheduled sync failed with HTTP ${response.status}`);
+  }
+  try {
+    const body = raw ? JSON.parse(raw) : null;
+    if (body?.fulfillment?.error) {
+      throw new Error(`Fulfillment sync failed: ${body.fulfillment.error}`);
+    }
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error("Scheduled sync returned invalid JSON");
+    }
+    throw error;
   }
   return { status: response.status, skipped: false };
 }

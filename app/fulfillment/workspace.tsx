@@ -129,7 +129,7 @@ export default function FulfillmentWorkspace() {
         const { checked, archived, matched = 0, errors = 0 } = body.sync.labels;
         if (errors) setMessage(`已更新 ${body.sync.records} 个包裹；${errors} 个面单处理异常，请稍后重试`);
         else if (archived) setMessage(`已更新 ${body.sync.records} 个包裹，并获取 ${archived} 张面单`);
-        else if (checked) setMessage(`已检查 ${checked} 个未归档订单，Wayfair 暂未返回可下载面单（命中 ${matched} 个事件）；系统每 30 分钟自动重试`);
+        else if (checked) setMessage(`已检查 ${checked} 个未归档订单，Wayfair 暂未返回可下载面单（命中 ${matched} 个事件）。请先在 Partner Home 选中 New Orders，执行 Print Documents → Print Label；平台生成后，系统将在下次同步自动归档。`);
         else setMessage(`已更新 ${body.sync.records} 个包裹，暂无待获取面单`);
       } else {
         setMessage("");

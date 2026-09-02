@@ -140,6 +140,16 @@ test("one-shot scheduler sends bearer auth and fails closed", async () => {
   await assert.rejects(
     runScheduledSync({
       origin: "https://ops.example.com",
+      secret: "test-secret",
+      fetchImpl: async () => new Response(JSON.stringify({
+        fulfillment: { error: "Wayfair label API unavailable" },
+      }), { status: 200 }),
+    }),
+    /Fulfillment sync failed: Wayfair label API unavailable/,
+  );
+  await assert.rejects(
+    runScheduledSync({
+      origin: "https://ops.example.com",
       secret: "",
       fetchImpl: async () => new Response("{}", { status: 200 }),
     }),

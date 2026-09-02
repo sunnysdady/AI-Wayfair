@@ -164,6 +164,10 @@ async function runSync(
         cache: "no-store",
       });
     };
+    // Labels are operationally time-sensitive and independent from the reporting
+    // refreshes below. Run them first so a slow catalog/report refresh cannot
+    // starve label retrieval, and let a failure fail the scheduled request.
+    const fulfillment = await syncFulfillmentOrders(env);
     const result = await runLayeredSync({
       scheduledTime: now.getTime(),
       request: requestInternal,
@@ -221,9 +225,6 @@ async function runSync(
       force: new URL(request.url).searchParams.get("forceDailyReport") === "1",
       requestInternal,
     });
-    let fulfillment;
-    try { fulfillment = await syncFulfillmentOrders(env); }
-    catch (error) { fulfillment = { error: error instanceof Error ? error.message : "履约订单同步失败" }; }
     return Response.json({ ...result, dailyOperatingReport, fulfillment }, {
       headers: { "Cache-Control": "no-store" },
     });
