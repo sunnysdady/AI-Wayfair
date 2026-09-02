@@ -46,7 +46,7 @@ async function createLabelZip(env: Awaited<ReturnType<typeof getRuntimeBindings>
   const output = new PassThrough();
   zip.on("error", (error) => output.destroy(error));
   zip.pipe(output);
-  for (const file of files) zip.append(file.content, { name: file.fileName });
+  for (const file of files) zip.append(Buffer.from(file.content), { name: file.fileName });
   void zip.finalize().catch((error: Error) => output.destroy(error));
   return Readable.toWeb(output) as ReadableStream;
 }
