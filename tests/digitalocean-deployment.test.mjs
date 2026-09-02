@@ -120,8 +120,23 @@ test("one-shot scheduler sends bearer auth and fails closed", async () => {
   });
 
   assert.equal(success.status, 200);
+  assert.equal(success.skipped, false);
   assert.equal(calls[0].url, "https://ops.example.com/api/cron/sync");
   assert.equal(calls[0].init.headers.authorization, "Bearer test-secret");
+  const conflict = await runScheduledSync({
+    origin: "https://ops.example.com",
+    secret: "test-secret",
+    fetchImpl: async () => new Response("{}", { status: 409 }),
+  });
+  assert.deepEqual(conflict, { status: 409, skipped: true });
+  await assert.rejects(
+    runScheduledSync({
+      origin: "https://ops.example.com",
+      secret: "test-secret",
+      fetchImpl: async () => new Response("{}", { status: 500 }),
+    }),
+    /HTTP 500/,
+  );
   await assert.rejects(
     runScheduledSync({
       origin: "https://ops.example.com",

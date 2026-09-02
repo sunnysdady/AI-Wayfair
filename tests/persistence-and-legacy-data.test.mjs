@@ -29,16 +29,37 @@ test("keeps one-hour snapshots across page switches without clearing ad actions"
   assert.match(page, /每小时自动同步/);
 });
 
-test("renders retained global snapshots immediately and refreshes stale data in the background", async () => {
+test("keys dashboard snapshots by range and revalidates every cached view", async () => {
   const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
 
   assert.match(page, /orders:\$\{initialRange\.start\}:\$\{initialRange\.end\}/);
   assert.match(page, /readClientCache<OrderSummary>\(\s*initialDashboardCacheKey,\s*CLIENT_CACHE_RETENTION_MS,\s*\)/);
   assert.match(page, /const fresh = readClientCache<OrderSummary>\(cacheKey\)/);
   assert.match(page, /const retained = readClientCache<OrderSummary>\(/);
+  assert.match(page, /dashboardSnapshot\?\.cacheKey === initialDashboardCacheKey/);
+  const freshBranch = page.match(/if \(fresh && !forceRefresh\) \{([\s\S]*?)\n    \} else if \(retained\)/)?.[1] || "";
+  assert.match(freshBranch, /setRefreshing\(true\)/);
+  assert.doesNotMatch(freshBranch, /return \(\) => controller\.abort\(\)/);
+  assert.match(page, /cache: "no-store"/);
   assert.match(page, /retained \? "后台更新中" : "同步中"/);
   assert.match(page, /ad-history:dashboard/);
   assert.match(page, /system:readiness/);
+});
+
+test("switches the order chart between revenue and order count", async () => {
+  const [page, styles] = await Promise.all([
+    readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /useState<"revenue" \| "orders">\(\s*"revenue",\s*\)/);
+  assert.match(page, /aria-label="柱状图指标"/);
+  assert.match(page, /aria-pressed=\{chartMetric === metric\}/);
+  assert.match(page, /item\[chartMetric\]/);
+  assert.match(page, /销售额走势/);
+  assert.match(page, /订单走势/);
+  assert.match(styles, /\.order-performance-metric-toggle\{/);
+  assert.match(styles, /\.order-performance-metric-toggle button\.active\{/);
 });
 
 test("offers a compact accessible manual refresh without clearing the retained dashboard", async () => {

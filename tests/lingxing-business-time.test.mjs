@@ -10,16 +10,16 @@ import {
 } from "../lib/lingxing-business-time.mjs";
 
 test("uses Wayfair NA's Lingxing business timezone for reporting dates", () => {
-  assert.equal(LINGXING_TIME_ZONE, "America/New_York");
+  assert.equal(LINGXING_TIME_ZONE, "Etc/GMT+4");
   assert.equal(lingxingDate(new Date("2026-08-26T03:30:00.000Z")), "2026-08-25");
   assert.equal(shiftLingxingDate("2026-08-26", -1), "2026-08-25");
 });
 
-test("uses the correct New York midnight boundary across daylight-saving changes", () => {
-  assert.equal(lingxingDayStart("2026-03-08"), "2026-03-08T05:00:00.000Z");
+test("keeps the midnight boundary fixed at UTC-4 throughout the year", () => {
+  assert.equal(lingxingDayStart("2026-03-08"), "2026-03-08T04:00:00.000Z");
   assert.equal(lingxingDayStart("2026-03-09"), "2026-03-09T04:00:00.000Z");
   assert.equal(lingxingDayStart("2026-11-01"), "2026-11-01T04:00:00.000Z");
-  assert.equal(lingxingDayStart("2026-11-02"), "2026-11-02T05:00:00.000Z");
+  assert.equal(lingxingDayStart("2026-11-02"), "2026-11-02T04:00:00.000Z");
 });
 
 test("routes every business-day surface through the shared Lingxing timezone", async () => {

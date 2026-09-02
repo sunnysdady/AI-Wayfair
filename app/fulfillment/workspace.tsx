@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { LINGXING_TIME_ZONE } from "@/lib/lingxing-business-time.mjs";
 import styles from "./workspace.module.css";
 
 type FulfillmentRecord = {
@@ -27,6 +28,11 @@ type FulfillmentRecord = {
   labelFileName: string;
 };
 
+type FulfillmentSync = {
+  records: number;
+  labels: { archived: number; checked: number; matched?: number; ready?: number; unavailable?: number; errors?: number };
+};
+
 const columns: Array<[string, string, keyof FulfillmentRecord]> = [
   ["A", "日期", "orderDate"], ["B", "系统单号", "systemOrderNumber"], ["C", "单号", "orderNumber"],
   ["D", "国家", "country"], ["E", "客人姓名", "customerName"], ["F", "地址1", "addressLine1"],
@@ -37,15 +43,15 @@ const columns: Array<[string, string, keyof FulfillmentRecord]> = [
 ];
 
 const editableFields: Array<[string, keyof FulfillmentRecord]> = columns.slice(0, -1).map(([, label, field]) => [label, field]);
-const quickRanges = ["7天", "14天", "本月", "上个月", "今年"] as const;
+const quickRanges = ["今天", "昨天", "7天", "14天", "本月", "上个月", "今年"] as const;
 type QuickRange = typeof quickRanges[number] | "自定义";
 const formalStart = "2026-09-01";
 
 function isoDate(value: Date) { return value.toISOString().slice(0, 10); }
 
-function newYorkToday() {
+function businessToday() {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: LINGXING_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(new Date());
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "";
   return new Date(Date.UTC(Number(part("year")), Number(part("month")) - 1, Number(part("day"))));
@@ -63,9 +69,14 @@ function withinFormalRange(range: { start: string; end: string }) {
 }
 
 function rangeFor(label: typeof quickRanges[number]) {
-  const today = newYorkToday();
+  const today = businessToday();
   const year = today.getUTCFullYear();
   const month = today.getUTCMonth();
+  if (label === "今天") return withinFormalRange({ start: isoDate(today), end: isoDate(today) });
+  if (label === "昨天") {
+    const yesterday = isoDate(addDays(today, -1));
+    return withinFormalRange({ start: yesterday, end: yesterday });
+  }
   if (label === "7天") return withinFormalRange({ start: isoDate(addDays(today, -6)), end: isoDate(today) });
   if (label === "14天") return withinFormalRange({ start: isoDate(addDays(today, -13)), end: isoDate(today) });
   if (label === "本月") return withinFormalRange({ start: `${year}-${String(month + 1).padStart(2, "0")}-01`, end: isoDate(today) });
@@ -75,6 +86,20 @@ function rangeFor(label: typeof quickRanges[number]) {
 
 function display(value: unknown) {
   return value === "" || value == null ? "—" : String(value);
+}
+
+function displayOrderDateTime(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw || /^\d{4}-\d{2}-\d{2}$/.test(raw)) return display(raw);
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: LINGXING_TIME_ZONE,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(parsed);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")}`;
 }
 
 export default function FulfillmentWorkspace() {
@@ -96,11 +121,19 @@ export default function FulfillmentWorkspace() {
       if (status) params.set("status", status);
       if (refresh) params.set("refresh", "1");
       const response = await fetch(`/api/fulfillment/orders?${params}`, { cache: "no-store" });
-      const body = await response.json() as { records?: FulfillmentRecord[]; error?: string };
+      const body = await response.json() as { records?: FulfillmentRecord[]; sync?: FulfillmentSync | null; error?: string };
       if (!response.ok) throw new Error(body.error || "履约订单读取失败");
       setRecords(body.records || []);
       setSelectedLabelKeys((current) => current.filter((key) => (body.records || []).some((record) => record.sourceKey === key && record.labelObjectKey)));
-      setMessage("");
+      if (refresh && body.sync) {
+        const { checked, archived, matched = 0, errors = 0 } = body.sync.labels;
+        if (errors) setMessage(`已更新 ${body.sync.records} 个包裹；${errors} 个面单处理异常，请稍后重试`);
+        else if (archived) setMessage(`已更新 ${body.sync.records} 个包裹，并获取 ${archived} 张面单`);
+        else if (checked) setMessage(`已检查 ${checked} 个未归档订单，Wayfair 暂未返回可下载面单（命中 ${matched} 个事件）；系统每 30 分钟自动重试`);
+        else setMessage(`已更新 ${body.sync.records} 个包裹，暂无待获取面单`);
+      } else {
+        setMessage("");
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "履约订单读取失败");
     } finally {
@@ -194,7 +227,7 @@ export default function FulfillmentWorkspace() {
         <div className={styles.headerActions}>
           <button className={styles.export} onClick={downloadOrders} disabled={loading}>下载订单</button>
           <button className={styles.export} onClick={() => void downloadSelectedLabels()} disabled={downloadingLabels || !selectedDownloadableKeys.length}>{downloadingLabels ? "下载中…" : `下载已选面单${selectedDownloadableKeys.length ? ` (${selectedDownloadableKeys.length})` : ""}`}</button>
-          <button className={styles.refresh} onClick={() => void load(true)} disabled={loading}>{loading ? "同步中…" : "API 同步订单"}</button>
+          <button className={styles.refresh} onClick={() => void load(true)} disabled={loading}>{loading ? "获取中…" : "手动获取订单信息+面单信息"}</button>
         </div>
       </header>
 
@@ -222,7 +255,7 @@ export default function FulfillmentWorkspace() {
               const hasLabel = Boolean(record.labelObjectKey);
               return <tr key={record.sourceKey}>
                 <td className={styles.selection}><input type="checkbox" aria-label={`选择 ${record.orderNumber} 面单`} checked={selectedLabelKeys.includes(record.sourceKey)} onChange={(event) => toggleLabel(record.sourceKey, event.target.checked)} disabled={!hasLabel} /></td>
-                {columns.map(([, , field]) => <td key={field}>{display(record[field])}</td>)}
+                {columns.map(([, , field]) => <td key={field}>{field === "orderDate" ? displayOrderDateTime(record[field]) : display(record[field])}</td>)}
                 <td>{hasLabel ? <a className={styles.labelLink} href={`/api/fulfillment/labels/download?sourceKey=${encodeURIComponent(record.sourceKey)}`}>{record.labelFileName}</a> : "未归档"}</td>
                 <td><button className={styles.edit} onClick={() => setSelected({ ...record })}>编辑</button></td>
               </tr>;
@@ -242,8 +275,8 @@ export default function FulfillmentWorkspace() {
             <span>{label}</span>
             <input
               value={String(selected[field] ?? "")}
-              type={field === "orderDate" ? "date" : "text"}
-              readOnly={["orderNumber", "sku", "quantity"].includes(String(field))}
+              type="text"
+              readOnly={["orderDate", "orderNumber", "sku", "quantity"].includes(String(field))}
               onChange={(event) => updateSelected(field, event.target.value)}
             />
           </label>)}
