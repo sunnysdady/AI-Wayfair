@@ -40,10 +40,10 @@ test("preserves the current promotion submission summary for the UI", () => {
   assert.deepEqual(promotionSummaryForDisplay(current), current);
 });
 
-test("hydrates the plan cache after mount and uses a schema-versioned cache key", async () => {
+test("invalidates the old plan cache when September financial fields are added", async () => {
   const page = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
 
-  assert.equal(PLAN_PROGRESS_CACHE_KEY, "plan:progress:v9-september");
+  assert.equal(PLAN_PROGRESS_CACHE_KEY, "plan:progress:v10-september-financials");
   assert.match(page, /useState<PlanProgress \| null>\(null\)/);
   assert.match(page, /PLAN_PROGRESS_CACHE_KEY/);
   assert.doesNotMatch(
