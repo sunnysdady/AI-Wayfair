@@ -1,9 +1,13 @@
-import archiver from "archiver";
+import { createRequire } from "node:module";
 import { PassThrough, Readable } from "node:stream";
 import { safeLabelDownloadFileName, selectDownloadableLabelRecords } from "@/lib/fulfillment-downloads.mjs";
 import { labelFileNameForOrder, listFulfillmentRecordsBySourceKeys } from "@/lib/fulfillment-ledger.mjs";
 import { sameOrigin } from "@/lib/http-origin.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
+
+// `archiver` is CommonJS. Loading it through Node's require prevents
+// Turbopack from treating its default export as an ESM named export.
+const archiver = createRequire(import.meta.url)("archiver") as typeof import("archiver");
 
 const MAX_SELECTED_LABELS = 100;
 
