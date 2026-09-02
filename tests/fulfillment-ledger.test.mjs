@@ -47,6 +47,7 @@ test("formal ledger filters reject historical dates and unknown statuses", () =>
   assert.deepEqual(parseFulfillmentFilters({ start: "2026-09-01", end: "2026-09-14", status: "待出库" }), {
     start: "2026-09-01", end: "2026-09-14", status: "待出库", limit: 500,
   });
+  assert.equal(parseFulfillmentFilters({ status: "待平台生成面单" }).status, "待平台生成面单");
   assert.throws(() => parseFulfillmentFilters({ start: "2026-08-31" }), /2026-09-01/);
   assert.throws(() => parseFulfillmentFilters({ status: "未知" }), /状态/);
 });
@@ -79,4 +80,9 @@ test("label downloads follow the signed URL redirect", async () => {
   assert.match(source, /fetch\(url, \{ headers: \{ authorization: `Bearer \$\{token\}` \}, redirect: "follow", signal: AbortSignal\.timeout\(60_000\) \}\)/);
   assert.match(source, /const archiveResult = await splitAndArchivePdf\(/);
   assert.match(source, /record\.shippingStatus = keepMoreAdvancedStatus\(record\.shippingStatus, archiveResult\.status\)/);
+});
+
+test("an absent Wayfair label event is shown as waiting for platform generation", async () => {
+  const source = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
+  assert.match(source, /if \(!event\) \{\s*for \(const record of recordsForParent\) record\.shippingStatus = keepMoreAdvancedStatus\(record\.shippingStatus, "待平台生成面单"\);\s*continue;\s*\}/);
 });
