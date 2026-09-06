@@ -143,6 +143,11 @@ test("label tracking numbers populate archived split parcels only when the mappi
   assert.deepEqual(trackingAssignments(["TRACK-1", "TRACK-2"], 3), []);
 });
 
+test("tracking backfill records the current parent PO as its owner", async () => {
+  const source = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
+  assert.match(source, /trackingOwners\.set\(trackingNumber, new Set\(\[parent\]\)\);/);
+});
+
 test("label downloads follow the signed URL redirect", async () => {
   const source = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
   assert.match(source, /fetch\(url, \{ headers: \{ authorization: `Bearer \$\{token\}` \}, redirect: "follow", signal: AbortSignal\.timeout\(60_000\) \}\)/);
