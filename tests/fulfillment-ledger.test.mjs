@@ -46,6 +46,14 @@ test("split records inherit API recipient fields and cloud SKU mappings", () => 
   assert.equal(record.shippingStatus, "待获取面单");
 });
 
+test("split records retain the Wayfair ship-to phone number", () => {
+  const [record] = splitOrderLines(
+    { poNumber: "CS675883443", poDate: "2026-09-01", shipTo: { phoneNumber: "+1 555 0100" } },
+    [{ lineKey: "SKU:0", partNumber: "SKU", quantity: 1 }],
+  );
+  assert.equal(record.phone, "+1 555 0100");
+});
+
 test("formal ledger filters reject historical dates and unknown statuses", () => {
   assert.deepEqual(parseFulfillmentFilters({ start: "2026-09-01", end: "2026-09-14", status: "待出库" }), {
     start: "2026-09-01", end: "2026-09-14", status: "待出库", limit: 500,
@@ -102,6 +110,11 @@ test("label lookup requests only the supported tracking field from ShippingLabel
   assert.doesNotMatch(query, /\bin:\s*\$numbers/);
   assert.match(query, /shippingLabelInfo \{ trackingNumber \}/);
   assert.doesNotMatch(query, /shippingLabelInfo \{[^}]*\b(poNumber|fullPoNumber|numberOfLabels)\b/);
+});
+
+test("fulfillment order query requests the ship-to phone number", async () => {
+  const source = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
+  assert.match(source, /shipTo \{[^}]*phoneNumber[^}]*\}/);
 });
 
 test("label lookup uses the required numeric PO and prioritizes downloadable events", () => {
