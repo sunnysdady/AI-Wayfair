@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { labelArchiveMode, labelFileNameForOrder, listFulfillmentRecords, normalizePhone, parseFulfillmentFilters, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
-import { labelLookupNumbers, labelRegistrationNumber, selectLabelEvent, trackingAssignments } from "../lib/fulfillment-api-sync.mjs";
+import { canArchiveMultiPageSingleParcel, labelLookupNumbers, labelRegistrationNumber, selectLabelEvent, trackingAssignments } from "../lib/fulfillment-api-sync.mjs";
 import { toPostgresSql } from "../lib/postgres-d1.mjs";
 
 test("one multi-unit order is split into deterministic one-parcel orders", () => {
@@ -141,6 +141,13 @@ test("label tracking numbers populate archived split parcels only when the mappi
   assert.deepEqual(trackingAssignments(["TRACK-1"], 2), ["TRACK-1", "TRACK-1"]);
   assert.deepEqual(trackingAssignments(["TRACK-1", "TRACK-2"], 2), ["TRACK-1", "TRACK-2"]);
   assert.deepEqual(trackingAssignments(["TRACK-1", "TRACK-2"], 3), []);
+});
+
+test("a single parcel may retain a multi-page 4×6 carrier-label document", () => {
+  const carrierPages = Array.from({ length: 5 }, () => ({ width: 288, height: 432 }));
+  assert.equal(canArchiveMultiPageSingleParcel(carrierPages, 1), true);
+  assert.equal(canArchiveMultiPageSingleParcel(carrierPages, 2), false);
+  assert.equal(canArchiveMultiPageSingleParcel([{ width: 612, height: 792 }, ...carrierPages], 1), false);
 });
 
 test("tracking backfill records the current parent PO as its owner", async () => {
