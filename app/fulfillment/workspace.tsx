@@ -30,7 +30,7 @@ type FulfillmentRecord = {
 
 type FulfillmentSync = {
   records: number;
-  labels: { archived: number; checked: number; matched?: number; ready?: number; unavailable?: number; requested?: number; errors?: number; failureReasons?: { parentOrderNumber: string; reason: string }[] };
+  labels: { archived: number; checked: number; matched?: number; ready?: number; unavailable?: number; requested?: number; errors?: number; cancelled?: number; failureReasons?: { parentOrderNumber: string; reason: string }[] };
 };
 
 const columns: Array<[string, string, keyof FulfillmentRecord]> = [
@@ -126,11 +126,12 @@ export default function FulfillmentWorkspace() {
       setRecords(body.records || []);
       setSelectedLabelKeys((current) => current.filter((key) => (body.records || []).some((record) => record.sourceKey === key && record.labelObjectKey)));
       if (refresh && body.sync) {
-        const { checked, archived, matched = 0, requested = 0, errors = 0, failureReasons = [] } = body.sync.labels;
+        const { checked, archived, matched = 0, requested = 0, errors = 0, cancelled = 0, failureReasons = [] } = body.sync.labels;
         if (errors) {
           const details = failureReasons.map(({ parentOrderNumber, reason }) => `${parentOrderNumber}：${reason}`).join("；");
-          setMessage(`已更新 ${body.sync.records} 个包裹；${errors} 个面单处理异常${details ? `：${details}` : "，请稍后重试"}`);
+          setMessage(`已更新 ${body.sync.records} 个包裹；${errors} 个面单处理异常${details ? `：${details}` : "，请稍后重试"}${cancelled ? `；${cancelled} 个订单已取消` : ""}`);
         }
+        else if (cancelled) setMessage(`已更新 ${body.sync.records} 个包裹；${cancelled} 个订单已取消`);
         else if (archived) setMessage(`已更新 ${body.sync.records} 个包裹，并获取 ${archived} 张面单`);
         else if (requested) setMessage(`已通过 Wayfair API 发起 ${requested} 个订单的面单生成；平台事件返回后系统会自动逐单校验并归档。`);
         else if (checked) setMessage(`已检查 ${checked} 个未归档订单，命中 ${matched} 个可校验的 Wayfair 面单事件；未返回下载文件的订单会由系统继续自动同步。`);
@@ -151,7 +152,7 @@ export default function FulfillmentWorkspace() {
     total: records.length,
     tracked: records.filter((record) => record.trackingNumber).length,
     labels: records.filter((record) => record.labelObjectKey).length,
-    incomplete: records.filter((record) => !record.labelObjectKey).length,
+    incomplete: records.filter((record) => !record.labelObjectKey && record.shippingStatus !== "已取消").length,
   }), [records]);
   const downloadableRecords = useMemo(() => records.filter((record) => Boolean(record.labelObjectKey)), [records]);
   const selectedDownloadableKeys = useMemo(() => selectedLabelKeys.filter((key) => downloadableRecords.some((record) => record.sourceKey === key)), [downloadableRecords, selectedLabelKeys]);
@@ -239,7 +240,7 @@ export default function FulfillmentWorkspace() {
         <div className={styles.quickRanges}>{quickRanges.map((item) => <button key={item} className={quickRange === item ? styles.activeRange : ""} onClick={() => { setQuickRange(item); setRange(rangeFor(item)); }}>{item}</button>)}</div>
         <label><span>开始日期</span><input type="date" min="2026-09-01" value={range.start} onChange={(event) => { setQuickRange("自定义"); setRange((current) => ({ ...current, start: event.target.value })); }} /></label>
         <label><span>结束日期</span><input type="date" min="2026-09-01" value={range.end} onChange={(event) => { setQuickRange("自定义"); setRange((current) => ({ ...current, end: event.target.value })); }} /></label>
-        <label><span>订单状态</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">全部状态</option><option value="待获取面单">待获取面单</option><option value="待平台生成面单">待平台生成面单</option><option value="SKU待映射">SKU待映射</option><option value="已归档面单">已归档面单</option><option value="待出库">待出库</option><option value="已出库">已出库</option><option value="已发货">已发货</option><option value="异常">异常</option></select></label>
+        <label><span>订单状态</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">全部状态</option><option value="待获取面单">待获取面单</option><option value="待平台生成面单">待平台生成面单</option><option value="SKU待映射">SKU待映射</option><option value="已归档面单">已归档面单</option><option value="待出库">待出库</option><option value="已出库">已出库</option><option value="已发货">已发货</option><option value="已取消">已取消</option><option value="异常">异常</option></select></label>
       </div>
 
       <div className={styles.metrics} aria-label="履约概况">
@@ -285,7 +286,7 @@ export default function FulfillmentWorkspace() {
             />
           </label>)}
           <label><span>发货状态</span><select value={selected.shippingStatus} onChange={(event) => updateSelected("shippingStatus", event.target.value)}>
-            <option value="待获取面单">待获取面单</option><option value="待平台生成面单">待平台生成面单</option><option value="SKU待映射">SKU待映射</option><option value="已归档面单">已归档面单</option><option value="待出库">待出库</option><option value="已出库">已出库</option><option value="已发货">已发货</option><option value="异常">异常</option>
+            <option value="待获取面单">待获取面单</option><option value="待平台生成面单">待平台生成面单</option><option value="SKU待映射">SKU待映射</option><option value="已归档面单">已归档面单</option><option value="待出库">待出库</option><option value="已出库">已出库</option><option value="已发货">已发货</option><option value="已取消">已取消</option><option value="异常">异常</option>
           </select></label>
           <label><span>面单文件名</span><input value={selected.labelFileName} readOnly /></label>
         </div>
