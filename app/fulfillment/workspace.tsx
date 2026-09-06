@@ -30,7 +30,7 @@ type FulfillmentRecord = {
 
 type FulfillmentSync = {
   records: number;
-  labels: { archived: number; checked: number; matched?: number; ready?: number; unavailable?: number; requested?: number; errors?: number };
+  labels: { archived: number; checked: number; matched?: number; ready?: number; unavailable?: number; requested?: number; errors?: number; failureReasons?: { parentOrderNumber: string; reason: string }[] };
 };
 
 const columns: Array<[string, string, keyof FulfillmentRecord]> = [
@@ -126,8 +126,11 @@ export default function FulfillmentWorkspace() {
       setRecords(body.records || []);
       setSelectedLabelKeys((current) => current.filter((key) => (body.records || []).some((record) => record.sourceKey === key && record.labelObjectKey)));
       if (refresh && body.sync) {
-        const { checked, archived, matched = 0, requested = 0, errors = 0 } = body.sync.labels;
-        if (errors) setMessage(`已更新 ${body.sync.records} 个包裹；${errors} 个面单处理异常，请稍后重试`);
+        const { checked, archived, matched = 0, requested = 0, errors = 0, failureReasons = [] } = body.sync.labels;
+        if (errors) {
+          const details = failureReasons.map(({ parentOrderNumber, reason }) => `${parentOrderNumber}：${reason}`).join("；");
+          setMessage(`已更新 ${body.sync.records} 个包裹；${errors} 个面单处理异常${details ? `：${details}` : "，请稍后重试"}`);
+        }
         else if (archived) setMessage(`已更新 ${body.sync.records} 个包裹，并获取 ${archived} 张面单`);
         else if (requested) setMessage(`已通过 Wayfair API 发起 ${requested} 个订单的面单生成；平台事件返回后系统会自动逐单校验并归档。`);
         else if (checked) setMessage(`已检查 ${checked} 个未归档订单，命中 ${matched} 个可校验的 Wayfair 面单事件；未返回下载文件的订单会由系统继续自动同步。`);
