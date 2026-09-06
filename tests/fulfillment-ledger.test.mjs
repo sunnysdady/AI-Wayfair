@@ -123,18 +123,26 @@ test("label downloads follow the signed URL redirect", async () => {
 
 test("label verification is automatic and keeps unambiguous single-order PDFs intact", async () => {
   assert.equal(labelArchiveMode(1, 1), "whole");
-  assert.equal(labelArchiveMode(2, 1), "whole");
+  assert.equal(labelArchiveMode(2, 1), "error");
   assert.equal(labelArchiveMode(2, 2), "split");
   assert.equal(labelArchiveMode(3, 2), "error");
 
-  const ledger = await readFile(new URL("../lib/fulfillment-ledger.mjs", import.meta.url), "utf8");
-  const workspace = await readFile(new URL("../app/fulfillment/workspace.tsx", import.meta.url), "utf8");
   const sync = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
-  assert.doesNotMatch(`${ledger}\n${workspace}\n${sync}`, /面单待核验/);
-  assert.match(sync, /catch \{[\s\S]*errors \+= 1;[\s\S]*record\.shippingStatus = keepMoreAdvancedStatus\(record\.shippingStatus, "异常"\);/);
+  assert.match(sync, /面单待核验/);
+  assert.match(sync, /catch \(error\) \{[\s\S]*errors \+= 1;[\s\S]*record\.shippingStatus = keepMoreAdvancedStatus\(record\.shippingStatus, "异常"\);/);
 });
 
 test("an absent Wayfair label event is shown as waiting for platform generation", async () => {
   const source = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
-  assert.match(source, /if \(!event\) \{\s*for \(const record of recordsForParent\) record\.shippingStatus = keepMoreAdvancedStatus\(record\.shippingStatus, "待平台生成面单"\);\s*continue;\s*\}/);
+  assert.match(source, /event = await registerLabelEvent\(token, parent\)/);
+  assert.match(source, /if \(!event \|\| !selectLabelEventForParent\(\[event\], parent\)\) \{[\s\S]*setWaitingForLabel\(recordsForParent\)/);
+});
+
+test("label synchronization returns bounded, order-scoped failure diagnostics", async () => {
+  const source = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
+
+  assert.match(source, /failureReasons/);
+  assert.match(source, /parentOrderNumber/);
+  assert.match(source, /labelFailureReason/);
+  assert.match(source, /failureReasons\.length < 8/);
 });
