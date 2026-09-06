@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { labelArchiveMode, labelFileNameForOrder, listFulfillmentRecords, parseFulfillmentFilters, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
-import { labelLookupNumbers, selectLabelEvent } from "../lib/fulfillment-api-sync.mjs";
+import { labelLookupNumbers, labelRegistrationNumber, selectLabelEvent } from "../lib/fulfillment-api-sync.mjs";
 import { toPostgresSql } from "../lib/postgres-d1.mjs";
 
 test("one multi-unit order is split into deterministic one-parcel orders", () => {
@@ -106,12 +106,21 @@ test("label lookup requests only the supported tracking field from ShippingLabel
 
 test("label lookup uses the required numeric PO and prioritizes downloadable events", () => {
   assert.deepEqual(labelLookupNumbers("CS677571095"), ["677571095"]);
+  assert.equal(labelRegistrationNumber("CS677571095"), "CS677571095");
+  assert.equal(labelRegistrationNumber("ca677571095"), "CA677571095");
+  assert.equal(labelRegistrationNumber("CS67757109"), "");
   assert.deepEqual(labelLookupNumbers("invalid"), []);
   const ready = { consolidatedShippingLabel: { url: "https://labels.example/one.pdf" }, shippingLabelInfo: [] };
   const trackingOnly = { consolidatedShippingLabel: null, shippingLabelInfo: [{ trackingNumber: "TRACK" }] };
   assert.equal(selectLabelEvent([trackingOnly, ready]), ready);
   assert.equal(selectLabelEvent([trackingOnly]), trackingOnly);
   assert.equal(selectLabelEvent([]), null);
+});
+
+test("label registration sends the full Wayfair PO instead of its filter suffix", async () => {
+  const source = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
+  assert.match(source, /const poNumber = labelRegistrationNumber\(parentOrderNumber\);/);
+  assert.match(source, /registrationInput: \{ poNumber \}/);
 });
 
 test("label downloads follow the signed URL redirect", async () => {
