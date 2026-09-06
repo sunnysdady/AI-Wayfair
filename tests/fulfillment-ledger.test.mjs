@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { labelArchiveMode, labelFileNameForOrder, listFulfillmentRecords, parseFulfillmentFilters, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
-import { labelLookupNumbers, labelRegistrationNumber, selectLabelEvent } from "../lib/fulfillment-api-sync.mjs";
+import { labelArchiveMode, labelFileNameForOrder, listFulfillmentRecords, normalizePhone, parseFulfillmentFilters, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
+import { labelLookupNumbers, labelRegistrationNumber, selectLabelEvent, trackingAssignments } from "../lib/fulfillment-api-sync.mjs";
 import { toPostgresSql } from "../lib/postgres-d1.mjs";
 
 test("one multi-unit order is split into deterministic one-parcel orders", () => {
@@ -52,6 +52,7 @@ test("split records retain the Wayfair ship-to phone number", () => {
     [{ lineKey: "SKU:0", partNumber: "SKU", quantity: 1 }],
   );
   assert.equal(record.phone, "+1 555 0100");
+  assert.equal(normalizePhone("6187927946 or 5550100"), "6187927946");
 });
 
 test("formal ledger filters reject historical dates and unknown statuses", () => {
@@ -134,6 +135,12 @@ test("label registration sends the full Wayfair PO instead of its filter suffix"
   const source = await readFile(new URL("../lib/fulfillment-api-sync.mjs", import.meta.url), "utf8");
   assert.match(source, /const poNumber = labelRegistrationNumber\(parentOrderNumber\);/);
   assert.match(source, /registrationInput: \{ poNumber \}/);
+});
+
+test("label tracking numbers populate archived split parcels only when the mapping is unambiguous", () => {
+  assert.deepEqual(trackingAssignments(["TRACK-1"], 2), ["TRACK-1", "TRACK-1"]);
+  assert.deepEqual(trackingAssignments(["TRACK-1", "TRACK-2"], 2), ["TRACK-1", "TRACK-2"]);
+  assert.deepEqual(trackingAssignments(["TRACK-1", "TRACK-2"], 3), []);
 });
 
 test("label downloads follow the signed URL redirect", async () => {
