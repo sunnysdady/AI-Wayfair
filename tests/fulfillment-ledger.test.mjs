@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { labelArchiveMode, labelFileNameForOrder, listFulfillmentRecords, normalizePhone, parseFulfillmentFilters, splitOrderLines, validateFulfillmentRecord } from "../lib/fulfillment-ledger.mjs";
-import { canArchiveMultiPageSingleParcel, labelLookupNumbers, labelRegistrationNumber, selectLabelEvent, trackingAssignments } from "../lib/fulfillment-api-sync.mjs";
+import { canArchiveMultiPageSingleParcel, isCancelledOrderError, labelLookupNumbers, labelRegistrationNumber, selectLabelEvent, trackingAssignments } from "../lib/fulfillment-api-sync.mjs";
 import { toPostgresSql } from "../lib/postgres-d1.mjs";
 
 test("one multi-unit order is split into deterministic one-parcel orders", () => {
@@ -148,6 +148,12 @@ test("a single parcel may retain a multi-page 4×6 carrier-label document", () =
   assert.equal(canArchiveMultiPageSingleParcel(carrierPages, 1), true);
   assert.equal(canArchiveMultiPageSingleParcel(carrierPages, 2), false);
   assert.equal(canArchiveMultiPageSingleParcel([{ width: 612, height: 792 }, ...carrierPages], 1), false);
+});
+
+test("Wayfair cancelled-order errors are identified separately from fulfillment failures", () => {
+  assert.equal(isCancelledOrderError(new Error("Provided purchase order cannot be registered because the order has been cancelled.")), true);
+  assert.equal(isCancelledOrderError(new Error("Invalid input purchase order")), false);
+  assert.equal(parseFulfillmentFilters({ status: "已取消" }).status, "已取消");
 });
 
 test("tracking backfill records the current parent PO as its owner", async () => {
