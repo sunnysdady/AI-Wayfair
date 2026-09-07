@@ -5,11 +5,18 @@ import { labelFileNameForOrder, listFulfillmentRecordsBySourceKeys } from "@/lib
 import { sameOrigin } from "@/lib/http-origin.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
-// `archiver` is CommonJS. Loading it through Node's require prevents
-// Turbopack from treating its default export as an ESM named export.
-const archiver = createRequire(import.meta.url)("archiver") as typeof import("archiver");
-
 const MAX_SELECTED_LABELS = 100;
+
+// archiver 8 is ESM-only and exposes `ZipArchive`, while its bundled
+// TypeScript declarations still describe the former callable API.
+const { ZipArchive } = createRequire(import.meta.url)("archiver") as {
+  ZipArchive: new (options: { zlib: { level: number } }) => {
+    on(event: "error", listener: (error: Error) => void): void;
+    pipe(destination: PassThrough): void;
+    append(source: Buffer | string, data: { name: string }): void;
+    finalize(): void;
+  };
+};
 
 function sourceKeys(value: unknown) {
   if (!Array.isArray(value)) throw new Error("请选择要下载的面单");
@@ -43,13 +50,13 @@ async function createLabelZip(env: Awaited<ReturnType<typeof getRuntimeBindings>
     };
   }));
 
-  const zip = archiver("zip", { zlib: { level: 9 } });
+  const zip = new ZipArchive({ zlib: { level: 9 } });
   const output = new PassThrough();
   zip.on("error", (error) => output.destroy(error));
   zip.pipe(output);
   for (const file of files) zip.append(Buffer.from(file.content), { name: file.fileName });
   if (missingOrderNumbers.length) zip.append(`以下面单文件尚未归档，请重新同步后再下载：\n${missingOrderNumbers.join("\n")}\n`, { name: "缺失面单说明.txt" });
-  void zip.finalize().catch((error: Error) => output.destroy(error));
+  zip.finalize();
   return { stream: Readable.toWeb(output) as ReadableStream, downloaded: files.length, missingOrderNumbers };
 }
 
