@@ -184,15 +184,17 @@ export default function FulfillmentWorkspace() {
         const body = await response.json() as { error?: string };
         throw new Error(body.error || "面单下载失败");
       }
+      const downloaded = Number(response.headers.get("x-wayfair-labels-downloaded")) || selectedDownloadableKeys.length;
+      const missing = response.headers.get("x-wayfair-labels-missing")?.split(",").filter(Boolean) || [];
       const url = URL.createObjectURL(await response.blob());
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `Wayfair面单_${selectedDownloadableKeys.length}张.zip`;
+      anchor.download = `Wayfair面单_${downloaded}张.zip`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(url);
-      setMessage(`已下载 ${selectedDownloadableKeys.length} 张面单压缩包`);
+      setMessage(missing.length ? `已下载 ${downloaded} 张面单压缩包；${missing.join("、")} 尚未归档，已在压缩包中附说明` : `已下载 ${downloaded} 张面单压缩包`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "面单下载失败");
     } finally {
