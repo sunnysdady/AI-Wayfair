@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { PassThrough, Readable } from "node:stream";
-import { safeLabelDownloadFileName, selectDownloadableLabelRecords } from "@/lib/fulfillment-downloads.mjs";
+import { partitionStoredLabelFiles, safeLabelDownloadFileName, selectDownloadableLabelRecords } from "@/lib/fulfillment-downloads.mjs";
 import { labelFileNameForOrder, listFulfillmentRecordsBySourceKeys } from "@/lib/fulfillment-ledger.mjs";
 import { sameOrigin } from "@/lib/http-origin.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
@@ -33,11 +33,12 @@ async function storedLabelRecords(env: Awaited<ReturnType<typeof getRuntimeBindi
 }
 
 async function createLabelZip(env: Awaited<ReturnType<typeof getRuntimeBindings>>, records: Awaited<ReturnType<typeof storedLabelRecords>>) {
-  const files = await Promise.all(records.map(async (record) => {
-    const object = await env.FILES.get(record.labelObjectKey);
-    if (!object) throw new Error("所选面单文件不存在，请重新同步后再试");
+  const stored = await Promise.all(records.map(async (record) => ({ record, object: await env.FILES.get(record.labelObjectKey) })));
+  const { available, missingOrderNumbers } = partitionStoredLabelFiles(stored);
+  if (!available.length) throw new Error(`所选面单文件不存在：${missingOrderNumbers.join("、")}。请重新同步后再试`);
+  const files = await Promise.all(available.map(async ({ record, object }) => {
     return {
-      content: await new Response(object.body).arrayBuffer(),
+      content: await new Response(object!.body).arrayBuffer(),
       fileName: safeLabelDownloadFileName(record.labelFileName, labelFileNameForOrder(record.orderNumber)),
     };
   }));
@@ -47,8 +48,14 @@ async function createLabelZip(env: Awaited<ReturnType<typeof getRuntimeBindings>
   zip.on("error", (error) => output.destroy(error));
   zip.pipe(output);
   for (const file of files) zip.append(Buffer.from(file.content), { name: file.fileName });
+  if (missingOrderNumbers.length) zip.append(`以下面单文件尚未归档，请重新同步后再下载：\n${missingOrderNumbers.join("\n")}\n`, { name: "缺失面单说明.txt" });
   void zip.finalize().catch((error: Error) => output.destroy(error));
-  return Readable.toWeb(output) as ReadableStream;
+  return { stream: Readable.toWeb(output) as ReadableStream, downloaded: files.length, missingOrderNumbers };
+}
+
+function downloadErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  return message.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, 300) || "面单下载失败，请重新同步后再试";
 }
 
 export async function GET(request: Request) {
@@ -61,7 +68,7 @@ export async function GET(request: Request) {
     if (!object) return Response.json({ error: "已归档面单文件不存在，请重新同步后再试" }, { status: 404 });
     return new Response(object.body, { headers: labelHeaders(safeLabelDownloadFileName(record.labelFileName, labelFileNameForOrder(record.orderNumber))) });
   } catch (error) {
-    return Response.json({ error: "面单下载失败，请重新同步后再试" }, { status: 400 });
+    return Response.json({ error: downloadErrorMessage(error) }, { status: 400 });
   }
 }
 
@@ -73,10 +80,15 @@ export async function POST(request: Request) {
     const records = await storedLabelRecords(env, sourceKeys(body?.sourceKeys));
     if (!records.length) return Response.json({ error: "所选面单尚未归档，暂不能下载" }, { status: 404 });
 
-    return new Response(await createLabelZip(env, records), {
-      headers: labelHeaders(`Wayfair面单_${records.length}张.zip`, "application/zip"),
+    const zip = await createLabelZip(env, records);
+    return new Response(zip.stream, {
+      headers: {
+        ...labelHeaders(`Wayfair面单_${zip.downloaded}张.zip`, "application/zip"),
+        "x-wayfair-labels-downloaded": String(zip.downloaded),
+        "x-wayfair-labels-missing": zip.missingOrderNumbers.join(","),
+      },
     });
   } catch (error) {
-    return Response.json({ error: "面单下载失败，请重新同步后再试" }, { status: 400 });
+    return Response.json({ error: downloadErrorMessage(error) }, { status: 400 });
   }
 }
