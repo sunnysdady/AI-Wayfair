@@ -5,6 +5,7 @@ import ExcelJS from "exceljs";
 import {
   createFulfillmentWorkbook,
   fulfillmentExportFileName,
+  partitionStoredLabelFiles,
   selectDownloadableLabelRecords,
 } from "../lib/fulfillment-downloads.mjs";
 
@@ -60,6 +61,15 @@ test("label download selection accepts only stored fulfillment PDFs for selected
   ], [record.sourceKey, "wayfair:PO-2:SKU:1", "wayfair:PO-3:SKU:1", "not-a-record"]);
 
   assert.deepEqual(selected.map((item) => item.sourceKey), [record.sourceKey]);
+});
+
+test("batch label downloads retain available files and identify stale object-store rows", () => {
+  const result = partitionStoredLabelFiles([
+    { record, object: { body: new ReadableStream() } },
+    { record: { ...record, orderNumber: "PO-2" }, object: null },
+  ]);
+  assert.equal(result.available.length, 1);
+  assert.deepEqual(result.missingOrderNumbers, ["PO-2"]);
 });
 
 test("workspace exposes date-range order export and selectable archived label downloads", async () => {
