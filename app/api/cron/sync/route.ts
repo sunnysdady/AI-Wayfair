@@ -8,6 +8,7 @@ import {
 } from "@/lib/daily-operating-report.mjs";
 import { lingxingDate } from "@/lib/lingxing-business-time.mjs";
 import { syncFulfillmentOrders } from "@/lib/fulfillment-api-sync.mjs";
+import { runScheduledInventory } from "@/lib/scheduled-inventory-sync.mjs";
 
 export const maxDuration = 800;
 export const dynamic = "force-dynamic";
@@ -168,6 +169,18 @@ async function runSync(
     // refreshes below. Run them first so a slow catalog/report refresh cannot
     // starve label retrieval, and let a failure fail the scheduled request.
     const fulfillment = await syncFulfillmentOrders(env);
+    let inventory: Record<string, unknown> = { status: "skipped" };
+    try {
+      inventory = await runScheduledInventory({
+        origin,
+        headers: internalHeaders(env),
+      });
+    } catch (error) {
+      inventory = {
+        status: "failed",
+        error: error instanceof Error ? error.message : "库存自动同步失败",
+      };
+    }
     const result = await runLayeredSync({
       scheduledTime: now.getTime(),
       request: requestInternal,
@@ -225,7 +238,7 @@ async function runSync(
       force: new URL(request.url).searchParams.get("forceDailyReport") === "1",
       requestInternal,
     });
-    return Response.json({ ...result, dailyOperatingReport, fulfillment }, {
+    return Response.json({ ...result, dailyOperatingReport, fulfillment, inventory }, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
