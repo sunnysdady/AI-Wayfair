@@ -1,8 +1,20 @@
 # Wayfair AI 运营中台
 
-面向 Wayfair 店铺日常经营的全栈运营工作台。项目把订单、广告、商品目录、库存、运营计划和复盘资料集中到同一个界面，并通过明确的审批、预检和开关机制保护高风险写入操作。
+生产环境在 DigitalOcean：`https://aiwayfair.sunnysdady.com`，代码以 [`production`](https://github.com/sunnysdady/AI-Wayfair/tree/production) 分支为准。
 
-> 当前项目以 **OpenAI Sites / Cloudflare Workers** 保存 D1 和 R2 数据。Vercel 版本通过仅在服务端生效的 API 桥接复用同一份数据，详见[部署说明](#部署说明)。
+**系统架构与 TRUE_UP 原理图**：[docs/architecture.md](./docs/architecture.md)
+
+```mermaid
+flowchart LR
+  UI["中台页面"] --> WEB["Next.js"]
+  WEB --> PG["PostgreSQL"]
+  T["看板 systemd 15分钟拉领星"] --> RAW["共享库存快照"]
+  SCH["scheduler 15分钟"] --> WEB
+  WEB --> RAW
+  WEB -->|"有变化才 TRUE_UP"| WF["Wayfair Castle"]
+```
+
+---
 
 ## 核心能力
 
