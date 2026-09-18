@@ -149,7 +149,7 @@ install -o root -g root -m 0440 deploy/digitalocean/wayfair-deploy.sudoers /etc/
 
 echo "Deploying release $target_sha from $remote/$branch"
 APP_IMAGE_TAG="$target_tag" "${compose[@]}" config --quiet
-COMPOSE_PARALLEL_LIMIT=1 APP_IMAGE_TAG="$target_tag" "${compose[@]}" build --pull --parallel 1 web scheduler migrate
+COMPOSE_PARALLEL_LIMIT=1 APP_IMAGE_TAG="$target_tag" "${compose[@]}" build --pull web scheduler migrate
 APP_IMAGE_TAG="$target_tag" "${compose[@]}" --profile tools run --rm migrate
 APP_IMAGE_TAG="$target_tag" "${compose[@]}" up -d --remove-orphans
 verify_release
