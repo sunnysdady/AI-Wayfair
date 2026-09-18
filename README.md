@@ -15,7 +15,7 @@ DNS、代理或 SSL 配置，也不得使用其他托管平台作为本项目的
 | 层 | 生产方案 |
 |---|---|
 | Web/API | DigitalOcean Droplet 上的 Next.js Docker 服务 |
-| 定时任务 | Docker Scheduler 每 15 分钟调用 `/api/cron/sync`（含领星库存拉取 + Wayfair TRUE_UP 自动推送） |
+| 定时任务 | Docker Scheduler 每 15 分钟调用 `/api/cron/sync`（读共享领星快照 + Wayfair TRUE_UP） |
 | 数据库 | DigitalOcean Managed PostgreSQL |
 | 报告文件 | DigitalOcean Spaces（S3 兼容） |
 | 邮件 | Microsoft Graph |
@@ -115,7 +115,7 @@ Authorization: Bearer <CRON_SECRET>
 
 每 15 分钟同步库存、当月订单和近三日 Outlook 日报；领星站点时间 06:00 的运行额外同步成熟周广告及 Catalog 前 10 页。Outlook 会扫描收件箱与所有名称含 “Wayfair” 的自定义文件夹，分页覆盖领星站点时间今天减两天的 00:00。
 
-生产环境由 Docker Scheduler 每 15 分钟调用同一受保护端点：先尝试自动推送 Wayfair 库存：领星按约 1 次/秒拉明细，数量未变化则跳过 TRUE_UP；有变化才 dry-run 后正式推送。碰到领星/Wayfair 限流本轮跳过。库存失败不中断订单同步。
+生产环境由 Docker Scheduler 每 15 分钟调用同一受保护端点：库存优先读供应链看板写在 `/var/lib/lingxing/inventory-raw.json` 的共享快照（20 分钟内有效），过期才回退打领星。数量未变化则跳过 TRUE_UP；有变化才 dry-run 后正式推送。碰到限流本轮跳过。库存失败不中断订单同步。
 
 ## Product Management 中台导入
 

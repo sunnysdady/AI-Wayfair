@@ -1,4 +1,5 @@
 import mapping from "@/lib/inventory-mapping.json";
+import { createHash } from "node:crypto";
 import { loadInventoryValueRisk, saveInventorySnapshot } from "@/lib/inventory";
 import { buildCompleteInventoryRows } from "@/lib/inventory-plan.mjs";
 import { lingxingCredentials, pullLingxingStockRows } from "@/lib/lingxing.mjs";
@@ -71,6 +72,15 @@ function finalizePulledStock(stockRows: StockRow[], sourceFile: string) {
     ignoredStockRows: stockRows.filter(
       (row: StockRow) => !mappedSkus.has(row.lingxingSku) || !mappedWarehouses.has(row.warehouse),
     ).length,
+    qtyHash: createHash("sha1")
+      .update(
+        items
+          .map((item: InventoryItem) => `${item.supplierPartNumber}|${item.supplierId}|${item.quantityOnHand}`)
+          .sort()
+          .join("\n"),
+      )
+      .digest("hex")
+      .slice(0, 16),
   };
   return { items, rows, errors: [] as { row: number; field: string; message: string }[], warnings, summary, canPush: items.length > 0, sourceFile };
 }
@@ -113,7 +123,7 @@ export async function POST() {
       snapshotId: snapshot.id,
       createdAt: snapshot.createdAt,
       sourceFile: parsed.sourceFile,
-      source: "lingxing-api",
+      source: pulled.source || "lingxing-api",
       canPush: true,
       summary: parsed.summary,
       valueRisk,

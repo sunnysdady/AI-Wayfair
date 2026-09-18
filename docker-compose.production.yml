@@ -81,6 +81,9 @@ services:
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
       PORT: 3000
+      LINGXING_SHARED_SNAPSHOT: /var/lib/lingxing/inventory-raw.json
+    volumes:
+      - /var/lib/lingxing:/var/lib/lingxing:ro
     restart: unless-stopped
     depends_on:
       postgres:
