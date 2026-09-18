@@ -2,6 +2,18 @@
 
 独立运行的 Wayfair 运营数据中台。页面只读取 PostgreSQL 中已保存的快照；服务端定时任务负责同步 Wayfair 订单、广告、Catalog 与 Microsoft Outlook 邮件。生产环境只使用仓库内的 Docker Compose 方案部署到现有 DigitalOcean Droplet。
 
+架构与同步原理图：[docs/architecture.md](./docs/architecture.md)
+
+```mermaid
+flowchart LR
+  UI["中台页面"] --> WEB["Next.js"]
+  WEB --> PG["PostgreSQL"]
+  T["看板 systemd\n15 分钟拉领星"] --> RAW["共享库存快照"]
+  SCH["scheduler 15 分钟"] --> WEB
+  WEB --> RAW
+  WEB -->|"有变化才 TRUE_UP"| WF["Wayfair Castle"]
+```
+
 DigitalOcean 完整操作手册见 [`docs/DIGITALOCEAN_DEPLOYMENT.md`](./docs/DIGITALOCEAN_DEPLOYMENT.md)。
 
 ## 固定生产地址
@@ -15,12 +27,13 @@ DNS、代理或 SSL 配置，也不得使用其他托管平台作为本项目的
 | 层 | 生产方案 |
 |---|---|
 | Web/API | DigitalOcean Droplet 上的 Next.js Docker 服务 |
-| 定时任务 | Docker Scheduler 每 15 分钟调用 `/api/cron/sync`（读共享领星快照 + Wayfair TRUE_UP） |
+| 领星库存 | 供应链看板 systemd 每 15 分钟写共享快照；本中台 20 分钟内只读，过期才回退 OpenAPI |
+| 定时任务 | Docker Scheduler 每 15 分钟调用 `/api/cron/sync`（共享快照 + 可选 TRUE_UP + 订单 + 邮件） |
 | 数据库 | DigitalOcean Managed PostgreSQL |
 | 报告文件 | DigitalOcean Spaces（S3 兼容） |
 | 邮件 | Microsoft Graph |
 
-应用不通过其他托管平台读取或发布生产数据。
+分层同步与 TRUE_UP 判定见 [docs/architecture.md](./docs/architecture.md)。应用不通过其他托管平台读取或发布生产数据。
 
 ## 固定发布通道
 
