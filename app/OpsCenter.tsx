@@ -4466,12 +4466,13 @@ function Plan({
 }
 
 function SkuCostPanel() {
+  type MissingPart = { partNumber: string; units: number; revenueCents: number };
   type CostSummary = {
     costedParts: number;
     soldParts: number;
     missingParts: number;
     revenueCoverage: number;
-    missing: { partNumber: string; units: number; revenueCents: number }[];
+    missing: MissingPart[];
     lookbackDays?: number;
     error?: string;
     imported?: number;
@@ -4482,6 +4483,7 @@ function SkuCostPanel() {
   const [data, setData] = useState<CostSummary | null>(
     readClientCache<CostSummary>("sku-costs:summary"),
   );
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -4511,6 +4513,58 @@ function SkuCostPanel() {
       .catch(() => {});
     return () => controller.abort();
   }, []);
+  async function saveDrafts() {
+    const rows = Object.entries(drafts)
+      .map(([partNumber, unitCost]) => ({ partNumber, unitCost: unitCost.trim() }))
+      .filter((row) => row.unitCost);
+    if (!rows.length) {
+      setMessage("请先在待补表里填写美元成本");
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    setIssues([]);
+    try {
+      const response = await fetch("/api/sku-costs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ rows }),
+      });
+      const body = (await response.json()) as CostSummary;
+      if (!response.ok) {
+        setIssues(body.errors || []);
+        throw new Error(body.error || "成本导入失败");
+      }
+      setMessage(body.message || "导入完成");
+      setIssues(body.warnings || []);
+      setDrafts({});
+      invalidateClientCache("orders:");
+      invalidateClientCache("ads:");
+      await reload();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "成本导入失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function downloadTemplate() {
+    setMessage("");
+    try {
+      const response = await fetch("/api/sku-costs?template=1");
+      if (!response.ok) throw new Error("模板下载失败");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `sku-costs-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "模板下载失败");
+    }
+  }
   async function upload() {
     if (!file) return;
     setBusy(true);
@@ -4541,62 +4595,84 @@ function SkuCostPanel() {
     }
   }
   const coverage = Math.round((data?.revenueCoverage || 0) * 100);
+  const missing = data?.missing || [];
   return (
-    <article className="card upload-card">
-      <span className="step">SKU 成本</span>
-      <h2>成本覆盖 {coverage}%</h2>
-      <div className="soft-note">
-        保本 ROAS、广告前毛利、广告后店铺贡献全部依赖它。未覆盖的 SKU 只能按全店
-        28.26% 估算，广告出价建议也会跟着失真。
-        {data?.lookbackDays ? `统计近 ${data.lookbackDays} 天已售 SKU。` : ""}
+    <article className="card inv-cost">
+      <div className="inv-card-head">
+        <div>
+          <span>成本</span>
+          <h2>待补 {data?.missingParts ?? 0} 个</h2>
+        </div>
+        <small>覆盖 {coverage}%</small>
       </div>
-      <div className="gate-metrics">
-        <div>
-          <span>已录成本</span>
-          <strong>{data?.costedParts ?? "-"}</strong>
+      {missing.length ? (
+        <table className="inv-cost-table">
+          <thead>
+            <tr>
+              <th>待补 SKU</th>
+              <th>近180天件数</th>
+              <th>收入</th>
+              <th>美元成本</th>
+            </tr>
+          </thead>
+          <tbody>
+            {missing.map((item) => (
+              <tr key={item.partNumber}>
+                <td>{item.partNumber}</td>
+                <td>{item.units}</td>
+                <td>{money(item.revenueCents / 100)}</td>
+                <td>
+                  <input
+                    inputMode="decimal"
+                    placeholder="如 28.50"
+                    value={drafts[item.partNumber] || ""}
+                    onChange={(event) =>
+                      setDrafts((current) => ({
+                        ...current,
+                        [item.partNumber]: event.target.value,
+                      }))
+                    }
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="soft-note">近 180 天已售 SKU 成本已齐。</div>
+      )}
+      {missing.length ? (
+        <div className="inv-actions">
+          <button className="primary" disabled={busy} onClick={saveDrafts}>
+            {busy ? "写入中…" : "保存成本"}
+          </button>
+          <button type="button" className="text-link" onClick={downloadTemplate}>
+            下载模板
+          </button>
         </div>
-        <div>
-          <span>已售 SKU</span>
-          <strong>{data?.soldParts ?? "-"}</strong>
+      ) : (
+        <div className="inv-actions">
+          <button type="button" className="text-link" onClick={downloadTemplate}>
+            下载模板
+          </button>
+          <label className="inv-file">
+            <input
+              type="file"
+              accept=".csv,.xlsx"
+              onChange={(event) => {
+                setFile(event.target.files?.[0] || null);
+                setMessage("");
+                setIssues([]);
+              }}
+            />
+            {file?.name || "导入文件"}
+          </label>
+          <button className="ghost" disabled={!file || busy} onClick={upload}>
+            上传
+          </button>
         </div>
-        <div>
-          <span>待补</span>
-          <strong>{data?.missingParts ?? "-"}</strong>
-        </div>
-      </div>
-      {data?.missing?.length ? (
-        <div className="soft-note">
-          按收入排序待补：
-          {data.missing
-            .slice(0, 6)
-            .map((item) => item.partNumber)
-            .join("、")}
-          {data.missing.length > 6 ? ` 等 ${data.missing.length} 个` : ""}
-        </div>
-      ) : null}
-      <a className="text-link" href="/api/sku-costs?template=1">
-        下载待补 SKU 模板（CSV）
-      </a>
-      <label className="drop">
-        <input
-          type="file"
-          accept=".csv,.xlsx"
-          onChange={(event) => {
-            setFile(event.target.files?.[0] || null);
-            setMessage("");
-            setIssues([]);
-          }}
-        />
-        <b>{file?.name || "选择成本 CSV / XLSX"}</b>
-        <span>
-          表头需含 part_number 或 SKU、货号，以及 unit_cost 或
-          成本、采购成本；金额按美元填写
-        </span>
-      </label>
-      <button className="primary" disabled={!file || busy} onClick={upload}>
-        {busy ? "导入中…" : "校验并导入成本"}
-      </button>
-      {message && (
+      )}
+      {message ? (
         <div
           className={
             issues.length && !message.includes("已写入")
@@ -4606,7 +4682,7 @@ function SkuCostPanel() {
         >
           {message}
         </div>
-      )}
+      ) : null}
       {issues.length ? (
         <div className="soft-note">
           {issues
@@ -4621,6 +4697,7 @@ function SkuCostPanel() {
     </article>
   );
 }
+
 
 function Inventory({ embedded = false }: { embedded?: boolean }) {
   type Preview = {
@@ -4680,9 +4757,14 @@ function Inventory({ embedded = false }: { embedded?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [zeroConfirmed, setZeroConfirmed] = useState(false);
   const [message, setMessage] = useState("");
+  const [lingxingReady, setLingxingReady] = useState(false);
   useEffect(() => {
     const cached = readClientCache<Preview>("inventory:preview");
     const controller = new AbortController();
+    fetch("/api/inventory/sync", { signal: controller.signal })
+      .then(async (r) => (await r.json()) as { configured?: boolean })
+      .then((body) => setLingxingReady(Boolean(body.configured)))
+      .catch(() => setLingxingReady(false));
     if (cached) {
       queueMicrotask(() => {
         setPreview(cached);
@@ -4702,6 +4784,28 @@ function Inventory({ embedded = false }: { embedded?: boolean }) {
       .catch(() => setState("等待库存文件"));
     return () => controller.abort();
   }, []);
+  async function pullLingxing() {
+    setBusy(true);
+    setMessage("");
+    setState("正在从领星拉取库存");
+    try {
+      const response = await fetch("/api/inventory/sync", { method: "POST" });
+      const body = (await response.json()) as Preview;
+      if (!response.ok) throw new Error(body.error || "领星库存拉取失败");
+      setPreview(body);
+      writeClientCache("inventory:preview", body);
+      invalidateClientCache("ads:");
+      setState("领星库存已生成快照");
+      setMessage(
+        `已从领星生成快照 ${body.snapshotId?.slice(0, 8)} · 库存合计 ${body.summary?.totalQuantityOnHand || 0}`,
+      );
+    } catch (error) {
+      setState("领星拉取失败");
+      setMessage(error instanceof Error ? error.message : "领星库存拉取失败");
+    } finally {
+      setBusy(false);
+    }
+  }
   async function validate() {
     if (!file) return;
     setBusy(true);
@@ -4848,134 +4952,93 @@ function Inventory({ embedded = false }: { embedded?: boolean }) {
         }, 30000);
       }
     }
-    void restoreLatestLivePush().catch((error) => {
-      if (!controller.signal.aborted) {
-        setState("回执恢复失败");
-        setMessage(
-          error instanceof Error ? error.message : "正式推送回执恢复失败",
-        );
-      }
+    void restoreLatestLivePush().catch(() => {
+      /* 没有历史回执是常态，不要把页头刷成失败 */
     });
     return () => {
       controller.abort();
       if (timer) clearTimeout(timer);
     };
   }, [preview?.snapshotId]);
-  const metrics = [
-    ["可推送行", preview?.summary?.totalRows],
-    ["Supplier", preview?.summary?.supplierCount],
-    ["零库存", preview?.summary?.zeroStockRows],
-    ["未匹配组合", preview?.summary?.missingCombinations],
-  ];
+  const units = preview?.summary?.totalQuantityOnHand;
+  const snapshotTime = preview?.createdAt
+    ? new Date(preview.createdAt).toLocaleString("zh-CN", {
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "尚无快照";
+  const mappingNote = preview?.warnings?.length
+    ? `未匹配 ${preview.summary?.missingCombinations || 0} 个组合，已按 0 库存补齐`
+    : "";
   return (
-    <>
-      {!embedded && (
-        <Hero
-          eyebrow="INVENTORY UPDATE · CONTROLLED WRITE"
-          title="库存更新"
-          text="真实解析领星库存、套用SKU/仓库映射、持久化快照，再执行Dry-run与受控推送"
-          side={
-            <div className="hero-side">
-              <b>{state}</b>
-              <span>{preview?.sourceFile || "尚无库存快照"}</span>
+    <div className="inventory-page">
+      <div className="inventory-board">
+        <article className="card inv-main">
+          <div className="inv-card-head">
+            <div>
+              <span>推送</span>
+              <h2>Wayfair 库存</h2>
             </div>
-          }
-        />
-      )}
-      <div className="inventory-grid">
-        <SkuCostPanel />
-        <article className="card upload-card">
-          <span className="step">库存文件与校验</span>
-          <h2>生成库存快照</h2>
-          <label className="drop">
-            <input
-              type="file"
-              accept=".xlsx"
-              onChange={(e) => {
-                const next = e.target.files?.[0] || null;
-                setFile(next);
-                setState(
-                  next
-                    ? "文件待校验"
-                    : preview
-                      ? "最近快照可用"
-                      : "等待库存文件",
-                );
-                setMessage("");
-              }}
-            />
-            <b>{file?.name || preview?.sourceFile || "选择领星库存 XLSX"}</b>
-            <span>
-              读取品名、SKU、仓库、可用量、锁定量、待到货与调拨在途；映射表已固化为当前生产版本
-            </span>
-          </label>
-          <button
-            className="primary"
-            disabled={!file || busy}
-            onClick={validate}
-          >
-            {busy && state.includes("解析") ? "校验中…" : "校验并保存快照"}
-          </button>
-          {preview?.createdAt && (
-            <div className="snapshot-note">
-              最近快照 {new Date(preview.createdAt).toLocaleString("zh-CN")} ·
-              库存合计 {preview.summary?.totalQuantityOnHand || 0}
-            </div>
-          )}
-          {preview?.valueRisk && (
-            <div className="soft-note">
-              库存成本价值 {money(preview.valueRisk.inventoryValue)} ·
-              较上次绝对变动 {money(preview.valueRisk.absoluteChangeValue)} ·
-              成本覆盖 {Math.round(preview.valueRisk.costCoverage * 100)}%
-            </div>
-          )}
-        </article>
-        <article className="card gate-card">
-          <span className="step">预检与确认</span>
-          <h2>推送前检查</h2>
-          <div className="gate-metrics">
-            {metrics.map(([label, value]) => (
-              <div key={String(label)}>
-                <span>{label}</span>
-                <strong>{value ?? "-"}</strong>
-              </div>
-            ))}
+            <small>{snapshotTime}</small>
           </div>
-          {preview?.warnings?.length ? (
-            <div className="soft-note">
-              {preview.warnings.map((item) => item.message).join("；")}
-            </div>
-          ) : (
-            <div className="soft-note">
-              只有真实校验通过的D1快照可进入Dry-run；正式推送不会复用浏览器临时状态。
-            </div>
-          )}
-          <button
-            className="primary"
-            disabled={!preview?.canPush || busy}
-            onClick={() => push(true)}
-          >
-            执行 Wayfair API Dry-run
-          </button>
-          <div className="live-confirm">
-            <label className="zero-check">
-              <input
-                type="checkbox"
-                checked={zeroConfirmed}
-                onChange={(e) => setZeroConfirmed(e.target.checked)}
-              />
-              确认零库存记录会改变可售状态
-            </label>
+          <div className="inv-hero-metric">
+            <strong>{units ?? "—"}</strong>
+            <span>当前可售件数</span>
+          </div>
+          <ul className="inv-meta">
+            <li>
+              <b>{preview?.summary?.totalRows ?? "—"}</b>
+              <span>可推行</span>
+            </li>
+            <li>
+              <b>{preview?.summary?.zeroStockRows ?? "—"}</b>
+              <span>零库存</span>
+            </li>
+            <li>
+              <b>
+                {preview?.valueRisk
+                  ? money(preview.valueRisk.inventoryValue)
+                  : "—"}
+              </b>
+              <span>库存价值</span>
+            </li>
+          </ul>
+          <div className="inv-actions">
+            <button
+              className="primary"
+              disabled={!lingxingReady || busy}
+              onClick={pullLingxing}
+            >
+              {busy && state.includes("领星") ? "拉取中…" : "从领星刷新"}
+            </button>
+            <button
+              className="ghost"
+              disabled={!preview?.canPush || busy}
+              onClick={() => push(true)}
+            >
+              Dry-run
+            </button>
             <button
               className="primary dark"
-              disabled={!preview?.canPush || busy}
+              disabled={!preview?.canPush || busy || !zeroConfirmed}
               onClick={() => push(false)}
             >
-              正式推送库存
+              正式推送
             </button>
           </div>
-          {message && (
-            <div
+          <label className="zero-check">
+            <input
+              type="checkbox"
+              checked={zeroConfirmed}
+              onChange={(e) => setZeroConfirmed(e.target.checked)}
+            />
+            确认零库存 SKU 可下架
+          </label>
+          {mappingNote ? <p className="inv-quiet">{mappingNote}</p> : null}
+          {message ? (
+            <p
               className={
                 state.includes("失败") ||
                 state.includes("阻止") ||
@@ -4986,13 +5049,33 @@ function Inventory({ embedded = false }: { embedded?: boolean }) {
               }
             >
               {message}
-            </div>
-          )}
+            </p>
+          ) : null}
         </article>
+        <SkuCostPanel />
       </div>
-    </>
+      <details className="inv-extras">
+        <summary>备用上传</summary>
+        <label className="drop compact">
+          <input
+            type="file"
+            accept=".xlsx"
+            onChange={(e) => {
+              const next = e.target.files?.[0] || null;
+              setFile(next);
+              setMessage("");
+            }}
+          />
+          <b>{file?.name || "选择领星 xlsx"}</b>
+        </label>
+        <button className="ghost" disabled={!file || busy} onClick={validate}>
+          校验并保存快照
+        </button>
+      </details>
+    </div>
   );
 }
+
 
 function AdReviewDashboard() {
   const retained = readClientCache<AdReviewResponse>(
@@ -9664,17 +9747,13 @@ function ProductWorkspace({
         active={tab === "catalog" ? "performance" : tab}
         onChange={onTabChange}
       />
-      <Hero
-        eyebrow=""
-        title={
-          tab === "inventory"
-            ? "库存更新"
-            : tab === "launch"
-              ? "推新 SOP"
-              : "SKU 经营中心"
-        }
-        text=""
-      />
+      {tab !== "inventory" && (
+        <Hero
+          eyebrow=""
+          title={tab === "launch" ? "推新 SOP" : "SKU 经营中心"}
+          text=""
+        />
+      )}
       {tab === "inventory" ? (
         <Inventory embedded />
       ) : tab === "launch" ? (

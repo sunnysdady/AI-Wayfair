@@ -122,9 +122,17 @@ export async function POST(request: Request) {
       if (!file.size || file.size > MAX_UPLOAD_BYTES) return Response.json({ error: "文件为空或超过 5MB" }, { status: 400 });
       parsed = file.name.toLowerCase().endsWith(".xlsx") ? await parseWorkbook(file) : parseCostCsv(await file.text());
     } else {
-      const body = await request.json() as { csv?: string };
-      if (typeof body.csv !== "string" || !body.csv.trim()) return Response.json({ error: "请提供 csv 文本" }, { status: 400 });
-      parsed = parseCostCsv(body.csv);
+      const body = await request.json() as { csv?: string; rows?: { partNumber?: string; unitCost?: string | number }[] };
+      if (Array.isArray(body.rows)) {
+        parsed = {
+          headers: ["part_number", "unit_cost"],
+          rows: body.rows.map((row) => [String(row.partNumber ?? ""), String(row.unitCost ?? "")]),
+        };
+      } else if (typeof body.csv === "string" && body.csv.trim()) {
+        parsed = parseCostCsv(body.csv);
+      } else {
+        return Response.json({ error: "请提供成本行或 csv 文本" }, { status: 400 });
+      }
     }
 
     const columns = resolveColumns(parsed.headers);
