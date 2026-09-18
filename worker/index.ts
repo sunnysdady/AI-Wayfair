@@ -20,12 +20,6 @@ interface ExecutionContext {
   passThroughOnException(): void;
 }
 
-// Image security config. SVG sources with .svg extension auto-skip the
-// optimization endpoint on the client side (served directly, no proxy).
-// To route SVGs through the optimizer (with security headers), set
-// dangerouslyAllowSVG: true in next.config.js and uncomment below:
-// const imageConfig: ImageConfig = { dangerouslyAllowSVG: true };
-
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -47,7 +41,7 @@ const worker = {
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     await runLayeredSync({
       scheduledTime: controller.scheduledTime,
-      request: (request: Request) => handler.fetch(request, env, ctx),
+      request: (input: RequestInfo | URL, init?: RequestInit) => handler.fetch(new Request(input, init), env, ctx),
       record: async (entry: unknown) => {
         const updatedAt = new Date().toISOString();
         await env.DB.prepare(
