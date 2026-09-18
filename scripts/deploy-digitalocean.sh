@@ -125,7 +125,7 @@ on_error() {
     echo "Deployment failed; restoring application release $previous_sha. Database migrations are not rolled back automatically." >&2
     git switch --detach "$previous_sha"
     if ! docker image inspect "wayfair-ai-ops-web:$previous_tag" >/dev/null 2>&1; then
-      APP_IMAGE_TAG="$previous_tag" "${compose[@]}" build web scheduler
+      COMPOSE_PARALLEL_LIMIT=1 APP_IMAGE_TAG="$previous_tag" "${compose[@]}" build web scheduler
     fi
     APP_IMAGE_TAG="$previous_tag" "${compose[@]}" up -d --remove-orphans
     wait_for_web
@@ -149,7 +149,7 @@ install -o root -g root -m 0440 deploy/digitalocean/wayfair-deploy.sudoers /etc/
 
 echo "Deploying release $target_sha from $remote/$branch"
 APP_IMAGE_TAG="$target_tag" "${compose[@]}" config --quiet
-APP_IMAGE_TAG="$target_tag" "${compose[@]}" build --pull web scheduler migrate
+COMPOSE_PARALLEL_LIMIT=1 APP_IMAGE_TAG="$target_tag" "${compose[@]}" build --pull --parallel 1 web scheduler migrate
 APP_IMAGE_TAG="$target_tag" "${compose[@]}" --profile tools run --rm migrate
 APP_IMAGE_TAG="$target_tag" "${compose[@]}" up -d --remove-orphans
 verify_release

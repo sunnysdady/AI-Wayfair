@@ -1,3 +1,34 @@
+interface D1Result<T = Record<string, unknown>> {
+  success: boolean;
+  results: T[];
+  meta?: Record<string, unknown>;
+}
+
+interface D1PreparedStatement {
+  readonly sql?: string;
+  readonly values?: unknown[];
+  bind(...values: unknown[]): D1PreparedStatement;
+  first<T = Record<string, unknown>>(column?: string): Promise<T | null>;
+  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
+  run<T = Record<string, unknown>>(): Promise<D1Result<T>>;
+}
+
+interface D1Database {
+  prepare(sql: string): D1PreparedStatement;
+  batch<T = Record<string, unknown>>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]>;
+}
+
+interface R2ObjectBody {
+  body: ReadableStream<Uint8Array> | null;
+  httpMetadata?: { contentType?: string };
+}
+
+interface R2Bucket {
+  put(key: string, value: unknown, options?: { httpMetadata?: { contentType?: string } }): Promise<void>;
+  get(key: string): Promise<R2ObjectBody | null>;
+  delete(key: string): Promise<void>;
+}
+
 interface WayfairEnvBindings {
   DB: D1Database;
   FILES: R2Bucket;
