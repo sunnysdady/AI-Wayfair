@@ -174,6 +174,7 @@ async function runSync(
       inventory = await runScheduledInventory({
         origin,
         headers: internalHeaders(env),
+        db,
       });
     } catch (error) {
       inventory = {

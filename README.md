@@ -115,7 +115,7 @@ Authorization: Bearer <CRON_SECRET>
 
 每 15 分钟同步库存、当月订单和近三日 Outlook 日报；领星站点时间 06:00 的运行额外同步成熟周广告及 Catalog 前 10 页。Outlook 会扫描收件箱与所有名称含 “Wayfair” 的自定义文件夹，分页覆盖领星站点时间今天减两天的 00:00。
 
-生产环境由 Docker Scheduler 每 15 分钟调用同一受保护端点：先自动推送 Wayfair 库存（领星拉取 → dry-run → 正式 TRUE_UP），再刷新订单/邮件/广告；保留幂等锁与失败记录。库存推送失败不会中断订单同步。
+生产环境由 Docker Scheduler 每 15 分钟调用同一受保护端点：先尝试自动推送 Wayfair 库存：领星按约 1 次/秒拉明细，数量未变化则跳过 TRUE_UP；有变化才 dry-run 后正式推送。碰到领星/Wayfair 限流本轮跳过。库存失败不中断订单同步。
 
 ## Product Management 中台导入
 
