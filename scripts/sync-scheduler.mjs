@@ -1,12 +1,12 @@
 import { runScheduledSync } from "./run-scheduled-sync.mjs";
 import { pathToFileURL } from "node:url";
 
-const THIRTY_MINUTES_MS = 30 * 60 * 1000;
+const SYNC_INTERVAL_MS = 15 * 60 * 1000;
 const STARTUP_BOUNDARY_GUARD_MS = 10 * 60 * 1000;
 const RETRY_DELAY_MS = 5 * 60 * 1000;
 
 export function nextSyncBoundary(now = Date.now()) {
-  return (Math.floor(now / THIRTY_MINUTES_MS) + 1) * THIRTY_MINUTES_MS;
+  return (Math.floor(now / SYNC_INTERVAL_MS) + 1) * SYNC_INTERVAL_MS;
 }
 
 function wait(delayMs, signal) {
