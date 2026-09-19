@@ -2623,6 +2623,13 @@ function Dashboard() {
     1,
     ...(data?.daily || []).map((item) => Number(item[chartMetric])),
   );
+  const dailyByDate = new Map((data?.daily || []).map((item) => [item.date, item]));
+  const chartDaily: OrderSummary["daily"] = [];
+  if (data) {
+    for (let date = start; date <= end; date = shiftDate(date, 1)) {
+      chartDaily.push(dailyByDate.get(date) || { date, revenue: 0, orders: 0, units: 0 });
+    }
+  }
   const rangeLabel = start === end ? start : `${start} - ${end}`;
   return (
     <>
@@ -2774,8 +2781,8 @@ function Dashboard() {
               <div className="trend-axis" aria-hidden="true">
                 {[chartMax, chartMax / 2, 0].map((value) => <span key={value}>{chartMetric === "revenue" ? money(value) : Math.round(value)}</span>)}
               </div>
-              <div className="daily-bars" style={{ gridTemplateColumns: `repeat(${data?.daily.length || 1}, minmax(0, 1fr))` }}>
-                {data?.daily.map((item, index, items) => {
+              <div className="daily-bars" style={{ gridTemplateColumns: `repeat(${chartDaily.length || 1}, minmax(0, 1fr))` }}>
+                {chartDaily.map((item, index, items) => {
                   const chartValue = Number(item[chartMetric]);
                   const showLabel = index === 0 || index === items.length - 1 || (index % Math.ceil(items.length / 8) === 0 && index < items.length - 2);
                   const description = `${item.date} · ${money(item.revenue)} · ${item.orders} 单`;
