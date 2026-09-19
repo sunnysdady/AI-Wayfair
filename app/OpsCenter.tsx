@@ -2625,7 +2625,7 @@ function Dashboard() {
   );
   const dailyByDate = new Map((data?.daily || []).map((item) => [item.date, item]));
   const chartDaily: OrderSummary["daily"] = [];
-  if (data) {
+  if (data && !loading && /^\d{4}-\d{2}-\d{2}$/.test(start) && /^\d{4}-\d{2}-\d{2}$/.test(end)) {
     for (let date = start; date <= end; date = shiftDate(date, 1)) {
       chartDaily.push(dailyByDate.get(date) || { date, revenue: 0, orders: 0, units: 0 });
     }
