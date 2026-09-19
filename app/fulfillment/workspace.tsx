@@ -104,10 +104,12 @@ function displayOrderDateTime(value: unknown) {
 
 export default function FulfillmentWorkspace() {
   const [showAllColumns, setShowAllColumns] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const visibleColumns = showAllColumns ? columns : columns.filter(([, , field]) => ["orderDate", "orderNumber", "sku", "quantity", "shippingStatus", "trackingNumber"].includes(field));
   const [records, setRecords] = useState<FulfillmentRecord[]>([]);
   const [selected, setSelected] = useState<FulfillmentRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [quickRange, setQuickRange] = useState<QuickRange>("7天");
@@ -118,6 +120,7 @@ export default function FulfillmentWorkspace() {
 
   const load = async (refresh = false) => {
     setLoading(true);
+    setLoadError(false);
     try {
       const params = new URLSearchParams({ start: range.start, end: range.end, limit: "2000" });
       if (status) params.set("status", status);
@@ -142,6 +145,7 @@ export default function FulfillmentWorkspace() {
         setMessage("");
       }
     } catch (error) {
+      setLoadError(true);
       setMessage(error instanceof Error ? error.message : "履约订单读取失败");
     } finally {
       setLoading(false);
@@ -232,15 +236,18 @@ export default function FulfillmentWorkspace() {
   return (
     <section className={styles.workspace} aria-labelledby="fulfillment-title">
       <header className={styles.header}>
-        <h1 id="fulfillment-title">订单履约</h1>
+        <div><h1 id="fulfillment-title">订单履约</h1><p className={styles.subtitle}>跟进订单、包裹与面单归档</p></div>
         <div className={styles.headerActions}>
           <button className={styles.export} onClick={downloadOrders} disabled={loading}>下载订单</button>
-          <button className={styles.export} onClick={() => void downloadSelectedLabels()} disabled={downloadingLabels || !selectedDownloadableKeys.length}>{downloadingLabels ? "下载中…" : `下载已选面单（ZIP）${selectedDownloadableKeys.length ? ` (${selectedDownloadableKeys.length})` : ""}`}</button>
-          <button className={styles.refresh} onClick={() => void load(true)} disabled={loading}>{loading ? "获取中…" : "手动获取订单信息+面单信息"}</button>
+          <button className={styles.export} onClick={() => void downloadSelectedLabels()} title={!selectedDownloadableKeys.length ? "请先勾选已归档面单" : "下载已选面单"} disabled={downloadingLabels || !selectedDownloadableKeys.length}>{downloadingLabels ? "下载中…" : `下载已选面单（ZIP）${selectedDownloadableKeys.length ? ` (${selectedDownloadableKeys.length})` : ""}`}</button>
+          <button className={styles.refresh} onClick={() => void load(true)} disabled={loading}>{loading ? "获取中…" : "同步订单与面单"}</button>
         </div>
       </header>
 
-      <div className={styles.filters} aria-label="订单筛选">
+      <button className={styles.filterToggle} aria-expanded={filtersOpen} aria-controls="fulfillment-filters" onClick={() => setFiltersOpen(!filtersOpen)}>
+        <span>{range.start.slice(5)} 至 {range.end.slice(5)} · {status || "全部状态"}</span><b>{filtersOpen ? "收起筛选" : "筛选"}</b>
+      </button>
+      <div id="fulfillment-filters" className={`${styles.filters} ${filtersOpen ? styles.filtersOpen : ""}`} aria-label="订单筛选">
         <div className={styles.quickRanges}>{quickRanges.map((item) => <button key={item} className={quickRange === item ? styles.activeRange : ""} onClick={() => { setQuickRange(item); setRange(rangeFor(item)); }}>{item}</button>)}</div>
         <label><span>开始日期</span><input type="date" min="2026-09-01" value={range.start} onChange={(event) => { setQuickRange("自定义"); setRange((current) => ({ ...current, start: event.target.value })); }} /></label>
         <label><span>结束日期</span><input type="date" min="2026-09-01" value={range.end} onChange={(event) => { setQuickRange("自定义"); setRange((current) => ({ ...current, end: event.target.value })); }} /></label>
@@ -248,10 +255,10 @@ export default function FulfillmentWorkspace() {
       </div>
 
       <div className={styles.metrics} aria-label="履约概况">
-        <Metric label="拆分包裹" value={overview.total} />
-        <Metric label="已有跟踪号" value={overview.tracked} />
-        <Metric label="已归档面单" value={overview.labels} />
-        <Metric label="待面单/补全" value={overview.incomplete} />
+        <Metric label="拆分包裹" value={loading || loadError ? "—" : overview.total} />
+        <Metric label="已有跟踪号" value={loading || loadError ? "—" : overview.tracked} />
+        <Metric label="已归档面单" value={loading || loadError ? "—" : overview.labels} />
+        <Metric label="待面单/补全" value={loading || loadError ? "—" : overview.incomplete} />
       </div>
 
       {message && <p className={styles.message} role="status">{message}</p>}
@@ -260,7 +267,7 @@ export default function FulfillmentWorkspace() {
         <table>
           <thead><tr><th className={styles.selection}><input type="checkbox" aria-label="全选已归档面单" checked={downloadableRecords.length > 0 && selectedDownloadableKeys.length === downloadableRecords.length} onChange={(event) => toggleAllLabels(event.target.checked)} disabled={!downloadableRecords.length} /></th>{visibleColumns.map(([letter, label]) => <th key={letter}>{label}</th>)}<th>面单</th><th>操作</th></tr></thead>
           <tbody>
-            {!loading && records.length === 0 && <tr><td colSpan={visibleColumns.length + 3} className={styles.empty}>暂无可履约订单。订单同步后会自动展示可拆分的包裹。</td></tr>}
+            {!loading && records.length === 0 && <tr><td colSpan={visibleColumns.length + 3} className={styles.empty}>{loadError ? "订单暂时无法读取，请稍后重试。" : "暂无可履约订单。订单同步后会自动展示可拆分的包裹。"}</td></tr>}
             {records.map((record) => {
               const hasLabel = Boolean(record.labelObjectKey);
               return <tr key={record.sourceKey}>
@@ -301,6 +308,6 @@ export default function FulfillmentWorkspace() {
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, value }: { label: string; value: number | string }) {
   return <article><span>{label}</span><strong>{value}</strong></article>;
 }

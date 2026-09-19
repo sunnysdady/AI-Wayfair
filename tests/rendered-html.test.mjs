@@ -123,7 +123,7 @@ test("persists real inventory snapshots and uploaded monthly reports", async () 
   ]);
   assert.match(page, /补充复盘资料/);
   assert.match(page, /直接阅读完整原报告/);
-  assert.match(page, /选择领星库存 XLSX/);
+  assert.match(page, /备用上传/);
   assert.match(inventory, /inventory_snapshots/);
   assert.match(inventory, /inventory_snapshot_rows/);
   assert.match(reportRoute, /env\.FILES\.put/);
@@ -216,7 +216,7 @@ test("keeps global navigation shallow and moves module choices into the workspac
   assert.match(page, /AI 优化/);
   assert.match(page, /运营目标/);
   assert.match(page, /复盘资料/);
-  assert.match(page, /库存更新/);
+  assert.match(page, /库存与供给/);
   assert.match(page, /商品数据/);
   assert.match(page, /SKU_INFORMATION_GROUPS/);
   assert.match(page, /SKU 经营中心/);
@@ -228,8 +228,8 @@ test("keeps global navigation shallow and moves module choices into the workspac
   assert.match(page, /loadAllCatalogPages\(readCatalogPage\)/);
   assert.match(page, /\/api\/catalog\/items\?page=\$\{page\}&pageSize=30/);
   assert.doesNotMatch(page, /SKU_OPERATING_DEMO_ROWS/);
-  assert.match(page, /今天先经营该经营的 SKU/);
-  assert.match(page, /按经营意图排队，而不是按数据来源堆叠/);
+  assert.match(page, /商品经营概况/);
+  assert.match(page, /经营队列/);
   assert.match(page, /Catalog 数据已载入/);
   assert.doesNotMatch(page, /查看经营边界/);
   assert.doesNotMatch(page, /label="SKU 经营中心内容"/);

@@ -2268,7 +2268,9 @@ const REPORTS: EvidenceReport[] = [
 function ShellHeader({
   active,
   onNavigate,
+  readiness,
 }: {
+  readiness: SystemReadiness | null;
   active: View;
   onNavigate: (view: View) => void;
 }) {
@@ -2331,10 +2333,9 @@ function ShellHeader({
         </nav>
       </div>
       <div className="system">
-        <i></i>
         <span>
-          <strong>生产数据已连接</strong>
-          <small>写操作需人工确认</small>
+          <button className="system-status-link" onClick={() => navigate("sources")}>查看数据源状态 <span aria-hidden="true">↗</span></button>
+          <small>{!readiness ? "写入权限尚未确认" : !readiness.live.ads.allowed && !readiness.live.inventory.allowed ? "广告 / 库存正式写入已关闭" : "写入权限以数据源页面为准"}</small>
         </span>
       </div>
     </aside>
@@ -2353,14 +2354,10 @@ function Hero({
   side?: React.ReactNode;
 }) {
   void eyebrow;
-  void text;
-  const hasUtility = Boolean(side);
   return (
-    <header
-      className={`hero page-heading page-heading--utility${hasUtility ? "" : " is-empty"}`}
-    >
-      <h1 className="sr-only">{title}</h1>
-      {side}
+    <header className="page-heading">
+      <div><h1>{title}</h1>{text && <p>{text}</p>}</div>
+      {side && <div className="page-heading-actions">{side}</div>}
     </header>
   );
 }
@@ -2619,10 +2616,12 @@ function Dashboard() {
         ? `${start === end ? "今日广告数据按 T+1 回传 · 昨日" : "广告数据按 T+1 回传 · 上一周期"}已结算贡献 ${money(previous?.contributionAfterAds ?? undefined)}`
         : adSpendGapNote(current?.advertisingCoverage)
       : `已扣广告费 ${money(current.advertisingSpend)} · ${current.advertisingCoverage === "FULL" ? "完整覆盖" : "部分覆盖（当期仍在累计）"}`;
-  const chartMax = Math.max(
-    1,
-    ...(data?.daily || []).map((item) => Number(item[chartMetric])),
-  );
+  const chartPeak = Math.max(1, ...(data?.daily || []).map((item) => Number(item[chartMetric])));
+  const chartStep = 10 ** Math.floor(Math.log10(chartPeak));
+  const chartMax = chartMetric === "orders" ? Math.ceil(chartPeak / 2) * 2 : Math.ceil(chartPeak / chartStep) * chartStep;
+  const costNote = current?.costCoverage === 1
+    ? `成本已完整覆盖${current?.sampleCost ? ` · 含送测成本 ${money(current.sampleCost)}` : ""}`
+    : `成本覆盖 ${Math.round((current?.costCoverage || 0) * 100)}% · 未覆盖部分按 ${((current?.marginRate || 0.2826) * 100).toFixed(2)}%估算${current?.sampleCost ? ` · 含送测成本 ${money(current.sampleCost)}` : ""}`;
   const dailyByDate = new Map((data?.daily || []).map((item) => [item.date, item]));
   const chartDaily: OrderSummary["daily"] = [];
   if (data && !loading && /^\d{4}-\d{2}-\d{2}$/.test(start) && /^\d{4}-\d{2}-\d{2}$/.test(end)) {
@@ -2633,7 +2632,7 @@ function Dashboard() {
   const rangeLabel = start === end ? start : `${start} - ${end}`;
   return (
     <>
-      <header className="dashboard-heading"><h1>经营总览</h1><p>了解销售表现与经营贡献</p></header>
+      <Hero eyebrow="" title="经营总览" text="了解销售表现与经营贡献" />
       <section className="date-console" aria-label="经营周期">
         <div className="preset-list">
           {presetOptions.map(([id, label]) => (
@@ -2717,7 +2716,7 @@ function Dashboard() {
           [
             unavailable ? "—" : money(current?.advertisingBeforeGrossProfit),
             "广告前商品毛利",
-            `成本覆盖 ${Math.round((current?.costCoverage || 0) * 100)}% · 未覆盖部分按 ${((current?.marginRate || 0.2826) * 100).toFixed(2)}%估算${current?.sampleCost ? ` · 含送测成本 ${money(current.sampleCost)}` : ""}`,
+            costNote,
           ],
           [contributionDisplay, "广告后店铺贡献", contributionNote],
         ].map(([value, label, note]) => (
@@ -2727,7 +2726,7 @@ function Dashboard() {
           >
             <span>{label}</span>
             <strong>{value}</strong>
-            <small>{loading ? "正在加载…" : unavailable ? "数据暂不可用" : note}</small>
+            <small className={!unavailable && /部分覆盖|未覆盖|T\+1|待回传/.test(note) ? "metric-note warning" : !unavailable && note.startsWith("-") ? "metric-note negative" : "metric-note"}>{loading ? "正在加载…" : unavailable ? "数据暂不可用" : note}</small>
           </article>
         ))}
       </section>
@@ -2764,8 +2763,8 @@ function Dashboard() {
             </div>
             <b>
               {data?.sync.refreshed
-                ? "API 已刷新并写入缓存"
-                : "每小时后台同步，读取已保存快照"}
+                ? "已更新至最新快照"
+                : "每小时自动更新"}
             </b>
           </div>
         </div>
@@ -4486,6 +4485,7 @@ function SkuCostPanel() {
   const [data, setData] = useState<CostSummary | null>(
     readClientCache<CostSummary>("sku-costs:summary"),
   );
+  const [readError, setReadError] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -4497,6 +4497,7 @@ function SkuCostPanel() {
     const response = await fetch("/api/sku-costs");
     const body = (await response.json()) as CostSummary;
     if (response.ok) {
+      setReadError("");
       setData(body);
       writeClientCache("sku-costs:summary", body);
     }
@@ -4513,7 +4514,9 @@ function SkuCostPanel() {
         setData(body);
         writeClientCache("sku-costs:summary", body);
       })
-      .catch(() => {});
+      .catch((reason) => {
+        if (!controller.signal.aborted) setReadError(reason instanceof Error ? reason.message : "成本数据读取失败");
+      });
     return () => controller.abort();
   }, []);
   async function saveDrafts() {
@@ -4604,10 +4607,11 @@ function SkuCostPanel() {
       <div className="inv-card-head">
         <div>
           <span>成本</span>
-          <h2>待补 {data?.missingParts ?? 0} 个</h2>
+          <h2>{data ? `待补 ${data.missingParts} 个` : "商品成本"}</h2>
         </div>
-        <small>覆盖 {coverage}%</small>
+        <small>{data ? `覆盖 ${coverage}%` : "尚未读取"}</small>
       </div>
+      {readError && <p className="inventory-message bad" role="status">成本数据暂不可用{data ? "，下方保留最近快照" : "，请稍后重试"}。</p>}
       {missing.length ? (
         <table className="inv-cost-table">
           <thead>
@@ -4642,7 +4646,7 @@ function SkuCostPanel() {
           </tbody>
         </table>
       ) : (
-        <div className="soft-note">近 180 天已售 SKU 成本已齐。</div>
+        <div className="soft-note">{!data ? readError ? "尚未确认成本覆盖情况。" : "正在读取成本覆盖情况…" : readError ? "请待数据更新后核对成本覆盖。" : data.soldParts === 0 ? "近 180 天暂无已售 SKU。" : "近 180 天已售 SKU 成本已齐。"}</div>
       )}
       {missing.length ? (
         <div className="inv-actions">
@@ -4702,7 +4706,7 @@ function SkuCostPanel() {
 }
 
 
-function Inventory({ embedded = false }: { embedded?: boolean }) {
+function Inventory({ embedded = false, readiness }: { embedded?: boolean; readiness: SystemReadiness | null }) {
   type Preview = {
     snapshotId?: string;
     sourceFile?: string;
@@ -4972,6 +4976,12 @@ function Inventory({ embedded = false }: { embedded?: boolean }) {
         minute: "2-digit",
       })
     : "尚无快照";
+  const liveAllowed = readiness?.live.inventory.allowed === true;
+  const livePushReason = !readiness ? "正在核对写入权限，暂不可正式推送。"
+    : !liveAllowed ? "正式推送未开放；可先预览推送结果。"
+    : !preview?.canPush ? "请先生成可用的库存快照。"
+    : !zeroConfirmed ? "正式推送前，请确认零库存 SKU 可下架，并完成当前快照的预览校验。"
+    : "正式推送仍需通过服务器的快照与预览回执校验。";
   const mappingNote = preview?.warnings?.length
     ? `未匹配 ${preview.summary?.missingCombinations || 0} 个组合，已按 0 库存补齐`
     : "";
@@ -4987,7 +4997,7 @@ function Inventory({ embedded = false }: { embedded?: boolean }) {
             <small>{snapshotTime}</small>
           </div>
           <div className="inv-hero-metric">
-            <strong>{units ?? "—"}</strong>
+            <strong>{units == null ? "—" : units.toLocaleString("en-US")}</strong>
             <span>当前可售件数</span>
           </div>
           <ul className="inv-meta">
@@ -5025,12 +5035,14 @@ function Inventory({ embedded = false }: { embedded?: boolean }) {
             </button>
             <button
               className="primary dark"
-              disabled={!preview?.canPush || busy || !zeroConfirmed}
+              disabled={!liveAllowed || !preview?.canPush || busy || !zeroConfirmed}
+              aria-describedby="inventory-live-status"
               onClick={() => push(false)}
             >
               正式推送
             </button>
           </div>
+          <p className="inventory-live-status" id="inventory-live-status" role="status">{livePushReason}</p>
           <label className="zero-check">
             <input
               type="checkbox"
@@ -9590,11 +9602,8 @@ function SkuOperatingCenter() {
     <div className="sku-operating-center">
       <section className="sku-demo-hero">
         <div className="sku-demo-hero-copy">
-          <span>SKU OPERATING CENTER</span>
-          <h2>今天先经营该经营的 SKU</h2>
-          <p>
-            将 Catalog、Product Management 和订单信号按同一套经营语义分流：增长放大、优先修复、表现守护与上架补齐。
-          </p>
+          <h2>商品经营概况</h2>
+          <p>优先处理待修复商品，跟进增长机会与在售表现。</p>
         </div>
         <dl className="sku-demo-kpis">
           <div><dt>全店已载入</dt><dd>{loading ? "—" : rows.length}</dd><small>{data?.paginationInfo?.totalCount ? `Catalog 共 ${data.paginationInfo.totalCount} 个 SKU` : "Catalog 商品队列"}</small></div>
@@ -9605,10 +9614,9 @@ function SkuOperatingCenter() {
       <section className="sku-demo-board" aria-label="SKU 经营中心">
           <div className="sku-demo-toolbar">
             <div>
-              <span>DECISION QUEUE</span>
-              <h3>按经营意图排队，而不是按数据来源堆叠</h3>
+              <h3>经营队列</h3>
             </div>
-            <p>{data?.productManagement?.syncedAt ? "Product Management 已匹配" : "Catalog 数据已载入"}</p>
+            <p>{loading ? "正在读取商品数据" : error ? "商品数据暂不可用" : data?.productManagement?.syncedAt ? "商品资料已匹配" : "Catalog 数据已载入"}</p>
           </div>
           <div className="sku-demo-filter" aria-label="经营队列筛选">
             {filters.map((item) => (
@@ -9738,7 +9746,9 @@ function SkuOperatingCenter() {
 function ProductWorkspace({
   tab,
   onTabChange,
+  readiness,
 }: {
+  readiness: SystemReadiness | null;
   tab: ProductTab;
   onTabChange: (tab: ProductTab) => void;
 }) {
@@ -9750,15 +9760,13 @@ function ProductWorkspace({
         active={tab === "catalog" ? "performance" : tab}
         onChange={onTabChange}
       />
-      {tab !== "inventory" && (
-        <Hero
-          eyebrow=""
-          title={tab === "launch" ? "推新 SOP" : "SKU 经营中心"}
-          text=""
-        />
-      )}
+      <Hero
+        eyebrow=""
+        title={tab === "inventory" ? "库存与供给" : tab === "launch" ? "推新 SOP" : "SKU 经营中心"}
+        text={tab === "inventory" ? "查看库存快照、预览推送结果与维护商品成本" : tab === "launch" ? "跟进新品准备、上架与经营验证" : "按经营优先级查看商品表现与待办"}
+      />
       {tab === "inventory" ? (
-        <Inventory embedded />
+        <Inventory embedded readiness={readiness} />
       ) : tab === "launch" ? (
         <NewProductSopWorkspace />
       ) : (
@@ -10243,6 +10251,23 @@ export default function OpsCenter() {
   const [adsTab, setAdsTab] = useState<AdsTab>("manager");
   const [planningTab, setPlanningTab] = useState<PlanningTab>("plan");
   const [productTab, setProductTab] = useState<ProductTab>("performance");
+  const [readiness, setReadiness] = useState<SystemReadiness | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    async function readReadiness() {
+      try {
+        const response = await fetch("/api/system/readiness", { signal: controller.signal, cache: "no-store" });
+        if (!response.ok) throw new Error("状态暂不可用");
+        const body = await response.json() as SystemReadiness;
+        if (!body.live?.inventory || !body.live?.ads) throw new Error("状态不完整");
+        if (!controller.signal.aborted) setReadiness(body);
+      } catch {
+        if (!controller.signal.aborted) setReadiness(null);
+      }
+    }
+    void readReadiness();
+    return () => controller.abort();
+  }, [view, productTab]);
   useEffect(() => {
     function restoreNavigation() {
       const state = navigationStateFromSearch(window.location.search);
@@ -10326,7 +10351,7 @@ export default function OpsCenter() {
     daily: <DailyWorkspace tab={dailyTab} onTabChange={navigateSub} />,
     ads: <Ads tab={adsTab} onTabChange={navigateSub} />,
     planning: <PlanningWorkspace tab={planningTab} onTabChange={navigateSub} />,
-    products: <ProductWorkspace tab={productTab} onTabChange={navigateSub} />,
+    products: <ProductWorkspace tab={productTab} onTabChange={navigateSub} readiness={readiness} />,
     fulfillment: <FulfillmentWorkspace />,
     assistant: <AssistantWorkspace embedded />,
     sources: <Sources />,
@@ -10337,6 +10362,7 @@ export default function OpsCenter() {
       <ShellHeader
         active={view}
         onNavigate={navigateView}
+        readiness={readiness}
       />
       <div className="content-shell">
         <main className={view === "dashboard" ? "dashboard-main" : undefined}>
