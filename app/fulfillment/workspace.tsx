@@ -103,6 +103,8 @@ function displayOrderDateTime(value: unknown) {
 }
 
 export default function FulfillmentWorkspace() {
+  const [showAllColumns, setShowAllColumns] = useState(false);
+  const visibleColumns = showAllColumns ? columns : columns.filter(([, , field]) => ["orderDate", "orderNumber", "sku", "quantity", "shippingStatus", "trackingNumber"].includes(field));
   const [records, setRecords] = useState<FulfillmentRecord[]>([]);
   const [selected, setSelected] = useState<FulfillmentRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -146,7 +148,7 @@ export default function FulfillmentWorkspace() {
     }
   };
 
-  useEffect(() => { void load(); }, [range.start, range.end, status]);
+  useEffect(() => { queueMicrotask(() => { void load(); }); }, [range.start, range.end, status]);
 
   const overview = useMemo(() => ({
     total: records.length,
@@ -253,16 +255,17 @@ export default function FulfillmentWorkspace() {
       </div>
 
       {message && <p className={styles.message} role="status">{message}</p>}
+      <div className={styles.tableToolbar}><span>{records.length} 个包裹 · {showAllColumns ? "完整字段" : "履约重点字段"}</span><button className={styles.export} aria-pressed={showAllColumns} onClick={() => setShowAllColumns(!showAllColumns)}>{showAllColumns ? "收起详细字段" : "显示全部字段"}</button></div>
       <div className={styles.tableWrap}>
         <table>
-          <thead><tr><th className={styles.selection}><input type="checkbox" aria-label="全选已归档面单" checked={downloadableRecords.length > 0 && selectedDownloadableKeys.length === downloadableRecords.length} onChange={(event) => toggleAllLabels(event.target.checked)} disabled={!downloadableRecords.length} /></th>{columns.map(([letter, label]) => <th key={letter}><small>{letter}</small>{label}</th>)}<th><small>附</small>面单</th><th>操作</th></tr></thead>
+          <thead><tr><th className={styles.selection}><input type="checkbox" aria-label="全选已归档面单" checked={downloadableRecords.length > 0 && selectedDownloadableKeys.length === downloadableRecords.length} onChange={(event) => toggleAllLabels(event.target.checked)} disabled={!downloadableRecords.length} /></th>{visibleColumns.map(([letter, label]) => <th key={letter}>{label}</th>)}<th>面单</th><th>操作</th></tr></thead>
           <tbody>
-            {!loading && records.length === 0 && <tr><td colSpan={19} className={styles.empty}>暂无可履约订单。订单同步后会自动展示可拆分的包裹。</td></tr>}
+            {!loading && records.length === 0 && <tr><td colSpan={visibleColumns.length + 3} className={styles.empty}>暂无可履约订单。订单同步后会自动展示可拆分的包裹。</td></tr>}
             {records.map((record) => {
               const hasLabel = Boolean(record.labelObjectKey);
               return <tr key={record.sourceKey}>
                 <td className={styles.selection}><input type="checkbox" aria-label={`选择 ${record.orderNumber} 面单`} checked={selectedLabelKeys.includes(record.sourceKey)} onChange={(event) => toggleLabel(record.sourceKey, event.target.checked)} disabled={!hasLabel} /></td>
-                {columns.map(([, , field]) => <td key={field}>{field === "orderDate" ? displayOrderDateTime(record[field]) : display(record[field])}</td>)}
+                {visibleColumns.map(([, , field]) => <td key={field}>{field === "orderDate" ? displayOrderDateTime(record[field]) : display(record[field])}</td>)}
                 <td>{hasLabel ? <a className={styles.labelLink} href={`/api/fulfillment/labels/download?sourceKey=${encodeURIComponent(record.sourceKey)}`}>{record.labelFileName}</a> : "未归档"}</td>
                 <td><button className={styles.edit} onClick={() => setSelected({ ...record })}>编辑</button></td>
               </tr>;

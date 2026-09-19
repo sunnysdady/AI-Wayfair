@@ -2308,6 +2308,7 @@ function ShellHeader({
               aria-current={active === item.id ? "page" : undefined}
               onClick={() => navigate(item.id)}
             >
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><use href={`/ops-icons.svg#${item.id}`} /></svg>
               {item.label}
             </button>
           ))}
@@ -2320,6 +2321,7 @@ function ShellHeader({
               aria-current={active === item.id ? "page" : undefined}
               onClick={() => navigate(item.id)}
             >
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><use href={`/ops-icons.svg#${item.id}`} /></svg>
               {item.label}
             </button>
           ))}
@@ -2605,8 +2607,9 @@ function Dashboard() {
   const hasSettledPreviousContribution =
     previous?.advertisingCoverage === "FULL" &&
     previous.contributionAfterAds != null;
-  const contributionDisplay = loading
-    ? "-"
+  const unavailable = loading || !data;
+  const contributionDisplay = unavailable
+    ? "—"
     : current?.contributionAfterAds == null
       ? "待回传（T+1）"
       : money(current.contributionAfterAds);
@@ -2623,6 +2626,7 @@ function Dashboard() {
   const rangeLabel = start === end ? start : `${start} - ${end}`;
   return (
     <>
+      <header className="dashboard-heading"><h1>经营总览</h1><p>了解销售表现与经营贡献</p></header>
       <section className="date-console" aria-label="经营周期">
         <div className="preset-list">
           {presetOptions.map(([id, label]) => (
@@ -2691,30 +2695,20 @@ function Dashboard() {
           </button>
         </div>
       </section>
-      <section className="stat-grid six order-kpis">
+      <section className="stat-grid order-kpis">
         {[
           [
-            loading ? "-" : money(current?.revenue),
+            unavailable ? "—" : money(current?.revenue),
             "销售额",
             change(current?.revenue, previous?.revenue),
           ],
           [
-            loading ? "-" : String(current?.orders || 0),
+            unavailable ? "—" : String(current?.orders || 0),
             "订单",
             change(current?.orders, previous?.orders),
           ],
           [
-            loading ? "-" : String(current?.units || 0),
-            "件数",
-            change(current?.units, previous?.units),
-          ],
-          [
-            loading ? "-" : money(current?.aov),
-            "客单价",
-            change(current?.aov, previous?.aov),
-          ],
-          [
-            loading ? "-" : money(current?.advertisingBeforeGrossProfit),
+            unavailable ? "—" : money(current?.advertisingBeforeGrossProfit),
             "广告前商品毛利",
             `成本覆盖 ${Math.round((current?.costCoverage || 0) * 100)}% · 未覆盖部分按 ${((current?.marginRate || 0.2826) * 100).toFixed(2)}%估算${current?.sampleCost ? ` · 含送测成本 ${money(current.sampleCost)}` : ""}`,
           ],
@@ -2724,19 +2718,21 @@ function Dashboard() {
             className={`stat ${/毛利|贡献/.test(label) ? "profit-stat" : ""}`}
             key={label}
           >
-            <strong>{value}</strong>
             <span>{label}</span>
-            <small>{note}</small>
+            <strong>{value}</strong>
+            <small>{loading ? "正在加载…" : unavailable ? "数据暂不可用" : note}</small>
           </article>
         ))}
       </section>
+      <div className="dashboard-secondary" aria-label="补充经营指标">
+        <span>销售件数 <b>{unavailable ? "—" : current?.units || 0}</b> <small>{unavailable ? "" : change(current?.units, previous?.units)}</small></span>
+        <span>客单价 <b>{unavailable ? "—" : money(current?.aov)}</b> <small>{unavailable ? "" : change(current?.aov, previous?.aov)}</small></span>
+      </div>
       <section className="card order-performance">
         <div className="section-head">
           <div>
-            <span>订单业绩</span>
-            <h2>
-              {rangeLabel} {chartMetric === "revenue" ? "销售额走势" : "订单走势"}
-            </h2>
+            <h2>{chartMetric === "revenue" ? "销售额趋势" : "订单趋势"}</h2>
+            <span>{rangeLabel}</span>
           </div>
           <div className="order-performance-tools">
             <div
@@ -2767,47 +2763,47 @@ function Dashboard() {
           </div>
         </div>
         <div className="order-performance-body">
-          <div className="daily-bars">
-            {(data?.daily || []).length ? (
-              data?.daily.map((item) => {
-                const chartValue = Number(item[chartMetric]);
-                return (
-                  <div
-                    key={item.date}
-                    title={`${item.date} · ${money(item.revenue)} · ${item.orders} 单`}
-                  >
-                    <span>
-                      {chartMetric === "revenue"
-                        ? money(Number(item.revenue))
-                        : `${Number(item.orders)} 单`}
-                    </span>
-                    <i
-                      style={{
-                        height: `${Math.max(4, (chartValue / chartMax) * 100)}%`,
-                      }}
-                    ></i>
-                    <b>{item.date.slice(5)}</b>
-                  </div>
-                );
-              })
-            ) : (
-              <p>{loading ? "正在拉取订单数据…" : "所选周期暂无订单"}</p>
-            )}
-          </div>
-          <aside className="top-skus">
-            <span>热销 SKU</span>
-            {(data?.topSkus || []).slice(0, 5).map((item, index) => (
-              <div key={item.partNumber}>
-                <b>{String(index + 1).padStart(2, "0")}</b>
-                <span>
-                  <strong>{item.partNumber}</strong>
-                  <small>{item.units} 件</small>
-                </span>
-                <em>{money(item.revenue)}</em>
+          {loading || error || !(data?.daily || []).some((item) => item.orders > 0) ? (
+            <div className="dashboard-empty" role="status">
+              <strong>{loading ? "正在读取订单数据" : error ? "订单数据暂时不可用" : "所选周期暂无订单"}</strong>
+              <p>{loading ? "正在加载该周期的销售表现。" : error ? "请稍后重试，或查看最近一次同步状态。" : `${rangeLabel} 没有订单记录，可切换周期查看销售趋势。`}</p>
+              {!loading && !error && <button className="ghost" onClick={() => selectPreset("7d")}>查看最近 7 天</button>}
+            </div>
+          ) : (
+            <div className="trend-chart">
+              <div className="trend-axis" aria-hidden="true">
+                {[chartMax, chartMax / 2, 0].map((value) => <span key={value}>{chartMetric === "revenue" ? money(value) : Math.round(value)}</span>)}
               </div>
-            ))}
-            {!data?.topSkus?.length && <p>暂无 SKU 销售记录</p>}
-          </aside>
+              <div className="daily-bars" style={{ gridTemplateColumns: `repeat(${data?.daily.length || 1}, minmax(0, 1fr))` }}>
+                {data?.daily.map((item, index, items) => {
+                  const chartValue = Number(item[chartMetric]);
+                  const showLabel = index === 0 || index === items.length - 1 || (index % Math.ceil(items.length / 8) === 0 && index < items.length - 2);
+                  const description = `${item.date} · ${money(item.revenue)} · ${item.orders} 单`;
+                  return (
+                    <div key={item.date} className="trend-column" tabIndex={0} aria-label={description}>
+                      <div className="trend-bar-track"><i style={{ height: `${Math.max(0, (chartValue / chartMax) * 100)}%` }} /></div>
+                      <span className="trend-tooltip">{description}</span>
+                      <b>{showLabel ? item.date.slice(5) : ""}</b>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+      <section className="card dashboard-skus" aria-labelledby="top-skus-title">
+        <div className="section-head"><h2 id="top-skus-title">热销 SKU</h2><b>按所选周期销售额排序</b></div>
+        <div className="sku-table-scroll">
+          <table>
+            <thead><tr><th scope="col">排名</th><th scope="col">SKU</th><th scope="col">销售件数</th><th scope="col">销售额</th><th scope="col">销售额占比</th></tr></thead>
+            <tbody>
+              {(data?.topSkus || []).slice(0, 5).map((item, index) => (
+                <tr key={item.partNumber}><td>{String(index + 1).padStart(2, "0")}</td><th scope="row">{item.partNumber}</th><td>{item.units} 件</td><td>{money(item.revenue)}</td><td>{current?.revenue ? `${(item.revenue / current.revenue * 100).toFixed(1)}%` : "—"}</td></tr>
+              ))}
+              {!data?.topSkus?.length && <tr><td colSpan={5} className="sku-empty">{loading ? "正在加载 SKU 表现…" : error ? "SKU 数据暂时不可用" : "所选周期暂无 SKU 销售记录"}</td></tr>}
+            </tbody>
+          </table>
         </div>
       </section>
     </>
@@ -5018,7 +5014,7 @@ function Inventory({ embedded = false }: { embedded?: boolean }) {
               disabled={!preview?.canPush || busy}
               onClick={() => push(true)}
             >
-              Dry-run
+              预览推送结果
             </button>
             <button
               className="primary dark"
