@@ -103,6 +103,47 @@ test("rejects an encrypted callback with a bad signature", async () => {
   assert.equal(response.status, 401);
 });
 
+test("answers a PLAINTEXT URL verification challenge in encrypted mode", async () => {
+  // 飞书在加密模式下仍以明文发送 URL 校验请求，但附带签名头。
+  const encryptKey = "enc-key";
+  const token = "vtok";
+  const rawBody = JSON.stringify({ challenge: "challenge-plain-99", token, type: "url_verification" });
+  const signature = larkSha256Hex(`1700000000000nonce${encryptKey}${rawBody}`);
+
+  const response = await handleLarkWebhook(rawBody, {
+    LARK_ENCRYPT_KEY: encryptKey,
+    LARK_VERIFICATION_TOKEN: token,
+  }, {
+    headers: {
+      "x-lark-request-timestamp": "1700000000000",
+      "x-lark-request-nonce": "nonce",
+      "x-lark-signature": signature,
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { challenge: "challenge-plain-99" });
+});
+
+test("rejects a PLAINTEXT URL verification request with a bad signature in encrypted mode", async () => {
+  const encryptKey = "enc-key";
+  const token = "vtok";
+  const rawBody = JSON.stringify({ challenge: "challenge-plain-99", token, type: "url_verification" });
+
+  const response = await handleLarkWebhook(rawBody, {
+    LARK_ENCRYPT_KEY: encryptKey,
+    LARK_VERIFICATION_TOKEN: token,
+  }, {
+    headers: {
+      "x-lark-request-timestamp": "1700000000000",
+      "x-lark-request-nonce": "nonce",
+      "x-lark-signature": "bad-signature",
+    },
+  });
+
+  assert.equal(response.status, 401);
+});
+
 test("parses text messages, strips mention tags and ignores non-text messages", () => {
   const parsed = parseLarkMessageEvent({
     sender: { sender_type: "user" },
