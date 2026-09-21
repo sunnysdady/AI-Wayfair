@@ -133,7 +133,7 @@ test("translates a natural-language date and sales question into a bounded daily
   assert.equal(result.resultCount, 1);
   assert.match(result.answer, /2026-08-23 的销量为 6 件/);
   assert.match(calls[0].sql, /FROM orders/);
-  assert.match(calls[0].sql, /America\/New_York/);
+  assert.match(calls[0].sql, /Etc\/GMT\+4/);
   assert.deepEqual(calls[0].values, ["2026-08-23"]);
   assert.deepEqual(calls[1].values, ["audit-daily-sales", "8.23 的销量是多少", 1, "2026-08-25T08:00:00.000Z"]);
 });
@@ -183,7 +183,7 @@ test("translates a SKU and month order request into a bounded SKU-month query", 
   assert.match(result.answer, /销量 7 件/);
   assert.match(result.answer, /销售额 \$123\.45/);
   assert.match(calls[0].sql, /JOIN order_items/);
-  assert.match(calls[0].sql, /America\/New_York/);
+  assert.match(calls[0].sql, /Etc\/GMT\+4/);
   assert.deepEqual(calls[0].values, ["DMOM1027", "2026-08-01"]);
   assert.deepEqual(calls[1].values, ["audit-sku-month-orders", "查询DMOM1027 8 月的订单数据", 1, "2026-08-25T08:00:00.000Z"]);
 });
@@ -226,4 +226,204 @@ test("keeps assistant search read-only and only exposed through the Lark bot", a
   assert.doesNotMatch(larkBot, /request\.json\(\)/);
   assert.doesNotMatch(larkBot, /export async function (GET|PUT|PATCH|DELETE)/);
   assert.doesNotMatch(webhook, /export async function (GET|PUT|PATCH|DELETE)/);
+});
+
+test("detects intent domains from natural-language queries", async () => {
+  const { detectIntent } = await import("../lib/assistant-search.mjs");
+  assert.equal(detectIntent("DMOM1027 的库存是多少"), "inventory");
+  assert.equal(detectIntent("最近广告怎么样"), "ad");
+  assert.equal(detectIntent("今天的日报"), "daily");
+  assert.equal(detectIntent("有哪些缺货的SKU"), "inventory");
+  assert.equal(detectIntent("这个SKU成本多少"), "cost");
+  assert.equal(detectIntent("帮我看看最近订单"), "order");
+});
+
+test("resolves SKU inventory intent into a bounded latest-snapshot inventory query", async () => {
+  const calls = [];
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...values) {
+          calls.push({ sql, values });
+          return {
+            async all() {
+              return {
+                results: [{
+                  part_number: "DMOM1027",
+                  quantity_on_hand: 3,
+                  quantity_on_order: 12,
+                  warehouse: "US",
+                  created_at: "2026-09-21T09:00:08.504Z",
+                }],
+              };
+            },
+            async run() { return { success: true }; },
+          };
+        },
+      };
+    },
+  };
+
+  const result = await searchAssistantKnowledge(db, { query: "DMOM1027 的库存是多少" }, {
+    now: () => "2026-09-21T10:00:00.000Z",
+    idFactory: () => "audit-inventory-sku",
+  });
+
+  assert.equal(result.resultCount, 1);
+  assert.equal(result.command.type, "inventory_sku");
+  assert.match(result.answer, /DMOM1027 当前库存/);
+  assert.match(result.answer, /现货 3/);
+  assert.match(result.answer, /在途 12/);
+  assert.match(calls[0].sql, /inventory_snapshot_rows/);
+  assert.deepEqual(calls[0].values, ["%DMOM1027%", 8]);
+  assert.deepEqual(calls[1].values, ["audit-inventory-sku", "DMOM1027 的库存是多少", 1, "2026-09-21T10:00:00.000Z"]);
+});
+
+test("resolves shortage intent into a zero-on-hand SKU list query", async () => {
+  const calls = [];
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...values) {
+          calls.push({ sql, values });
+          return {
+            async all() {
+              return {
+                results: [
+                  {
+                    part_number: "DMOM1001",
+                    quantity_on_hand: 0,
+                    quantity_on_order: 5,
+                    warehouse: "US",
+                    created_at: "2026-09-21T09:00:08.504Z",
+                  },
+                  {
+                    part_number: "DMOM1002",
+                    quantity_on_hand: 0,
+                    quantity_on_order: 0,
+                    warehouse: "US",
+                    created_at: "2026-09-21T09:00:08.504Z",
+                  },
+                ],
+              };
+            },
+            async run() { return { success: true }; },
+          };
+        },
+      };
+    },
+  };
+
+  const result = await searchAssistantKnowledge(db, { query: "有哪些缺货的SKU" }, {
+    now: () => "2026-09-21T10:00:00.000Z",
+    idFactory: () => "audit-shortage",
+  });
+
+  assert.equal(result.command.type, "inventory_shortage");
+  assert.equal(result.resultCount, 2);
+  assert.match(result.answer, /缺货/);
+  assert.match(result.answer, /DMOM1001/);
+  assert.match(calls[0].sql, /quantity_on_hand = 0/);
+  assert.deepEqual(calls[0].values, [8]);
+  assert.deepEqual(calls[1].values, ["audit-shortage", "有哪些缺货的SKU", 2, "2026-09-21T10:00:00.000Z"]);
+});
+
+test("resolves daily-report intent into the latest operating report and Outlook brief", async () => {
+  const calls = [];
+  const db = {
+    prepare(sql) {
+      return {
+        bind(...values) {
+          calls.push({ sql, values });
+          return {
+            async all() {
+              if (sql.includes("daily_operating_reports")) {
+                return {
+                  results: [{
+                    report_date: "2026-09-20",
+                    payload: JSON.stringify({
+                      performance: {
+                        daily: { orders: 2, units: 2, revenue: 266.13, adSpend: 24.17, contributionAfterAds: 84.21 },
+                        delta: { orders: 0 },
+                      },
+                    }),
+                    generated_at: "2026-09-21T00:00:00.086Z",
+                  }],
+                };
+              }
+              if (sql.includes("outlook_daily_briefs")) {
+                return {
+                  results: [{
+                    brief_date: "2026-09-20",
+                    payload: JSON.stringify({ summary: { total: 4, actionRequired: 3, highestPriority: "P1" } }),
+                    synced_at: "2026-09-21T00:00:00.086Z",
+                  }],
+                };
+              }
+              return { results: [] };
+            },
+            async run() { return { success: true }; },
+          };
+        },
+      };
+    },
+  };
+
+  const result = await searchAssistantKnowledge(db, { query: "今天的日报" }, {
+    now: () => "2026-09-21T10:00:00.000Z",
+    idFactory: () => "audit-daily-report",
+  });
+
+  assert.equal(result.command.type, "daily_report");
+  assert.equal(result.resultCount, 2);
+  assert.match(result.answer, /运营日报（2026-09-20）/);
+  assert.match(result.answer, /订单 2/);
+  assert.match(result.answer, /收入 \$266\.13/);
+  assert.match(result.answer, /Outlook 日报（2026-09-20）/);
+  assert.match(result.answer, /待处理 3 项/);
+  assert.equal(calls.length, 3);
+  assert.deepEqual(calls[2].values, ["audit-daily-report", "今天的日报", 2, "2026-09-21T10:00:00.000Z"]);
+});
+
+test("resolves ad/task/order/report/cost intents into bounded recent-list queries", async () => {
+  const scenarios = [
+    { query: "最近广告怎么样", type: "ad_actions", table: /ad_action_queue/ },
+    { query: "有哪些待办任务", type: "tasks", table: /operations/ },
+    { query: "最近的订单", type: "orders_recent", table: /FROM orders/ },
+    { query: "有哪些报告", type: "reports", table: /report_uploads/ },
+    { query: "DMOM1027 成本多少", type: "cost_sku", table: /sku_costs/ },
+  ];
+  for (const scenario of scenarios) {
+    const calls = [];
+    const db = {
+      prepare(sql) {
+        return {
+          bind(...values) {
+            calls.push({ sql, values });
+            return {
+              async all() {
+                return {
+                  results: [{
+                    part_number: "DMOM1027", listing: "DMOM1027", id: "op-1",
+                    title: "示例任务", owner: "测试", status: "DISCOVERED",
+                    po_number: "PO-1", po_date: "2026-09-20T00:00:00Z", units: 1,
+                    revenue_cents: 1000, kind: "CSV", file_name: "a.csv",
+                    unit_cost_cents: 500, currency: "UNVERIFIED", updated_at: "2026-09-20",
+                    action_type: "PAUSE", campaign_id: "622727",
+                  }],
+                };
+              },
+              async run() { return { success: true }; },
+            };
+          },
+        };
+      },
+    };
+    const result = await searchAssistantKnowledge(db, { query: scenario.query }, {
+      now: () => "2026-09-21T10:00:00.000Z",
+      idFactory: () => "audit-scenario",
+    });
+    assert.equal(result.command.type, scenario.type, `command type for ${scenario.query}`);
+    assert.match(calls[0].sql, scenario.table, `sql table for ${scenario.query}`);
+  }
 });
