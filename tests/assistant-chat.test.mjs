@@ -203,23 +203,19 @@ test("retries one transient model failure before returning the model answer", as
   assert.match(reply.message, /通用建议/);
 });
 
-test("keeps AI provider credentials on the server and exposes a chat route", async () => {
-  const [route, workspace, navigation] = await Promise.all([
-    readFile(new URL("../app/api/assistant/chat/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/assistant/workspace.tsx", import.meta.url), "utf8"),
+test("keeps AI provider credentials on the server and exposes them only through the Lark bot route", async () => {
+  const [larkBot, webhook, navigation] = await Promise.all([
+    readFile(new URL("../lib/lark-bot.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/lark/webhook/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(route, /answerAssistantChat\(env\.DB, input\)/);
-  assert.match(route, /MAX_BODY_BYTES = 16 \* 1024/);
-  assert.match(route, /MAX_REQUESTS_PER_MINUTE = 12/);
-  assert.match(route, /isRateLimited\(request\)/);
-  assert.doesNotMatch(route, /AI_MODEL_API_KEY/);
-  assert.match(workspace, /\/api\/assistant\/chat/);
-  assert.match(workspace, /"帮助"/);
-  assert.match(workspace, /sendMessage\(example\)/);
-  assert.match(workspace, /对话/);
-  assert.doesNotMatch(workspace, /模型待配置/);
-  assert.match(navigation, /\{ id: "assistant", label: "AI 助理" \}/);
+  assert.match(larkBot, /answerAssistantChat\(env\.DB, /);
+  assert.match(larkBot, /LARK_ENCRYPT_KEY/);
+  assert.match(larkBot, /LARK_VERIFICATION_TOKEN/);
+  assert.doesNotMatch(larkBot, /AI_MODEL_API_KEY/);
+  assert.match(webhook, /handleLarkWebhook\(rawBody, env/);
+  assert.doesNotMatch(webhook, /AI_MODEL_API_KEY/);
+  assert.doesNotMatch(navigation, /\{ id: "assistant", label: "AI 助理" \}/);
   assert.doesNotMatch(navigation, />数据助理</);
 });

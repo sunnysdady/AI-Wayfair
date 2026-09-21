@@ -54,17 +54,16 @@ test("opens server and email daily reports from stable direct links", () => {
   );
 });
 
-test("opens AI 助理 inside the operations shell instead of navigating to a separate page", async () => {
+test("routes assistant direct links back to the dashboard after the web entry is retired", async () => {
   assert.deepEqual(
     navigationStateFromSearch("?view=assistant"),
-    { view: "assistant", tab: null },
+    { view: "dashboard", tab: null },
   );
-  assert.equal(navigationSearch({ view: "assistant" }), "?view=assistant");
 
   const source = await readFile(new URL("../app/OpsCenter.tsx", import.meta.url), "utf8");
-  assert.match(source, /import AssistantWorkspace from "\.\/assistant\/workspace"/);
-  assert.match(source, /\{ id: "assistant", label: "AI 助理" \}/);
-  assert.match(source, /assistant:\s*<AssistantWorkspace embedded \/>/);
+  assert.doesNotMatch(source, /import AssistantWorkspace/);
+  assert.doesNotMatch(source, /\{ id: "assistant", label: "AI 助理" \}/);
+  assert.doesNotMatch(source, /assistant:\s*<AssistantWorkspace embedded \/>/);
   assert.doesNotMatch(source, /href="\/assistant"/);
 });
 

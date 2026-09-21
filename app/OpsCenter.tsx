@@ -27,7 +27,6 @@ import {
   navigationSearch,
   navigationStateFromSearch,
 } from "../lib/app-navigation.mjs";
-import AssistantWorkspace from "./assistant/workspace";
 import FulfillmentWorkspace from "./fulfillment/workspace";
 import { PLAN_PROGRESS_CACHE_KEY } from "../lib/plan-progress-view.mjs";
 import { formatLingxingDateTime, lingxingDate, shiftLingxingDate } from "../lib/lingxing-business-time.mjs";
@@ -41,7 +40,6 @@ type View =
   | "planning"
   | "products"
   | "fulfillment"
-  | "assistant"
   | "sources"
   | "help";
 type AdsTab = "manager" | "listings" | "ai" | "manual" | "review";
@@ -64,7 +62,6 @@ const PRIMARY_NAV: { id: View; label: string }[] = [
   { id: "planning", label: "计划与复盘" },
   { id: "products", label: "商品经营" },
   { id: "fulfillment", label: "订单履约" },
-  { id: "assistant", label: "AI 助理" },
 ];
 
 const SYSTEM_NAV: { id: View; label: string }[] = [
@@ -10353,7 +10350,6 @@ export default function OpsCenter() {
     planning: <PlanningWorkspace tab={planningTab} onTabChange={navigateSub} />,
     products: <ProductWorkspace tab={productTab} onTabChange={navigateSub} readiness={readiness} />,
     fulfillment: <FulfillmentWorkspace />,
-    assistant: <AssistantWorkspace embedded />,
     sources: <Sources />,
     help: <Help />,
   }[view];

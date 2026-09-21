@@ -43,6 +43,7 @@ export async function proxy(request: NextRequest) {
   if (
     request.nextUrl.pathname === "/api/cron/sync"
     || request.nextUrl.pathname === "/api/health"
+    || request.nextUrl.pathname === "/api/lark/webhook"
   ) {
     return NextResponse.next();
   }
