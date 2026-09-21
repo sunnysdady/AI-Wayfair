@@ -217,12 +217,13 @@ test("returns a transparent no-result answer while still auditing the lookup", a
   assert.equal(writes[0][1], "未命中");
 });
 
-test("keeps the assistant API read-only, same-origin, and body-bounded", async () => {
-  const route = await readFile(new URL("../app/api/assistant/search/route.ts", import.meta.url), "utf8");
-  assert.match(route, /function sameOrigin/);
-  assert.match(route, /MAX_BODY_BYTES = 4 \* 1024/);
-  assert.match(route, /searchAssistantKnowledge\(env\.DB, input\)/);
-  assert.match(route, /cache-control.*private, max-age=60/);
-  assert.doesNotMatch(route, /export async function (GET|PUT|PATCH|DELETE)/);
-  assert.doesNotMatch(route, /request\.json\(\)/);
+test("keeps assistant search read-only and only exposed through the Lark bot", async () => {
+  const [larkBot, webhook] = await Promise.all([
+    readFile(new URL("../lib/lark-bot.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/lark/webhook/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(larkBot, /answerAssistantChat\(env\.DB, /);
+  assert.doesNotMatch(larkBot, /request\.json\(\)/);
+  assert.doesNotMatch(larkBot, /export async function (GET|PUT|PATCH|DELETE)/);
+  assert.doesNotMatch(webhook, /export async function (GET|PUT|PATCH|DELETE)/);
 });

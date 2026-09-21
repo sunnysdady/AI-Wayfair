@@ -102,9 +102,9 @@ DATABASE_URL='postgresql://…' npm run db:migrate:postgres
 
 迁移器使用事务、PostgreSQL advisory lock 和 `schema_migrations` 账本，可安全重复执行。迁移文件位于 `migrations/postgres/`。
 
-## AI 助理
+## AI 助理（飞书机器人）
 
-一级菜单“AI 助理”打开 `/assistant`。它以对话形式检索 PostgreSQL 中已保存的 SKU 成本、最新库存、订单、广告动作、运营任务、报告和 Outlook 日报，并将本次命中的数据作为受限上下文交给已配置的大模型。
+网页版对话入口已下线，AI 助理现在通过飞书机器人使用：同事在飞书里把机器人拉进群或直接单聊，@机器人 或直接发送问题，机器人会检索 PostgreSQL 中已保存的 SKU 成本、最新库存、订单、广告动作、运营任务、报告和 Outlook 日报，并将本次命中的数据作为受限上下文交给已配置的大模型回答。
 
 模型接入使用 OpenAI 兼容的 Chat Completions API，仅在服务器环境变量中配置：
 
@@ -114,9 +114,31 @@ AI_MODEL_API_KEY=<server-only-api-key>
 AI_MODEL_NAME=<model-name>
 ```
 
-浏览器只调用 `POST /api/assistant/chat`，不会获得 API Key。接口只读、会限制消息大小与历史条数、要求同源请求；未配置模型或模型暂时不可用时，页面会明确退回数据库检索结果，而不会伪造模型回答。AI 助理不会向 Wayfair 执行写操作。
+### 飞书应用与事件订阅
 
-助手还包含从本机 `amazon ops` 项目筛选出的通用运营方法论：证据优先、问题优先级、单变量调整与观察期、动作反馈沉淀。它不读取 Amazon 的业务数据，也不会把 Amazon 的阈值或结论用于 Wayfair。
+在[飞书开放平台](https://open.feishu.cn)创建企业自建应用并添加“机器人”能力，然后配置：
+
+1. **事件订阅**：订阅方式选择“将事件发送至开发者服务器”，请求地址填写生产回调地址：
+
+   ```
+   https://aiwayfair.sunnysdady.com/api/lark/webhook
+   ```
+
+2. **订阅事件**：添加 `im.message.receive_v1`（接收消息）。
+3. **权限**：申请“获取与发送单聊、群组消息”（`im:message`）与“以应用的身份发消息”（`im:message:send_as_bot`）。
+4. **加密策略（推荐）**：配置 `Encrypt Key` 与 `Verification Token`，并把同样的值写入服务器环境变量：
+
+```bash
+LARK_APP_ID=<cli_xxx>
+LARK_APP_SECRET=<app-secret>
+LARK_VERIFICATION_TOKEN=<verification-token>
+LARK_ENCRYPT_KEY=<encrypt-key>        # 与开放平台 Encrypt Key 一致
+```
+
+- 未配置 `LARK_ENCRYPT_KEY` 时使用明文回调 + Verification Token 校验；配置后使用 AES-256-CBC 加密回调 + 签名校验。
+- 单聊消息直接回复；群聊消息仅在 @机器人 时回复，且不会重复处理同一 `event_id`。
+- 机器人只读检索、不执行 Wayfair 或数据库写操作；未配置模型或模型暂时不可用时，会退回数据库检索结果并明确提示。
+- 助手包含从本机 `amazon ops` 项目筛选出的通用运营方法论：证据优先、问题优先级、单变量调整与观察期、动作反馈沉淀。它不读取 Amazon 的业务数据，也不会把 Amazon 的阈值或结论用于 Wayfair。
 
 ## 分层同步
 
