@@ -103,43 +103,31 @@ test("rejects an encrypted callback with a bad signature", async () => {
   assert.equal(response.status, 401);
 });
 
-test("answers a PLAINTEXT URL verification challenge in encrypted mode", async () => {
-  // 飞书在加密模式下仍以明文发送 URL 校验请求，但附带签名头。
+test("answers an ENCRYPTED URL verification challenge without signature headers", async () => {
+  // 飞书在加密模式下发送 URL 校验请求：body 加密，但不带任何 X-Lark-* 签名头。
   const encryptKey = "enc-key";
   const token = "vtok";
-  const rawBody = JSON.stringify({ challenge: "challenge-plain-99", token, type: "url_verification" });
-  const signature = larkSha256Hex(`1700000000000nonce${encryptKey}${rawBody}`);
+  const plain = JSON.stringify({ challenge: "challenge-enc-77", token, type: "url_verification" });
+  const rawBody = JSON.stringify({ encrypt: larkAesEncrypt(encryptKey, plain) });
 
   const response = await handleLarkWebhook(rawBody, {
     LARK_ENCRYPT_KEY: encryptKey,
     LARK_VERIFICATION_TOKEN: token,
-  }, {
-    headers: {
-      "x-lark-request-timestamp": "1700000000000",
-      "x-lark-request-nonce": "nonce",
-      "x-lark-signature": signature,
-    },
-  });
+  }, {});
 
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { challenge: "challenge-plain-99" });
+  assert.deepEqual(await response.json(), { challenge: "challenge-enc-77" });
 });
 
-test("rejects a PLAINTEXT URL verification request with a bad signature in encrypted mode", async () => {
+test("rejects an ENCRYPTED URL verification challenge with a mismatched token", async () => {
   const encryptKey = "enc-key";
-  const token = "vtok";
-  const rawBody = JSON.stringify({ challenge: "challenge-plain-99", token, type: "url_verification" });
+  const plain = JSON.stringify({ challenge: "challenge-enc-77", token: "wrong", type: "url_verification" });
+  const rawBody = JSON.stringify({ encrypt: larkAesEncrypt(encryptKey, plain) });
 
   const response = await handleLarkWebhook(rawBody, {
     LARK_ENCRYPT_KEY: encryptKey,
-    LARK_VERIFICATION_TOKEN: token,
-  }, {
-    headers: {
-      "x-lark-request-timestamp": "1700000000000",
-      "x-lark-request-nonce": "nonce",
-      "x-lark-signature": "bad-signature",
-    },
-  });
+    LARK_VERIFICATION_TOKEN: "vtok",
+  }, {});
 
   assert.equal(response.status, 401);
 });
