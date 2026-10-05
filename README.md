@@ -28,7 +28,7 @@ DNS、代理或 SSL 配置，也不得使用其他托管平台作为本项目的
 |---|---|
 | Web/API | DigitalOcean Droplet 上的 Next.js Docker 服务 |
 | 领星库存 | 供应链看板 systemd 每 15 分钟写共享快照；本中台 20 分钟内只读，过期才回退 OpenAPI |
-| 定时任务 | Docker Scheduler 每 15 分钟调用 `/api/cron/sync`（共享快照 + 可选 TRUE_UP + 订单 + 邮件） |
+| 定时任务 | Docker Scheduler 每 15 分钟调用 `/api/cron/sync`（共享快照 + 每小时一次 TRUE_UP 推送 + 订单 + 邮件） |
 | 数据库 | DigitalOcean Managed PostgreSQL |
 | 报告文件 | DigitalOcean Spaces（S3 兼容） |
 | 邮件 | Microsoft Graph |

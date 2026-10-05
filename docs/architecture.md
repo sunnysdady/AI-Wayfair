@@ -69,6 +69,10 @@ flowchart TB
 - 完整基线必须是 **TRUE_UP**（全量 Part × 仓库），缺失组合补零，避免平台残留旧库存。
 - 指纹用 SKU×仓数量哈希，避免合计件数此消彼长时漏推。
 - 领星限流或 Castle 429：本轮跳过，下一窗口再试。
+- **推送节奏**：每 15 分钟拉取并更新快照，向 Wayfair 正式推送最多每小时一次（`nextPushAfter` 窗口）。推送成功、被安全闸门拦截（403）、需人工确认零库存，都要等满 1 小时再试；限流和临时失败不占用窗口，下一轮直接重试。
+- **安全闸门**：自动推送仍受 `ALLOW_WAYFAIR_LIVE_PUSH`、`WAYFAIR_EXPECTED_SUPPLIER_IDS` 控制，未放行时记为 `blocked` 并显示在库存页，不会绕过。
+- **零库存确认**：零库存占比 ≥50% 时，定时任务只在占比不高于上次成功推送（含页面手动推送）10 个百分点以内时代为确认；没有成功推送过的基线或占比突增，则停在 `needs-confirm`，需在页面人工确认推送一次。
+- 最近一次拉取/推送结果写在 `sync_state` 的 `server:inventory-auto:last-run`，库存页直接展示。
 
 ## 15 分钟 cron 分层
 
@@ -89,5 +93,5 @@ flowchart LR
 |---|---|---|
 | 拉领星库存 | **唯一主路径**，15 分钟 | 只读共享快照，过期才回退 |
 | 拉领星销售 | 每小时当天 / 02·14 UTC 整月 | 不拉店级日报 |
-| 写 Wayfair | 无 | dry-run 后 TRUE_UP |
+| 写 Wayfair | 每小时最多 1 次 | dry-run 后 TRUE_UP |
 | 发布 | `index.html` → GitHub → Vercel | `production` 分支 → Droplet 镜像 |
