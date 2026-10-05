@@ -3,14 +3,25 @@ import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
 const bindings = getRuntimeBindings;
 
+// 定时任务（lib/scheduled-inventory-sync.mjs）写入的最近一次拉取/推送状态，供页面展示。
+async function loadAutoState(db: D1Database) {
+  try {
+    const row=await db.prepare("SELECT value FROM sync_state WHERE key=?").bind("server:inventory-auto:last-run").first<{value:string}>();
+    if(!row?.value) return null;
+    const state=JSON.parse(row.value);
+    return {pulledAt:state.pulledAt||null,lastPushAt:state.lastPushAt||null,nextPushAfter:state.nextPushAfter||null,push:state.push||null,pullError:state.pullError||null};
+  } catch { return null; }
+}
+
 export async function GET() {
   try {
     const env=await bindings();
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS inventory_snapshots (id TEXT PRIMARY KEY NOT NULL, source_file TEXT NOT NULL, summary TEXT NOT NULL, created_at TEXT NOT NULL)").run();
     const row=await env.DB.prepare("SELECT id,source_file,summary,created_at FROM inventory_snapshots ORDER BY created_at DESC LIMIT 1").first<{id:string;source_file:string;summary:string;created_at:string}>();
-    if(!row) return Response.json({snapshot:null});
+    const auto=await loadAutoState(env.DB);
+    if(!row) return Response.json({snapshot:null,auto});
     const valueRisk=await loadInventoryValueRisk(env.DB,row.id);
-    return Response.json({snapshotId:row.id,sourceFile:row.source_file,summary:JSON.parse(row.summary),valueRisk,createdAt:row.created_at,canPush:true,warnings:[],errors:[]});
+    return Response.json({snapshotId:row.id,sourceFile:row.source_file,summary:JSON.parse(row.summary),valueRisk,createdAt:row.created_at,canPush:true,warnings:[],errors:[],auto});
   } catch(error){return Response.json({error:error instanceof Error?error.message:"库存快照读取失败"},{status:500});}
 }
 

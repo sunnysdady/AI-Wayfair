@@ -4726,6 +4726,13 @@ function Inventory({ embedded = false, readiness }: { embedded?: boolean; readin
     warnings?: { message: string }[];
     errors?: { message: string }[];
     error?: string;
+    auto?: {
+      pulledAt: string | null;
+      lastPushAt: string | null;
+      nextPushAfter: string | null;
+      push: { at: string; status: string; error?: string } | null;
+      pullError: { at: string; error: string } | null;
+    } | null;
   };
   type InventoryPushResult = {
     error?: string;
@@ -4982,6 +4989,25 @@ function Inventory({ embedded = false, readiness }: { embedded?: boolean; readin
   const mappingNote = preview?.warnings?.length
     ? `未匹配 ${preview.summary?.missingCombinations || 0} 个组合，已按 0 库存补齐`
     : "";
+  const autoTime = (iso?: string | null) =>
+    iso
+      ? new Date(iso).toLocaleString("zh-CN", {
+          month: "numeric",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "—";
+  const autoPushLabels: Record<string, string> = {
+    succeeded: "已推送",
+    blocked: "被安全闸门拦截",
+    "needs-confirm": "需人工确认零库存",
+    failed: "失败",
+    "rate-limited": "限流，下一轮重试",
+  };
+  const autoState = preview?.auto;
+  const autoPush = autoState?.push;
+  const autoPushBad = Boolean(autoPush && autoPush.status !== "succeeded" && autoPush.status !== "rate-limited");
   return (
     <div className="inventory-page">
       <div className="inventory-board">
@@ -5049,6 +5075,23 @@ function Inventory({ embedded = false, readiness }: { embedded?: boolean; readin
             确认零库存 SKU 可下架
           </label>
           {mappingNote ? <p className="inv-quiet">{mappingNote}</p> : null}
+          {autoState ? (
+            <div className="inv-auto" data-testid="inventory-auto-status">
+              <p className="inv-quiet">
+                自动拉取领星：{autoTime(autoState.pulledAt)}（每 15 分钟）
+                {autoState.pullError ? `；最近一次失败：${autoState.pullError.error}` : ""}
+              </p>
+              <p className={autoPushBad ? "inventory-message bad" : "inv-quiet"}>
+                自动推送 Wayfair（每小时一次）：
+                {autoPush
+                  ? `${autoTime(autoPush.at)} ${autoPushLabels[autoPush.status] || autoPush.status}${
+                      autoPush.status !== "succeeded" && autoPush.error ? `：${autoPush.error}` : ""
+                    }`
+                  : "尚未自动推送过"}
+                {autoState.nextPushAfter ? `；下次最早 ${autoTime(autoState.nextPushAfter)}` : ""}
+              </p>
+            </div>
+          ) : null}
           {message ? (
             <p
               className={
