@@ -5074,7 +5074,17 @@ function Inventory({ embedded = false, readiness }: { embedded?: boolean; readin
             />
             确认零库存 SKU 可下架
           </label>
-          {mappingNote ? <p className="inv-quiet">{mappingNote}</p> : null}
+          {mappingNote ? (
+            <p className="inv-quiet">
+              {mappingNote}
+              {(preview?.summary?.missingCombinations || 0) > 0 ? (
+                <>
+                  {" · "}
+                  <a href="/api/inventory/unmatched" data-testid="inventory-unmatched-export">下载未匹配明细</a>
+                </>
+              ) : null}
+            </p>
+          ) : null}
           {autoState ? (
             <div className="inv-auto" data-testid="inventory-auto-status">
               <p className="inv-quiet">
