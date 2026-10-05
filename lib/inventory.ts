@@ -78,7 +78,7 @@ export async function parseStockWorkbook(file: File) {
     totalRows:items.length, validRows:errors.length?0:items.length, errorRows:new Set(errors.map((item)=>item.row)).size,
     zeroStockRows, zeroStockRatio:items.length?zeroStockRows/items.length:0,
     totalQuantityOnHand:items.reduce((sum,item)=>sum+item.quantityOnHand,0), supplierCount:new Set(items.map((item)=>item.supplierId)).size,
-    skuMappings:mapping.activePartNumbers.length, warehouseMappings:mapping.warehouseMappings.length, stockRows:stockRows.length, missingCombinations,
+    skuMappings:mapping.activePartNumbers.length, warehouseMappings:mapping.warehouseMappings.length, stockRows:stockRows.length, missingCombinations, missingDetails:planned.missingDetails,
     ignoredStockRows:stockRows.filter((row)=>!mappedSkus.has(row.lingxingSku)||!mappedWarehouses.has(row.warehouse)).length,
   };
   return { items:errors.length?[]:items, rows, errors, warnings, summary, canPush:errors.length===0&&items.length>0, sourceFile:file.name };

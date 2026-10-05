@@ -69,6 +69,7 @@ function finalizePulledStock(stockRows: StockRow[], sourceFile: string) {
     warehouseMappings: mapping.warehouseMappings.length,
     stockRows: stockRows.length,
     missingCombinations: planned.missingCombinations,
+    missingDetails: planned.missingDetails,
     ignoredStockRows: stockRows.filter(
       (row: StockRow) => !mappedSkus.has(row.lingxingSku) || !mappedWarehouses.has(row.warehouse),
     ).length,

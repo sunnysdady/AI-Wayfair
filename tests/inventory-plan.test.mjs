@@ -121,3 +121,23 @@ test("production mapping is a complete unique baseline, not every historical map
   assert.ok(mapping.activePartNumbers.includes("4T-Kayak"));
   assert.ok(!mapping.activePartNumbers.includes("CT-03"));
 });
+
+test("lists every zero-filled combination so operators can audit it", () => {
+  const result = buildCompleteInventoryRows(
+    [{ rowNumber: 2, lingxingSku: "SKU-1", warehouse: "WH-A", productName: "", available: 5, locked: 0, incoming: 0, transferInTransit: 0 }],
+    {
+      activePartNumbers: ["PART-A", "PART-NOMAP"],
+      skuMappings: [{ supplierPartNumber: "PART-A", lingxingSku: "SKU-1|SKU-2" }],
+      warehouseMappings: [{ supplierId: 11, warehouse: "WH-A" }, { supplierId: 12, warehouse: "WH-B" }],
+    },
+  );
+  assert.equal(result.missingDetails.length, result.missingCombinations);
+  assert.deepEqual(result.missingDetails.map((d) => `${d.supplierPartNumber}/${d.supplierId}/${d.lingxingSku}/${d.warehouse}`).sort(), [
+    "PART-A/11/SKU-2/WH-A",
+    "PART-A/12/SKU-1/WH-B",
+    "PART-A/12/SKU-2/WH-B",
+    "PART-NOMAP/11//WH-A",
+    "PART-NOMAP/12//WH-B",
+  ]);
+  assert.equal(result.missingDetails.find((d) => d.supplierPartNumber === "PART-NOMAP").reason, "商品未映射领星 SKU");
+});
