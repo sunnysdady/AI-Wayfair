@@ -427,3 +427,62 @@ test("resolves ad/task/order/report/cost intents into bounded recent-list querie
     assert.match(calls[0].sql, scenario.table, `sql table for ${scenario.query}`);
   }
 });
+
+function adSpendDb(calls, totalRows, topRows = []) {
+  return {
+    prepare(sql) {
+      return {
+        bind(...values) {
+          calls.push({ sql, values });
+          return {
+            async all() {
+              if (/GROUP BY payload::jsonb->>'campaign_id'/.test(sql)) return { results: topRows };
+              return { results: totalRows };
+            },
+            async run() { return { success: true }; },
+          };
+        },
+      };
+    },
+  };
+}
+
+test("answers 昨天花了多少广告费 from the campaign ad report using Shanghai-relative dates", async () => {
+  const calls = [];
+  const db = adSpendDb(calls, [{
+    report_date: "2026-10-05", rows: 28, spend: "31.35", clicks: "40", impressions: "9000",
+    attributed_sales: "120.5", attributed_orders: "2", refreshed_at: "2026-10-06T05:00:00Z",
+  }], [{ campaign_id: "679131", campaign_name: "Tools cabinet Underground", spend: "5.00" }]);
+
+  const result = await searchAssistantKnowledge(db, { query: "昨天花了多少广告费" }, {
+    now: () => "2026-10-06T07:44:00.000Z",
+    idFactory: () => "audit-ad-spend",
+  });
+
+  assert.equal(result.command.type, "ad_spend");
+  assert.equal(result.command.date, "2026-10-05");
+  assert.match(result.answer, /2026-10-05 广告花费 \$31\.35/);
+  assert.match(result.answer, /Tools cabinet Underground/);
+  assert.match(calls[0].sql, /CAMPAIGN_REPORT/);
+  assert.deepEqual(calls[0].values, ["2026-10-05"]);
+});
+
+test("reports a clear miss when the ad report has no row for the requested day", async () => {
+  const calls = [];
+  const result = await searchAssistantKnowledge(adSpendDb(calls, []), { query: "今天广告花费多少" }, {
+    now: () => "2026-10-06T07:44:00.000Z",
+    idFactory: () => "audit-ad-miss",
+  });
+  assert.equal(result.command.date, "2026-10-06");
+  assert.match(result.answer, /暂无 2026-10-06 的数据/);
+});
+
+test("falls back to the latest reported day when no date is given", async () => {
+  const calls = [];
+  const result = await searchAssistantKnowledge(adSpendDb(calls, []), { query: "广告费多少" }, {
+    now: () => "2026-10-06T07:44:00.000Z",
+    idFactory: () => "audit-ad-latest",
+  });
+  assert.equal(result.command.date, null);
+  assert.deepEqual(calls[0].values, [null]);
+});
