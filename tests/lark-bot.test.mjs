@@ -287,3 +287,56 @@ test("deduplicates repeated event pushes by event id", async () => {
   await Promise.all(pending);
   // Second push must not trigger another model/send flow; the response is still 200.
 });
+
+test("strips @_user_N placeholders using the mentions list", () => {
+  const parsed = parseLarkMessageEvent({
+    sender: { sender_type: "user" },
+    message: {
+      message_id: "om_3",
+      chat_id: "oc_1",
+      chat_type: "group",
+      message_type: "text",
+      content: JSON.stringify({ text: "@_user_1 查询MFC-D3-B 的库存 @_all" }),
+      mentions: [{ key: "@_user_1", id: { open_id: "ou_1" }, name: "Wayfair AI 运营中台" }],
+    },
+  });
+
+  assert.equal(parsed.cleanText, "查询MFC-D3-B 的库存");
+});
+
+test("logs instead of swallowing errors when answering fails", async () => {
+  const logged = [];
+  const fetchImpl = async () => new Response(JSON.stringify({ code: 99, msg: "boom" }));
+  const rawBody = JSON.stringify({
+    header: { event_id: "event-fail", event_type: "im.message.receive_v1", token: "vtok" },
+    event: {
+      sender: { sender_type: "user" },
+      message: {
+        message_id: "om_fail",
+        chat_id: "oc_fail",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "帮助" }),
+        mentions: [],
+      },
+    },
+  });
+
+  const pending = [];
+  const response = await handleLarkWebhook(rawBody, {
+    LARK_APP_ID: "cli_test",
+    LARK_APP_SECRET: "secret",
+    LARK_VERIFICATION_TOKEN: "vtok",
+    DB: { prepare: async () => ({ all: async () => ({ results: [] }) }) },
+  }, {
+    fetchImpl,
+    logger: { error: (...args) => logged.push(args) },
+    waitUntil: (promise) => { pending.push(promise); },
+  });
+  await Promise.all(pending);
+
+  assert.equal(response.status, 200);
+  assert.equal(logged.length, 1);
+  assert.match(logged[0][0], /处理消息失败/);
+  assert.equal(logged[0][1].messageId, "om_fail");
+});
