@@ -586,5 +586,12 @@
     "W3D-G-locker",
     "W6D-G-locker",
     "W9D-G-locker"
+  ],
+  "discontinuedPartNumbers": [
+    "5T-Niudun",
+    "MK-WB001B",
+    "YB-CW12A0720",
+    "YB-CW12S0768",
+    "YB- CW12X0718"
   ]
 }
