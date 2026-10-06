@@ -219,3 +219,23 @@ test("keeps AI provider credentials on the server and exposes them only through 
   assert.doesNotMatch(navigation, /\{ id: "assistant", label: "AI 助理" \}/);
   assert.doesNotMatch(navigation, />数据助理</);
 });
+
+test("help keyword supports topics for scenarios and tips", async () => {
+  const search = async () => { throw new Error("帮助不应触发数据查询"); };
+  for (const message of ["帮助 场景", "帮助场景", "运营案例", "帮助：技巧", "怎么用", "使用方法", "案例", "教程", "帮助 提问"]) {
+    assert.equal(isAssistantHelpQuery(message), true, message);
+  }
+  assert.equal(isAssistantHelpQuery("DMOM1021 帮助"), false);
+
+  const overview = await answerAssistantChat({}, { message: "帮助" }, { search });
+  assert.match(overview.message, /帮助 场景/);
+  assert.match(overview.message, /帮助 技巧/);
+
+  const scenarios = await answerAssistantChat({}, { message: "帮助 场景" }, { search });
+  assert.match(scenarios.message, /运营场景剧本/);
+  assert.match(scenarios.message, /加投\/降投决策/);
+
+  const tips = await answerAssistantChat({}, { message: "帮助 技巧" }, { search });
+  assert.match(tips.message, /提问技巧与口径提示/);
+  assert.match(tips.message, /WSC ROAS/);
+});
