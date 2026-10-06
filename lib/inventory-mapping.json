@@ -467,6 +467,22 @@
     {
       "supplierPartNumber": "LFC-5W",
       "lingxingSku": "B01LF-005WM"
+    },
+    {
+      "supplierPartNumber": "3T-B-2",
+      "lingxingSku": "B02UR-001BM"
+    },
+    {
+      "supplierPartNumber": "3T-B-3",
+      "lingxingSku": "B02UR-001BM"
+    },
+    {
+      "supplierPartNumber": "3T-W-2",
+      "lingxingSku": "B02UR-001WM"
+    },
+    {
+      "supplierPartNumber": "3T-W-3",
+      "lingxingSku": "B02UR-001WM"
     }
   ],
   "warehouseMappings": [
