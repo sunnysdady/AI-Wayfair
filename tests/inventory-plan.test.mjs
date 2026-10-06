@@ -4,20 +4,47 @@ import test from "node:test";
 import mapping from "../lib/inventory-mapping.json" with { type: "json" };
 import { buildCompleteInventoryRows } from "../lib/inventory-plan.mjs";
 
-test("uses the active Wayfair warehouse IDs exactly once with the correct Lingxing warehouse", () => {
+test("production mapping: 4 Wayfair IDs, same-state Lingxing warehouses merged, each warehouse owned once", () => {
   assert.deepEqual(mapping.warehouseMappings, [
-    { supplierId: 360344, warehouse: "派速捷 美东南 GA 亚特兰大2仓" },
-    { supplierId: 360342, warehouse: "派速捷 LA10仓" },
-    { supplierId: 360343, warehouse: "派速捷 XHNJ02仓" },
-    { supplierId: 347072, warehouse: "派速捷 美南HOU04" },
+    { supplierId: 347072, warehouse: "派速捷 LA10仓|派速捷 XHLAX1A仓", splitBufferRate: 0.1 },
+    { supplierId: 360343, warehouse: "派速捷 XHNJ02仓|派速捷 MSNJ01仓|派速捷 MSNJ02仓", splitBufferRate: 0.1 },
+    { supplierId: 360344, warehouse: "派速捷 美南HOU04" },
     { supplierId: 360346, warehouse: "派速捷 美东南 GA 亚特兰大2仓" },
   ]);
-  assert.equal(new Set(mapping.warehouseMappings.map((item) => item.supplierId)).size, 5);
-  assert.equal(new Set(mapping.warehouseMappings.map((item) => item.warehouse)).size, 4);
-  assert.equal(
-    mapping.skuMappings.find((item) => item.supplierPartNumber === "5T-1830-1200")?.lingxingSku,
-    "B02UR-027BM|B01UR-005BM",
-  );
+  assert.ok(!mapping.warehouseMappings.some((item) => item.supplierId === 360342), "360342 (Chino) is deactivated");
+  const names = mapping.warehouseMappings.flatMap((item) => item.warehouse.split("|"));
+  assert.equal(new Set(names).size, names.length);
+});
+
+const stockRow = (lingxingSku, warehouse, available, incoming = 0) => ({ rowNumber: 2, lingxingSku, warehouse, productName: "", available, locked: 0, incoming, transferInTransit: 0 });
+const mergedConfig = (rate) => ({
+  activePartNumbers: ["P"],
+  skuMappings: [{ supplierPartNumber: "P", lingxingSku: "S" }],
+  warehouseMappings: [{ supplierId: 1, warehouse: "W1|W2", ...(rate === undefined ? {} : { splitBufferRate: rate }) }],
+});
+
+test("merged warehouses: stock spread over 2+ warehouses is summed then reduced by the split buffer (rounded down)", () => {
+  const result = buildCompleteInventoryRows([stockRow("S", "W1", 3, 1), stockRow("S", "W2", 3, 2)], mergedConfig(0.1));
+  assert.equal(result.rows[0].item.quantityOnHand, 5); // floor(6 * 0.9)
+  assert.equal(result.rows[0].item.quantityOnOrder, 3); // incoming is not buffered
+  assert.equal(result.rows[0].source.available, 6); // raw total kept for audit
+});
+
+test("merged warehouses: stock held by only one warehouse is reported in full", () => {
+  const result = buildCompleteInventoryRows([stockRow("S", "W1", 10), stockRow("S", "W2", 0)], mergedConfig(0.1));
+  assert.equal(result.rows[0].item.quantityOnHand, 10);
+});
+
+test("merged warehouses: no buffer configured means a plain sum", () => {
+  const result = buildCompleteInventoryRows([stockRow("S", "W1", 3), stockRow("S", "W2", 3)], mergedConfig());
+  assert.equal(result.rows[0].item.quantityOnHand, 6);
+});
+
+test("rejects a Lingxing warehouse owned by two Wayfair IDs or listed twice", () => {
+  const base = { activePartNumbers: ["P"], skuMappings: [] };
+  assert.throws(() => buildCompleteInventoryRows([], { ...base, warehouseMappings: [{ supplierId: 1, warehouse: "W1" }, { supplierId: 2, warehouse: "W1|W2" }] }), /仓库映射存在重复.*W1/);
+  assert.throws(() => buildCompleteInventoryRows([], { ...base, warehouseMappings: [{ supplierId: 1, warehouse: "W1|W1" }] }), /仓库映射存在重复/);
+  assert.throws(() => buildCompleteInventoryRows([], { ...base, warehouseMappings: [{ supplierId: 1, warehouse: "W1", splitBufferRate: 1 }] }), /splitBufferRate/);
 });
 
 test("builds one complete active-part by warehouse inventory baseline and fills missing rows with zero", () => {

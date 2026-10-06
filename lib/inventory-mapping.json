@@ -471,19 +471,17 @@
   ],
   "warehouseMappings": [
     {
-      "supplierId": 360344,
-      "warehouse": "派速捷 美东南 GA 亚特兰大2仓"
-    },
-    {
-      "supplierId": 360342,
-      "warehouse": "派速捷 LA10仓"
+      "supplierId": 347072,
+      "warehouse": "派速捷 LA10仓|派速捷 XHLAX1A仓",
+      "splitBufferRate": 0.1
     },
     {
       "supplierId": 360343,
-      "warehouse": "派速捷 XHNJ02仓|派速捷 MSNJ01仓"
+      "warehouse": "派速捷 XHNJ02仓|派速捷 MSNJ01仓|派速捷 MSNJ02仓",
+      "splitBufferRate": 0.1
     },
     {
-      "supplierId": 347072,
+      "supplierId": 360344,
       "warehouse": "派速捷 美南HOU04"
     },
     {
