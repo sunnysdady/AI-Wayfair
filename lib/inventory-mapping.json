@@ -488,13 +488,11 @@
   "warehouseMappings": [
     {
       "supplierId": 347072,
-      "warehouse": "派速捷 LA10仓|派速捷 XHLAX1A仓",
-      "splitBufferRate": 0.1
+      "warehouse": "派速捷 LA10仓|派速捷 XHLAX1A仓"
     },
     {
       "supplierId": 360343,
-      "warehouse": "派速捷 XHNJ02仓|派速捷 MSNJ01仓|派速捷 MSNJ02仓",
-      "splitBufferRate": 0.1
+      "warehouse": "派速捷 XHNJ02仓|派速捷 MSNJ01仓|派速捷 MSNJ02仓"
     },
     {
       "supplierId": 360344,
