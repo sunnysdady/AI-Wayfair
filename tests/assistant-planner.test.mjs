@@ -211,3 +211,7 @@ test("SKU-level ad spend says so when the listing has no ad rows", async () => {
   const result = await searchAssistantKnowledge(db, { query: "ZZZ999 广告" }, { plannedCommand: command, idFactory: () => "a" });
   assert.match(result.answer, /没有找到 ZZZ999/);
 });
+
+test("planner prompt treats vague time words as the last 7 days", () => {
+  assert.match(plannerInstructions(NOW()), /模糊时间词.*最近 7 天/);
+});
