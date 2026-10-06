@@ -70,7 +70,7 @@ export async function parseStockWorkbook(file: File) {
   const items = rows.map((row) => row.item);
   const { missingCombinations } = planned;
   if (missingCombinations) warnings.push({field:"映射",message:`${missingCombinations}个有效商品×仓库组合在本次源文件中没有记录，已按完整 TRUE_UP 补零`});
-  if (planned.unmappedActiveParts.length) warnings.push({field:"商品映射",message:`${planned.unmappedActiveParts.length}个 Wayfair 有效商品没有领星 SKU 映射，已在全部仓库保留为零库存：${planned.unmappedActiveParts.join("、")}`});
+  if (planned.unmappedActiveParts.length) warnings.push({field:"商品映射",message:`${planned.unmappedActiveParts.length}个 Wayfair 有效商品没有领星 SKU 映射，本次不推送（保持 Wayfair 现状）：${planned.unmappedActiveParts.join("、")}`});
   const zeroStockRows = items.filter((item)=>item.quantityOnHand===0).length;
   const mappedSkus = new Set(mapping.skuMappings.flatMap((item)=>item.lingxingSku.split("|").map((sku)=>sku.trim()).filter(Boolean)));
   const mappedWarehouses = new Set(mapping.warehouseMappings.map((item)=>item.warehouse));
@@ -78,7 +78,7 @@ export async function parseStockWorkbook(file: File) {
     totalRows:items.length, validRows:errors.length?0:items.length, errorRows:new Set(errors.map((item)=>item.row)).size,
     zeroStockRows, zeroStockRatio:items.length?zeroStockRows/items.length:0,
     totalQuantityOnHand:items.reduce((sum,item)=>sum+item.quantityOnHand,0), supplierCount:new Set(items.map((item)=>item.supplierId)).size,
-    skuMappings:mapping.activePartNumbers.length, warehouseMappings:mapping.warehouseMappings.length, stockRows:stockRows.length, missingCombinations, missingDetails:planned.missingDetails,
+    skuMappings:planned.partStats.pushedParts, zeroParts:planned.partStats.zeroParts, zeroPartRatio:planned.partStats.zeroPartRatio, zeroPartNumbers:planned.partStats.zeroPartNumbers, unmappedParts:planned.unmappedActiveParts, warehouseMappings:mapping.warehouseMappings.length, stockRows:stockRows.length, missingCombinations, missingDetails:planned.missingDetails,
     ignoredStockRows:stockRows.filter((row)=>!mappedSkus.has(row.lingxingSku)||!mappedWarehouses.has(row.warehouse)).length,
   };
   return { items:errors.length?[]:items, rows, errors, warnings, summary, canPush:errors.length===0&&items.length>0, sourceFile:file.name };

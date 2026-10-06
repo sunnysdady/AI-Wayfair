@@ -4713,6 +4713,9 @@ function Inventory({ embedded = false, readiness }: { embedded?: boolean; readin
       totalRows: number;
       supplierCount: number;
       zeroStockRows: number;
+      zeroParts?: number;
+      skuMappings?: number;
+      unmappedParts?: string[];
       missingCombinations: number;
       totalQuantityOnHand: number;
       ignoredStockRows: number;
@@ -5030,7 +5033,11 @@ function Inventory({ embedded = false, readiness }: { embedded?: boolean; readin
             </li>
             <li>
               <b>{preview?.summary?.zeroStockRows ?? "—"}</b>
-              <span>零库存</span>
+              <span>零库存行</span>
+            </li>
+            <li>
+              <b>{preview?.summary?.zeroParts != null ? `${preview.summary.zeroParts}/${preview.summary.skuMappings ?? "—"}` : "—"}</b>
+              <span>零库存商品</span>
             </li>
             <li>
               <b>
@@ -5074,6 +5081,11 @@ function Inventory({ embedded = false, readiness }: { embedded?: boolean; readin
             />
             确认零库存 SKU 可下架
           </label>
+          {preview?.summary?.unmappedParts?.length ? (
+            <p className="inventory-message bad" data-testid="inventory-unmapped-alert">
+              {preview.summary.unmappedParts.length} 个在售商品没有领星 SKU 映射，库存未知，本次不会推送：{preview.summary.unmappedParts.join("、")}
+            </p>
+          ) : null}
           {mappingNote ? (
             <p className="inv-quiet">
               {mappingNote}

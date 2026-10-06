@@ -42,17 +42,16 @@ test("builds one complete active-part by warehouse inventory baseline and fills 
     },
   );
 
-  assert.equal(result.rows.length, 4);
+  // 未映射的 PART-ZERO 库存未知：不生成推送行，只报警。
+  assert.equal(result.rows.length, 2);
   assert.deepEqual(
     result.rows.map((row) => row.item),
     [
       { discontinued: false, supplierPartNumber: "PART-A", quantityOnHand: 7, quantityOnOrder: 3, supplierId: 11, quantityBackordered: 0 },
       { discontinued: false, supplierPartNumber: "PART-A", quantityOnHand: 0, quantityOnOrder: 0, supplierId: 12, quantityBackordered: 0 },
-      { discontinued: false, supplierPartNumber: "PART-ZERO", quantityOnHand: 0, quantityOnOrder: 0, supplierId: 11, quantityBackordered: 0 },
-      { discontinued: false, supplierPartNumber: "PART-ZERO", quantityOnHand: 0, quantityOnOrder: 0, supplierId: 12, quantityBackordered: 0 },
     ],
   );
-  assert.equal(result.missingCombinations, 3);
+  assert.equal(result.missingCombinations, 1);
   assert.deepEqual(result.unmappedActiveParts, ["PART-ZERO"]);
 });
 
@@ -131,7 +130,7 @@ test("lists every zero-filled combination so operators can audit it", () => {
       warehouseMappings: [{ supplierId: 11, warehouse: "WH-A" }, { supplierId: 12, warehouse: "WH-B" }],
     },
   );
-  assert.equal(result.missingDetails.length, result.missingCombinations);
+  assert.equal(result.missingDetails.filter((d) => d.lingxingSku).length, result.missingCombinations);
   assert.deepEqual(result.missingDetails.map((d) => `${d.supplierPartNumber}/${d.supplierId}/${d.lingxingSku}/${d.warehouse}`).sort(), [
     "PART-A/11/SKU-2/WH-A",
     "PART-A/12/SKU-1/WH-B",
@@ -139,5 +138,24 @@ test("lists every zero-filled combination so operators can audit it", () => {
     "PART-NOMAP/11//WH-A",
     "PART-NOMAP/12//WH-B",
   ]);
-  assert.equal(result.missingDetails.find((d) => d.supplierPartNumber === "PART-NOMAP").reason, "商品未映射领星 SKU");
+  assert.equal(result.missingDetails.find((d) => d.supplierPartNumber === "PART-NOMAP").reason, "商品未映射领星 SKU（未推送，保持 Wayfair 现状）");
+});
+
+test("unmapped parts are reported but never zero-filled, and part-level stats exclude them", () => {
+  const result = buildCompleteInventoryRows(
+    [{ rowNumber: 2, lingxingSku: "SKU-1", warehouse: "WH-A", productName: "", available: 5, locked: 0, incoming: 0, transferInTransit: 0 },
+     { rowNumber: 3, lingxingSku: "SKU-2", warehouse: "WH-A", productName: "", available: 0, locked: 0, incoming: 0, transferInTransit: 0 }],
+    {
+      activePartNumbers: ["IGNORED"],
+      livePartNumbers: ["PART-A", "PART-B", "PART-NOMAP"],
+      skuMappings: [{ supplierPartNumber: "PART-A", lingxingSku: "SKU-1" }, { supplierPartNumber: "PART-B", lingxingSku: "SKU-2" }],
+      warehouseMappings: [{ supplierId: 11, warehouse: "WH-A" }, { supplierId: 12, warehouse: "WH-B" }],
+    },
+  );
+  assert.ok(result.rows.every((row) => row.item.supplierPartNumber !== "PART-NOMAP"));
+  assert.deepEqual(result.unmappedActiveParts, ["PART-NOMAP"]);
+  assert.equal(result.partStats.pushedParts, 2);
+  assert.equal(result.partStats.zeroParts, 1);
+  assert.deepEqual(result.partStats.zeroPartNumbers, ["PART-B"]);
+  assert.equal(result.partStats.zeroPartRatio, 0.5);
 });

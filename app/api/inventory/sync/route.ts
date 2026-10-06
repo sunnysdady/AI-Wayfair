@@ -2,6 +2,7 @@ import mapping from "@/lib/inventory-mapping.json";
 import { createHash } from "node:crypto";
 import { loadInventoryValueRisk, saveInventorySnapshot } from "@/lib/inventory";
 import { buildCompleteInventoryRows } from "@/lib/inventory-plan.mjs";
+import { chooseActiveParts, fetchLiveSupplierParts } from "@/lib/wayfair-live-parts.mjs";
 import { lingxingCredentials, pullLingxingStockRows } from "@/lib/lingxing.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
@@ -29,8 +30,23 @@ type InventoryItem = {
 
 type PlannedRow = { item: InventoryItem; source: StockRow };
 
-function finalizePulledStock(stockRows: StockRow[], sourceFile: string) {
-  const planned = buildCompleteInventoryRows(stockRows, mapping);
+type ActiveParts = { parts: string[]; source: "wayfair-catalog" | "static"; error?: string };
+
+// 以 Wayfair Catalog 的 LIVE 商品为在售基线；取不到或明显异常时回退到配置清单并告警。
+async function resolveActiveParts(env: Awaited<ReturnType<typeof bindings>>): Promise<ActiveParts> {
+  try {
+    const live = await fetchLiveSupplierParts(env);
+    const chosen = chooseActiveParts(live, mapping.activePartNumbers);
+    return chosen.source === "static"
+      ? { ...chosen, error: `Wayfair 在售清单只有 ${live.length} 个（配置清单 ${mapping.activePartNumbers.length} 个），疑似异常，已回退配置清单` }
+      : chosen;
+  } catch (error) {
+    return { parts: mapping.activePartNumbers, source: "static", error: error instanceof Error ? error.message : "Wayfair 在售清单拉取失败" };
+  }
+}
+
+function finalizePulledStock(stockRows: StockRow[], sourceFile: string, active: ActiveParts) {
+  const planned = buildCompleteInventoryRows(stockRows, { ...mapping, livePartNumbers: active.parts });
   const rows = planned.rows as PlannedRow[];
   const items = rows.map((row: PlannedRow) => row.item);
   const warnings: { field: string; message: string }[] = [];
@@ -43,8 +59,11 @@ function finalizePulledStock(stockRows: StockRow[], sourceFile: string) {
   if (planned.unmappedActiveParts.length) {
     warnings.push({
       field: "商品映射",
-      message: `${planned.unmappedActiveParts.length}个 Wayfair 有效商品没有领星 SKU 映射，已在全部仓库保留为零库存`,
+      message: `${planned.unmappedActiveParts.length}个 Wayfair 在售商品没有领星 SKU 映射，库存未知，本次不推送（保持 Wayfair 现状）：${planned.unmappedActiveParts.join("、")}`,
     });
+  }
+  if (active.error) {
+    warnings.push({ field: "在售清单", message: `未能使用 Wayfair 实时在售清单：${active.error}` });
   }
   const zeroStockRows = items.filter((item: InventoryItem) => item.quantityOnHand === 0).length;
   const mappedSkus = new Set(
@@ -65,7 +84,13 @@ function finalizePulledStock(stockRows: StockRow[], sourceFile: string) {
     zeroStockRatio: items.length ? zeroStockRows / items.length : 0,
     totalQuantityOnHand: items.reduce((sum: number, item: InventoryItem) => sum + item.quantityOnHand, 0),
     supplierCount: new Set(items.map((item: InventoryItem) => item.supplierId)).size,
-    skuMappings: mapping.activePartNumbers.length,
+    skuMappings: planned.partStats.pushedParts,
+    activePartSource: active.source,
+    activeParts: planned.partStats.activeParts,
+    zeroParts: planned.partStats.zeroParts,
+    zeroPartRatio: planned.partStats.zeroPartRatio,
+    zeroPartNumbers: planned.partStats.zeroPartNumbers,
+    unmappedParts: planned.unmappedActiveParts,
     warehouseMappings: mapping.warehouseMappings.length,
     stockRows: stockRows.length,
     missingCombinations: planned.missingCombinations,
@@ -108,7 +133,7 @@ export async function POST() {
       return Response.json({ error: "领星 API 未配置：请设置 LINGXING_APP_ID 与 LINGXING_APP_SECRET" }, { status: 503 });
     }
     const pulled = await pullLingxingStockRows(env);
-    const parsed = finalizePulledStock(pulled.stockRows as StockRow[], pulled.sourceFile);
+    const parsed = finalizePulledStock(pulled.stockRows as StockRow[], pulled.sourceFile, await resolveActiveParts(env));
     if (!parsed.canPush) {
       return Response.json({
         error: "领星库存映射后没有可推送记录",
