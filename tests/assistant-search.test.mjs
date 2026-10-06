@@ -131,7 +131,7 @@ test("translates a natural-language date and sales question into a bounded daily
     description: "查询 2026-08-23 的订单、销量和销售额",
   });
   assert.equal(result.resultCount, 1);
-  assert.match(result.answer, /2026-08-23 的销量为 6 件/);
+  assert.match(result.answer, /2026-08-23 全店销量为 6 件/);
   assert.match(calls[0].sql, /FROM orders/);
   assert.match(calls[0].sql, /Etc\/GMT\+4/);
   assert.deepEqual(calls[0].values, ["2026-08-23"]);

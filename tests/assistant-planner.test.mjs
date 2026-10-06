@@ -292,3 +292,9 @@ test("one failing data command is skipped while the others still answer", async 
   assert.match(reply.knowledge.answer, /广告结果/);
   assert.match(errors[0], /取数失败 daily_sales: db down/);
 });
+
+test("planner prompt keeps store-wide sales out of single-SKU judgments", () => {
+  const prompt = plannerInstructions(NOW());
+  assert.match(prompt, /全店汇总，评估单个 SKU/);
+  assert.match(prompt, /不要用于 DMOM 开头的 Listing 编号/);
+});
