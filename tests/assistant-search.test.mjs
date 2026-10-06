@@ -461,10 +461,10 @@ test("answers 昨天花了多少广告费 from the campaign ad report using Shan
 
   assert.equal(result.command.type, "ad_spend");
   assert.equal(result.command.date, "2026-10-05");
-  assert.match(result.answer, /2026-10-05 广告花费 \$31\.35/);
+  assert.match(result.answer, /2026-10-05 广告花费合计 \$31\.35/);
   assert.match(result.answer, /Tools cabinet Underground/);
   assert.match(calls[0].sql, /CAMPAIGN_REPORT/);
-  assert.deepEqual(calls[0].values, ["2026-10-05"]);
+  assert.deepEqual(calls[0].values, ["2026-10-05", "2026-10-05"]);
 });
 
 test("reports a clear miss when the ad report has no row for the requested day", async () => {
@@ -484,5 +484,5 @@ test("falls back to the latest reported day when no date is given", async () => 
     idFactory: () => "audit-ad-latest",
   });
   assert.equal(result.command.date, null);
-  assert.deepEqual(calls[0].values, [null]);
+  assert.deepEqual(calls[0].values, [null, null]);
 });
