@@ -2,11 +2,11 @@
   "skuMappings": [
     {
       "supplierPartNumber": "3T-B",
-      "lingxingSku": "B02UR-001BM"
+      "lingxingSku": "B02UR-001BM|B01UR-001BM"
     },
     {
       "supplierPartNumber": "3T-W",
-      "lingxingSku": "B02UR-001WM"
+      "lingxingSku": "B02UR-001WM|B01UR-001WM"
     },
     {
       "supplierPartNumber": "5T-wangge",
@@ -14,11 +14,11 @@
     },
     {
       "supplierPartNumber": "5T-dong-198-120",
-      "lingxingSku": "B02UR-029BM"
+      "lingxingSku": "B02UR-029BM|B02UR-017BM"
     },
     {
       "supplierPartNumber": "5T-dong-183-120",
-      "lingxingSku": "B02UR-038BM"
+      "lingxingSku": "B02UR-038BM|B02UR-018BM"
     },
     {
       "supplierPartNumber": "8T-Kayak",
@@ -26,19 +26,19 @@
     },
     {
       "supplierPartNumber": "5T-1600-800",
-      "lingxingSku": "B02UR-025BM|B01UR-006BM"
+      "lingxingSku": "B02UR-025BM|B01UR-006BM|B02UR-006BM"
     },
     {
       "supplierPartNumber": "5T-1830-900",
-      "lingxingSku": "B02UR-024BM|B01UR-003BM"
+      "lingxingSku": "B02UR-024BM|B01UR-003BM|B02UR-003BM"
     },
     {
       "supplierPartNumber": "5T-1980-1200",
-      "lingxingSku": "B02UR-026BM|B01UR-004BM"
+      "lingxingSku": "B02UR-026BM|B01UR-004BM|B02UR-004BM"
     },
     {
       "supplierPartNumber": "5T-1830-1200",
-      "lingxingSku": "B02UR-027BM|B01UR-005BM"
+      "lingxingSku": "B02UR-027BM|B01UR-005BM|B02UR-005BM"
     },
     {
       "supplierPartNumber": "6T-2095-122",
@@ -110,35 +110,35 @@
     },
     {
       "supplierPartNumber": "MFC-D3-B",
-      "lingxingSku": "B01PF-002BMJ"
+      "lingxingSku": "B01PF-002BMJ|B01PF-002BM"
     },
     {
       "supplierPartNumber": "MFC-D3-W",
-      "lingxingSku": "B01PF-002WMJ"
+      "lingxingSku": "B01PF-002WMJ|B01PF-002WM"
     },
     {
       "supplierPartNumber": "MFC-D3B",
-      "lingxingSku": "B01PF-002BMJ"
+      "lingxingSku": "B01PF-002BMJ|B01PF-002BM"
     },
     {
       "supplierPartNumber": "MFC-D3W",
-      "lingxingSku": "B01PF-002WMJ"
+      "lingxingSku": "B01PF-002WMJ|B01PF-002WM"
     },
     {
       "supplierPartNumber": "MFC-D2-B",
-      "lingxingSku": "B01PF-001BMJ"
+      "lingxingSku": "B01PF-001BMJ|B01PF-001BM"
     },
     {
       "supplierPartNumber": "MFC-D2-W",
-      "lingxingSku": "B01PF-001WMJ"
+      "lingxingSku": "B01PF-001WMJ|B01PF-001WM"
     },
     {
       "supplierPartNumber": "MFC-D2B",
-      "lingxingSku": "B01PF-001BMJ"
+      "lingxingSku": "B01PF-001BMJ|B01PF-001BM"
     },
     {
       "supplierPartNumber": "MFC-D2W",
-      "lingxingSku": "B01PF-001WMJ"
+      "lingxingSku": "B01PF-001WMJ|B01PF-001WM"
     },
     {
       "supplierPartNumber": "VF-ZH-4B",
@@ -178,15 +178,15 @@
     },
     {
       "supplierPartNumber": "MFC-D02",
-      "lingxingSku": "B03PF-002BM"
+      "lingxingSku": "B03PF-002BM|B03PF-002BMJ"
     },
     {
       "supplierPartNumber": "MFC-D03",
-      "lingxingSku": "B03PF-002WM"
+      "lingxingSku": "B03PF-002WM|B03PF-002WMJ"
     },
     {
       "supplierPartNumber": "MFC-D04",
-      "lingxingSku": "B03PF-003WM"
+      "lingxingSku": "B03PF-003WM|B03PF-003WMJ"
     },
     {
       "supplierPartNumber": "CT-3ps",
@@ -210,15 +210,15 @@
     },
     {
       "supplierPartNumber": "PT01-WH",
-      "lingxingSku": "B03SC-017WM|B03SC-001WM"
+      "lingxingSku": "B03SC-017WM|B03SC-001WM|B03SC-016WM|B03SC-017WMN"
     },
     {
       "supplierPartNumber": "PT01-BK",
-      "lingxingSku": "B03SC-017BM|B03SC-001BM"
+      "lingxingSku": "B03SC-017BM|B03SC-001BM|B03SC-016BM|B03SC-017BMN"
     },
     {
       "supplierPartNumber": "PT02-WH",
-      "lingxingSku": "B03SC-002WB"
+      "lingxingSku": "B03SC-002WB|B03SC-010WM"
     },
     {
       "supplierPartNumber": "PT03-WH",
@@ -258,35 +258,35 @@
     },
     {
       "supplierPartNumber": "6D-locker",
-      "lingxingSku": "B01SC-001BM"
+      "lingxingSku": "B01SC-001BM|B01SC-001BMX"
     },
     {
       "supplierPartNumber": "9D-locker",
-      "lingxingSku": "B01SC-002BM"
+      "lingxingSku": "B01SC-002BM|B01SC-002BMX"
     },
     {
       "supplierPartNumber": "W3D-G-locker",
-      "lingxingSku": "B03SL-004GM"
+      "lingxingSku": "B03SL-004GM|B01SL-007GM|B03SL-001GM"
     },
     {
       "supplierPartNumber": "W3D-B-locker",
-      "lingxingSku": "B03SL-004BM"
+      "lingxingSku": "B03SL-004BM|B01SL-007BM|B03SL-001BM"
     },
     {
       "supplierPartNumber": "W6D-G-locker",
-      "lingxingSku": "B03SL-005GM"
+      "lingxingSku": "B03SL-005GM|B01SL-008GM|B03SL-002GM"
     },
     {
       "supplierPartNumber": "W6D-B-locker",
-      "lingxingSku": "B03SL-005BM"
+      "lingxingSku": "B03SL-005BM|B01SL-008BM|B03SL-002BM"
     },
     {
       "supplierPartNumber": "W9D-G-locker",
-      "lingxingSku": "B03SL-006GM"
+      "lingxingSku": "B03SL-006GM|B01SL-009GM|B03SL-003GM"
     },
     {
       "supplierPartNumber": "W9D-B-locker",
-      "lingxingSku": "B03SL-006BM"
+      "lingxingSku": "B03SL-006BM|B01SL-009BM|B03SL-003BM"
     },
     {
       "supplierPartNumber": "TOOL-A01",
@@ -294,11 +294,11 @@
     },
     {
       "supplierPartNumber": "TOOL-B01",
-      "lingxingSku": "B01TC-001BM"
+      "lingxingSku": "B01TC-001BM|B01TC-001BMF|B01TC-001BMX"
     },
     {
       "supplierPartNumber": "TOOL-B02",
-      "lingxingSku": "B01TC-002BM"
+      "lingxingSku": "B01TC-002BM|B01TC-002BMF|B01TC-002BMX"
     },
     {
       "supplierPartNumber": "TOOL-A02",
@@ -310,7 +310,7 @@
     },
     {
       "supplierPartNumber": "TOOL-B03",
-      "lingxingSku": "B01TC-003BM"
+      "lingxingSku": "B01TC-003BM|B01TC-003BMF|B01TC-003BMX"
     },
     {
       "supplierPartNumber": "TOOL-A04",
@@ -318,7 +318,7 @@
     },
     {
       "supplierPartNumber": "TOOL-B04",
-      "lingxingSku": "B01TC-004BM"
+      "lingxingSku": "B01TC-004BM|B01TC-004BMF|B01TC-004BMX"
     },
     {
       "supplierPartNumber": "TOOL-A05",
@@ -326,7 +326,7 @@
     },
     {
       "supplierPartNumber": "TOOL-B05",
-      "lingxingSku": "B01TC-005BM"
+      "lingxingSku": "B01TC-005BM|B01TC-005BMF|B01TC-005BMX"
     },
     {
       "supplierPartNumber": "TOOL-A06",
@@ -334,7 +334,7 @@
     },
     {
       "supplierPartNumber": "TOOL-B06",
-      "lingxingSku": "B01TC-006BM"
+      "lingxingSku": "B01TC-006BM|B01TC-006BMF|B01TC-006BMX"
     },
     {
       "supplierPartNumber": "TOOL-A07",
@@ -342,15 +342,15 @@
     },
     {
       "supplierPartNumber": "TOOL-B07",
-      "lingxingSku": "B01TC-007BM"
+      "lingxingSku": "B01TC-007BM|B01TC-007BMF|B01TC-007BMX"
     },
     {
       "supplierPartNumber": "TOOL-A08",
-      "lingxingSku": "B03TC-002AM"
+      "lingxingSku": "B03TC-002AM|B01TC-008AM"
     },
     {
       "supplierPartNumber": "TOOL-B08",
-      "lingxingSku": "B03TC-002BM|B01TC-008BM"
+      "lingxingSku": "B03TC-002BM|B01TC-008BM|B03TC-002BMF|B03TC-002BMX"
     },
     {
       "supplierPartNumber": "FC-800B",
@@ -370,7 +370,7 @@
     },
     {
       "supplierPartNumber": "Bed-96-1",
-      "lingxingSku": "B02BF-019BM|B02BF-004BM|B02BF-012BM"
+      "lingxingSku": "B02BF-019BM|B02BF-004BM|B02BF-012BM|B02BF-015BM"
     },
     {
       "supplierPartNumber": "Bed-78-1",
@@ -414,11 +414,11 @@
     },
     {
       "supplierPartNumber": "P442670",
-      "lingxingSku": "B02SC-002WM"
+      "lingxingSku": "B02SC-002WM|B02SC-003WM"
     },
     {
       "supplierPartNumber": "P442671",
-      "lingxingSku": "B02SC-001WM"
+      "lingxingSku": "B02SC-001WM|B02SC-004WM"
     },
     {
       "supplierPartNumber": "P442672-Too-8",
@@ -447,6 +447,26 @@
     {
       "supplierPartNumber": "S00002-BC",
       "lingxingSku": "B03BC-002WM"
+    },
+    {
+      "supplierPartNumber": "4T-Kayak",
+      "lingxingSku": "B01KS-003BM"
+    },
+    {
+      "supplierPartNumber": "2T-Kayak",
+      "lingxingSku": "B01KS-001BM"
+    },
+    {
+      "supplierPartNumber": "3T-Kayak",
+      "lingxingSku": "B01KS-002BM"
+    },
+    {
+      "supplierPartNumber": "LFC-5B",
+      "lingxingSku": "B01LF-005BM"
+    },
+    {
+      "supplierPartNumber": "LFC-5W",
+      "lingxingSku": "B01LF-005WM"
     }
   ],
   "warehouseMappings": [
@@ -516,7 +536,6 @@
     "MFC-D3-W",
     "MFC-D3B",
     "MFC-D3W",
-    "MK-WB001B",
     "PT01-WH",
     "PT02-WH",
     "PT03-WH",
@@ -554,9 +573,6 @@
     "VFC-5W-wheel",
     "W3D-G-locker",
     "W6D-G-locker",
-    "W9D-G-locker",
-    "YB- CW12X0718",
-    "YB-CW12A0720",
-    "YB-CW12S0768"
+    "W9D-G-locker"
   ]
 }
