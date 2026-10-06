@@ -1,3 +1,5 @@
+import mapping from "@/lib/inventory-mapping.json";
+import { partCoverage } from "@/lib/inventory-coverage.mjs";
 import { loadAcceptedInventoryDryRun, loadInventoryPushRun, loadSnapshotItems, saveInventoryPushRun } from "@/lib/inventory";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 import { assertLiveOperation } from "@/lib/operating-safety.mjs";
@@ -71,8 +73,9 @@ export async function POST(request: Request) {
     if(!dryRun){
       try { assertLiveOperation(env, "inventory", items.map((item)=>item.supplierId)); }
       catch(error){return Response.json({error:error instanceof Error?error.message:"库存生产写入被安全闸门阻止"},{status:403});}
-      const zeroRatio=items.filter((item)=>item.quantityOnHand===0).length/items.length;
-      if(zeroRatio>=.5&&!body.zeroStockConfirmed) return Response.json({error:"零库存占比过高，需要单独确认"},{status:400});
+      // 商品没铺到某个仓是常态；只有"有货实体仓不足 2 个"的商品占比过高才需要人工确认。
+      const coverage=partCoverage(items,mapping.warehouseMappings);
+      if(coverage.thinPartRatio>=.5&&!body.zeroStockConfirmed) return Response.json({error:`零库存占比过高（${coverage.thinParts}/${coverage.parts} 个商品有货仓不足 ${coverage.minWarehouses} 个），需要单独确认`},{status:400});
       if(!await loadAcceptedInventoryDryRun(env.DB,body.snapshotId)) return Response.json({error:"当前库存快照尚未获得 Wayfair 无错误 Dry-run 回执，禁止正式推送"},{status:409});
     }
     const accessToken=await token(env);

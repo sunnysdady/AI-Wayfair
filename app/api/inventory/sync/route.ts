@@ -2,6 +2,7 @@ import mapping from "@/lib/inventory-mapping.json";
 import { createHash } from "node:crypto";
 import { loadInventoryValueRisk, saveInventorySnapshot } from "@/lib/inventory";
 import { buildCompleteInventoryRows } from "@/lib/inventory-plan.mjs";
+import { partCoverage } from "@/lib/inventory-coverage.mjs";
 import { chooseActiveParts, fetchLiveSupplierParts } from "@/lib/wayfair-live-parts.mjs";
 import { lingxingCredentials, pullLingxingStockRows } from "@/lib/lingxing.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
@@ -76,7 +77,11 @@ function finalizePulledStock(stockRows: StockRow[], sourceFile: string, active: 
       String(item.warehouse).split("|").map((name: string) => name.trim()).filter(Boolean),
     ),
   );
+  const coverage = partCoverage(items, mapping.warehouseMappings);
   const summary = {
+    thinParts: coverage.thinParts,
+    thinPartRatio: coverage.thinPartRatio,
+    thinPartNumbers: coverage.thinPartNumbers,
     totalRows: items.length,
     validRows: items.length,
     errorRows: 0,

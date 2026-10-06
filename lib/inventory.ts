@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import mapping from "./inventory-mapping.json";
+import { partCoverage } from "./inventory-coverage.mjs";
 import { buildCompleteInventoryRows } from "./inventory-plan.mjs";
 import { calculateInventoryValueRisk } from "./inventory-value-risk.mjs";
 import { isInventoryDryRunAccepted } from "./wayfair-inventory-feed.mjs";
@@ -74,7 +75,9 @@ export async function parseStockWorkbook(file: File) {
   const zeroStockRows = items.filter((item)=>item.quantityOnHand===0).length;
   const mappedSkus = new Set(mapping.skuMappings.flatMap((item)=>item.lingxingSku.split("|").map((sku)=>sku.trim()).filter(Boolean)));
   const mappedWarehouses = new Set(mapping.warehouseMappings.map((item)=>item.warehouse));
+  const coverage = partCoverage(items, mapping.warehouseMappings);
   const summary = {
+    thinParts:coverage.thinParts, thinPartRatio:coverage.thinPartRatio, thinPartNumbers:coverage.thinPartNumbers,
     totalRows:items.length, validRows:errors.length?0:items.length, errorRows:new Set(errors.map((item)=>item.row)).size,
     zeroStockRows, zeroStockRatio:items.length?zeroStockRows/items.length:0,
     totalQuantityOnHand:items.reduce((sum,item)=>sum+item.quantityOnHand,0), supplierCount:new Set(items.map((item)=>item.supplierId)).size,

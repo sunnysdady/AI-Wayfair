@@ -4714,6 +4714,7 @@ function Inventory({ embedded = false, readiness }: { embedded?: boolean; readin
       supplierCount: number;
       zeroStockRows: number;
       zeroParts?: number;
+      thinParts?: number;
       skuMappings?: number;
       unmappedParts?: string[];
       missingCombinations: number;
@@ -5037,7 +5038,11 @@ function Inventory({ embedded = false, readiness }: { embedded?: boolean; readin
             </li>
             <li>
               <b>{preview?.summary?.zeroParts != null ? `${preview.summary.zeroParts}/${preview.summary.skuMappings ?? "—"}` : "—"}</b>
-              <span>零库存商品</span>
+              <span>全仓无货商品</span>
+            </li>
+            <li>
+              <b>{preview?.summary?.thinParts != null ? `${preview.summary.thinParts}/${preview.summary.skuMappings ?? "—"}` : "—"}</b>
+              <span>有货仓不足 2 个</span>
             </li>
             <li>
               <b>
