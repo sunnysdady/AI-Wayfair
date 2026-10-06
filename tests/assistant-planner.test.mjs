@@ -143,3 +143,71 @@ test("the answer prompt asks for Feishu plain-text formatting", async () => {
   await answerAssistantChat({}, { message: "昨天广告怎么样" }, { processEnv: ENV, fetchImpl, search });
   assert.match(instructions, /飞书纯文本/);
 });
+
+function recordingDb(calls, resultsFor) {
+  return {
+    prepare(sql) {
+      return {
+        bind(...values) {
+          calls.push({ sql, values });
+          return {
+            async all() { return { results: resultsFor(sql) }; },
+            async run() { return { success: true }; },
+          };
+        },
+      };
+    },
+  };
+}
+
+test("validatePlannedCommands accepts ranges for daily_sales and SKU-level ad spend", () => {
+  const commands = validatePlannedCommands([
+    { tool: "daily_sales", date_from: "2026-09-30", date_to: "2026-10-06" },
+    { tool: "daily_sales", date_from: "2026-10-06", date_to: "2026-10-06" },
+    { tool: "ad_spend_sku", sku: "dmom1021", date_from: "2026-10-01", date_to: "2026-10-05" },
+    { tool: "ad_spend_sku", sku: "DMOM1021" },
+    { tool: "ad_spend_sku", date: "2026-10-05" },
+    { tool: "daily_sales", date_from: "2026-01-01", date_to: "2026-10-06" },
+  ]);
+  assert.deepEqual(commands.map((c) => c.type), ["daily_sales_range", "daily_sales", "ad_spend_sku", "ad_spend_sku"]);
+  assert.equal(commands[2].sku, "DMOM1021");
+  assert.equal(commands[3].dateFrom, null);
+});
+
+test("daily sales range sums every day and lists per-day revenue", async () => {
+  const { searchAssistantKnowledge } = await import("../lib/assistant-search.mjs");
+  const calls = [];
+  const db = recordingDb(calls, (sql) => /GROUP BY 1/.test(sql) ? [
+    { day: "2026-10-04", orders: 6, units: 7, revenue_cents: 82295 },
+    { day: "2026-10-05", orders: 4, units: 5, revenue_cents: 61600 },
+  ] : []);
+  const [command] = validatePlannedCommands([{ tool: "daily_sales", date_from: "2026-10-04", date_to: "2026-10-05" }]);
+  const result = await searchAssistantKnowledge(db, { query: "最近两天销量" }, { plannedCommand: command, idFactory: () => "a" });
+  assert.match(result.answer, /合计销量 12 件、订单 10 个、销售额 \$1438\.95/);
+  assert.match(result.answer, /10-04 \$822\.95/);
+  assert.deepEqual(calls[0].values, ["2026-10-04", "2026-10-05"]);
+});
+
+test("SKU-level ad spend matches listing or part number and reports CPC and campaigns", async () => {
+  const { searchAssistantKnowledge } = await import("../lib/assistant-search.mjs");
+  const calls = [];
+  const db = recordingDb(calls, (sql) => /GROUP BY payload::jsonb->>'campaign_id'/.test(sql)
+    ? [{ campaign_name: "DMOM1021-宽二680", spend: "5.81" }]
+    : [{ report_date: "2026-10-05", listing: "DMOM1021", spend: "6.13", clicks: "12", impressions: "800", attributed_sales: "0", attributed_orders: "0" }]);
+  const [command] = validatePlannedCommands([{ tool: "ad_spend_sku", sku: "DMOM1021", date: "2026-10-05" }]);
+  const result = await searchAssistantKnowledge(db, { query: "DMOM1021 昨天广告" }, { plannedCommand: command, idFactory: () => "a" });
+  assert.match(result.answer, /DMOM1021（Listing DMOM1021）2026-10-05 广告花费合计 \$6\.13/);
+  assert.match(result.answer, /CPC \$0\.51/);
+  assert.match(result.answer, /DMOM1021-宽二680（\$5\.81）/);
+  assert.match(calls[0].sql, /LISTING_REPORT/);
+  assert.match(calls[0].sql, /first_10_part_numbers/);
+  assert.deepEqual(calls[0].values, ["2026-10-05", "2026-10-05", "%DMOM1021%", "%DMOM1021%"]);
+});
+
+test("SKU-level ad spend says so when the listing has no ad rows", async () => {
+  const { searchAssistantKnowledge } = await import("../lib/assistant-search.mjs");
+  const db = recordingDb([], () => []);
+  const [command] = validatePlannedCommands([{ tool: "ad_spend_sku", sku: "ZZZ999" }]);
+  const result = await searchAssistantKnowledge(db, { query: "ZZZ999 广告" }, { plannedCommand: command, idFactory: () => "a" });
+  assert.match(result.answer, /没有找到 ZZZ999/);
+});
