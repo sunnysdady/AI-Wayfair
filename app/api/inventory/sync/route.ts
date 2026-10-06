@@ -38,8 +38,8 @@ async function resolveActiveParts(env: Awaited<ReturnType<typeof bindings>>): Pr
     const live = await fetchLiveSupplierParts(env);
     const chosen = chooseActiveParts(live, mapping.activePartNumbers);
     return chosen.source === "static"
-      ? { ...chosen, error: `Wayfair 在售清单只有 ${live.length} 个（配置清单 ${mapping.activePartNumbers.length} 个），疑似异常，已回退配置清单` }
-      : chosen;
+      ? { parts: chosen.parts, source: "static" as const, error: `Wayfair 在售清单只有 ${live.length} 个（配置清单 ${mapping.activePartNumbers.length} 个），疑似异常，已回退配置清单` }
+      : { parts: chosen.parts, source: "wayfair-catalog" as const };
   } catch (error) {
     return { parts: mapping.activePartNumbers, source: "static", error: error instanceof Error ? error.message : "Wayfair 在售清单拉取失败" };
   }
