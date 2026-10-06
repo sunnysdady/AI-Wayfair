@@ -215,3 +215,80 @@ test("SKU-level ad spend says so when the listing has no ad rows", async () => {
 test("planner prompt treats vague time words as the last 7 days", () => {
   assert.match(plannerInstructions(NOW()), /模糊时间词.*最近 7 天/);
 });
+
+test("sku_economics expands a listing into part numbers and derives margin, cover days and break-even ROAS", async () => {
+  const { searchAssistantKnowledge } = await import("../lib/assistant-search.mjs");
+  const calls = [];
+  const db = recordingDb(calls, (sql) => {
+    if (/first_10_part_numbers' AS parts/.test(sql)) return [{ listing: "DMOM1021", parts: "LFC-2B-680, LFC-2W-680", report_date: "2026-10-05" }];
+    if (/FROM sku_costs/.test(sql)) return [
+      { part_number: "LFC-2B-680", unit_cost_cents: 6420, currency: "USD" },
+      { part_number: "LFC-2W-680", unit_cost_cents: 6420, currency: "USD" },
+    ];
+    if (/FROM inventory_snapshot_rows/.test(sql)) return [
+      { part_number: "LFC-2B", on_hand: 0, on_order: 0 },
+      { part_number: "LFC-2W", on_hand: 102, on_order: 0 },
+    ];
+    if (/FROM order_items/.test(sql)) return [
+      { part_number: "LFC-2B-680", units_30d: 10, units_90d: 68, revenue_cents_90d: 709080 },
+      { part_number: "LFC-2W-680", units_30d: 6, units_90d: 37, revenue_cents_90d: 389400 },
+    ];
+    return [];
+  });
+  const [command] = validatePlannedCommands([{ tool: "sku_economics", sku: "DMOM1021" }]);
+  const result = await searchAssistantKnowledge(db, { query: "DMOM1021 值不值" }, {
+    plannedCommand: command, idFactory: () => "a", now: () => "2026-10-06T08:00:00.000Z",
+  });
+  assert.match(result.answer, /LFC-2B-680：成本 \$64\.20/);
+  assert.match(result.answer, /推断匹配/);
+  assert.match(result.answer, /LFC-2W-680：成本 \$64\.20，现货 102.*可售约 510 天/);
+  // revenue 1,098,480 ; cost 105*6420 = 674,100 ; margin 38.6% ; break-even 1/0.386 = 2.59
+  assert.match(result.answer, /实际毛利率 38\.6%/);
+  assert.match(result.answer, /保本 WSC ROAS ≈ 2\.59×/);
+  assert.match(result.answer, /LFC-2B-680：成本 \$64\.20，现货 0.*可售约 0 天/);
+  assert.match(result.answer, /最紧张的子 SKU 可售约 0 天/);
+  assert.deepEqual(calls.find((c) => /FROM order_items/.test(c.sql)).values.slice(0, 2), ["2026-09-06", "2026-07-08"]);
+});
+
+test("sku_economics falls back to the store margin estimate when a sold part has no cost", async () => {
+  const { searchAssistantKnowledge } = await import("../lib/assistant-search.mjs");
+  const db = recordingDb([], (sql) => {
+    if (/first_10_part_numbers' AS parts/.test(sql)) return [{ listing: "DMOM1031", parts: "MFC-D03", report_date: "2026-10-05" }];
+    if (/FROM order_items/.test(sql)) return [{ part_number: "MFC-D03", units_30d: 1, units_90d: 3, revenue_cents_90d: 30000 }];
+    return [];
+  });
+  const [command] = validatePlannedCommands([{ tool: "sku_economics", sku: "MFC-D03" }]);
+  const result = await searchAssistantKnowledge(db, { query: "MFC-D03 保本线" }, { plannedCommand: command, idFactory: () => "a", now: () => "2026-10-06T08:00:00.000Z" });
+  assert.match(result.answer, /成本缺失/);
+  assert.match(result.answer, /按店铺估算 28\.26%/);
+  assert.match(result.answer, /3\.54×/);
+});
+
+test("sku_economics says so when the SKU is not in the ad report", async () => {
+  const { searchAssistantKnowledge } = await import("../lib/assistant-search.mjs");
+  const db = recordingDb([], () => []);
+  const [command] = validatePlannedCommands([{ tool: "sku_economics", sku: "ZZZ999" }]);
+  const result = await searchAssistantKnowledge(db, { query: "ZZZ999 经济账" }, { plannedCommand: command, idFactory: () => "a" });
+  assert.match(result.answer, /找不到 ZZZ999/);
+});
+
+test("one failing data command is skipped while the others still answer", async () => {
+  const errors = [];
+  const fetchImpl = async (_url, init) => {
+    const body = JSON.parse(init.body);
+    if (/意图规划器/.test(body.instructions)) {
+      return modelReply('{"commands":[{"tool":"daily_sales","date":"2026-10-04"},{"tool":"ad_spend","date":"2026-10-04"}]}');
+    }
+    return modelReply("ok");
+  };
+  const search = async (_db, _input, searchOptions) => {
+    if (searchOptions?.plannedCommand?.type === "daily_sales") throw new Error("db down");
+    return { answer: "广告结果", command: searchOptions.plannedCommand, resultCount: 1, sources: ["ad_report"], records: [], searchedAt: NOW() };
+  };
+  const reply = await answerAssistantChat({}, { message: "昨天销量和广告" }, {
+    processEnv: ENV, fetchImpl, now: NOW, search, usePlanner: true, logger: { error: (m) => errors.push(m) },
+  });
+  assert.equal(reply.mode, "model");
+  assert.match(reply.knowledge.answer, /广告结果/);
+  assert.match(errors[0], /取数失败 daily_sales: db down/);
+});
