@@ -30,7 +30,10 @@ test("TACOS is unknown, not zero, when spend is unsynced or there are no sales",
 test("partial ad-spend coverage still computes TACOS but says it may be understated", () => {
   const result = tacosAssessment({ spend: 50, totalSales: 1000, coverage: "PARTIAL" });
   assert.equal(result.partial, true);
-  assert.match(result.reason, /可能更高/);
+  assert.equal(result.status, "PROVISIONAL");
+  const over = tacosAssessment({ spend: 200, totalSales: 1000, coverage: "PARTIAL" });
+  assert.equal(over.status, "OVER_LINE");
+  assert.match(over.reason, /实际更高/);
 });
 
 test("contribution after ads uses WSC − units×SKU cost − spend when every part is costed", () => {

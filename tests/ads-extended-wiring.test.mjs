@@ -71,7 +71,7 @@ test("cron route passes the flag through and routes are GET-only advisory views"
     const route = await readFile(new URL(`../app/api/ads/${name}/route.ts`, import.meta.url), "utf8");
     assert.match(route, /export async function GET/);
     assert.doesNotMatch(route, /export async function (POST|PUT|PATCH|DELETE)/);
-    assert.match(route, /sameOrigin/);
+    assert.match(route, /refreshAllowed\(request\)/);
   }
 });
 

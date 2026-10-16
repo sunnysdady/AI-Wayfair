@@ -13,7 +13,7 @@ export type TacosAccount = {
   spend: number | null;
   totalSales: number | null;
   tacos: number | null;
-  status: "WITHIN_LINE" | "OVER_LINE" | "NO_SALES" | "UNKNOWN";
+  status: "WITHIN_LINE" | "OVER_LINE" | "PROVISIONAL" | "NO_SALES" | "UNKNOWN";
   budgetAdvice: "NO_CAP" | "KEEP_CAP" | "UNKNOWN";
   reason: string;
   coverage: string;
@@ -27,30 +27,32 @@ export type LossAlert = {
   level: "listing" | "campaign";
   id: string;
   label: string;
-  spend: number;
-  wsc: number;
+  spend: number | null;
+  wsc: number | null;
   contribution: number | null;
   basis: string;
+  status: "LOSS" | "SUSPECTED" | "WATCH";
   confirmed: boolean;
+  mature: boolean;
 };
 export type TacosGuardData =
   | { error: string }
-  | { line: number; account: TacosAccount; alerts: LossAlert[]; notes: string[]; range?: { start: string; end: string } };
+  | { line: number; account: TacosAccount; alerts: LossAlert[]; notes: string[]; range?: { start: string; end: string }; mature?: boolean };
 
 type ExtendedView<Row> = {
   kind: "keywords" | "rank";
   enabled: boolean;
   range: { start: string; end: string };
-  tacos: { line: number; account: TacosAccount; alerts: LossAlert[]; notes: string[] } | null;
+  tacos: { line: number; account: TacosAccount; alerts: LossAlert[]; notes: string[]; mature?: boolean } | null;
   coverage: { expectedDays: number; syncedDays: number; missingDays: string[]; lastRefreshedAt: string | null };
   sync: { status: string; error?: string; rows?: number } | null;
   hints: string[];
   rows: Row[];
   summary: Record<string, number | boolean | string | null>;
-  quality: { unmappedColumns: string[] };
+  quality: { unmappedColumns: string[]; missingColumns?: string[]; columnNotes?: string[] };
   error?: string;
 };
-type Advice = { code: string; label: string };
+type Advice = { code: string; label: string; validated?: boolean };
 type KeywordRow = {
   campaignId: string;
   campaignName: string;
@@ -59,15 +61,15 @@ type KeywordRow = {
   keyword: string;
   matchType: string;
   maxBid: number | null;
-  impressions: number;
-  clicks: number;
-  spend: number;
-  orders: number;
-  retail: number;
+  impressions: number | null;
+  clicks: number | null;
+  spend: number | null;
+  orders: number | null;
+  retail: number | null;
   wsc: number | null;
-  ctr: number;
-  cvr: number;
-  retailRoas: number;
+  ctr: number | null;
+  cvr: number | null;
+  retailRoas: number | null;
   wscRoas: number | null;
   contribution: number | null;
   contributionBasis: string;
@@ -104,13 +106,21 @@ const BASIS_LABEL: Record<string, string> = {
   ESTIMATE: "估算",
   UNKNOWN: "未知",
 };
+const num = (value: number | null | undefined) => (value === null || value === undefined ? "—" : value);
 
+/** 缺数据（null）显示“暂无法判断”，绝不显示成 $0 或绿色“未亏损”。 */
 function ContributionCell({ value, basis, loss, suspected }: { value: number | null; basis: string; loss: boolean; suspected: boolean }) {
+  if (value === null) {
+    return (
+      <span>
+        <b className="neutral">暂无法判断</b>
+        <small>缺少归因批发额或花费</small>
+      </span>
+    );
+  }
   return (
     <span>
-      <b className={loss ? "bad" : suspected ? "bad" : value !== null && value >= 0 ? "good" : "neutral"}>
-        {usd(value)}
-      </b>
+      <b className={loss ? "bad" : suspected ? "bad" : value >= 0 ? "good" : "neutral"}>{usd(value)}</b>
       <small>
         {loss ? "亏损 · " : suspected ? "疑似亏损 · " : ""}
         {BASIS_LABEL[basis] || basis}
@@ -128,6 +138,8 @@ export function TacosGuardPanel({ guard, compact = false }: { guard: TacosGuardD
   const scaleMax = 0.2; // 条形图满格 = 20%，10% 线固定在中间
   const fill = account.tacos === null ? 0 : Math.min(1, account.tacos / scaleMax);
   const within = account.status === "WITHIN_LINE";
+  const provisional = account.status === "PROVISIONAL";
+  const contributionKnown = account.contributionAfterAds !== null;
   return (
     <section className="card tacos-guard" aria-label="TACOS 与利润守护">
       <div className="section-head">
@@ -143,10 +155,18 @@ export function TacosGuardPanel({ guard, compact = false }: { guard: TacosGuardD
       <div className="tacos-guard-body">
         <div className="tacos-meter">
           <strong className={within ? "good" : account.status === "OVER_LINE" ? "bad" : "neutral"}>
+            {provisional ? "≥ " : ""}
             {pct(account.tacos)}
           </strong>
+          {provisional && <em className="tacos-provisional">暂估 · 广告花费数据不全（{account.coverage}），暂不能判断是否可不设预算上限</em>}
           <span>
-            {within ? "低于 10% 线 · 可不设预算上限" : account.status === "OVER_LINE" ? "高于 10% 线 · 保留预算上限" : "暂无法判断"}
+            {within
+              ? "低于 10% 线 · 可不设预算上限"
+              : account.status === "OVER_LINE"
+                ? "高于 10% 线 · 保留预算上限"
+                : provisional
+                  ? "待广告花费补齐后再判断"
+                  : "暂无法判断"}
           </span>
           <div className="tacos-bar" role="img" aria-label={`TACOS ${pct(account.tacos)}，10% 线`}>
             <i className={within ? "ok" : "over"} style={{ width: `${fill * 100}%` }} />
@@ -159,21 +179,28 @@ export function TacosGuardPanel({ guard, compact = false }: { guard: TacosGuardD
         </div>
         <div className="tacos-contribution">
           <small>订单口径 · 扣广告后贡献</small>
-          <strong className={account.loss ? "bad" : "good"}>{usd(account.contributionAfterAds)}</strong>
+          <strong className={!contributionKnown ? "neutral" : account.loss ? "bad" : "good"}>
+            {contributionKnown ? usd(account.contributionAfterAds) : "暂无法判断"}
+          </strong>
           <span>
-            {account.loss ? "亏损：订单毛利不足以覆盖广告花费" : "未亏损"} · {account.contributionBasis === "SKU_COST" ? "SKU 成本已全覆盖" : "含按店铺毛利估算的部分"}
+            {!contributionKnown
+              ? "广告花费未同步，无法计算扣广告后贡献"
+              : `${account.loss ? "亏损：订单毛利不足以覆盖广告花费" : "未亏损"} · ${account.contributionBasis === "SKU_COST" ? "SKU 成本已全覆盖" : "含按店铺毛利估算的部分"}`}
           </span>
         </div>
       </div>
       <div className="tacos-alerts">
-        <b>{alerts.length ? `扣广告后为负的项（${alerts.length}）` : "没有扣广告后为负的 Listing / Campaign"}</b>
+        <b>{alerts.length ? `扣广告后为负或需观察的项（${alerts.length}）` : "没有扣广告后为负的 Listing / Campaign"}</b>
+        {guard.mature === false && alerts.length > 0 && <small>所选周期的归因窗口未满14天：标“观察”的只是暂时没有销售，不算亏损。</small>}
         {alerts.map((alert) => (
           <p key={`${alert.level}:${alert.id}`}>
-            <em className="bad">{alert.confirmed ? "亏损" : "疑似亏损（估算）"}</em>
+            <em className={alert.status === "WATCH" ? "neutral" : "bad"}>
+              {alert.status === "LOSS" ? "亏损" : alert.status === "SUSPECTED" ? "疑似亏损（估算）" : "观察 · 归因未满14天"}
+            </em>
             <span>
               {alert.level === "listing" ? "SKU" : "活动"} · {alert.label}
             </span>
-            <b className="bad">{usd(alert.contribution)}</b>
+            <b className={alert.status === "WATCH" ? "neutral" : "bad"}>{usd(alert.contribution)}</b>
             <small>
               花费 {usd(alert.spend)} · WSC {usd(alert.wsc)}
             </small>
@@ -311,7 +338,7 @@ export function KeywordPerformanceTab() {
           <b>统计口径：关键词 × 商品 × 匹配类型</b>
           <span>
             仅关键词类广告（SPN）有数据；归因窗口 14 天。{String(summary?.mature) === "true" ? "" : "最近 14 天内归因未成熟，亏损建议只做观察。"}
-            {summary ? ` 共 ${summary.keywords} 个关键词，花费 ${usd(Number(summary.spend))}，扣广告后为负 ${Number(summary.lossCount) + Number(summary.suspectedLossCount)} 个。` : ""}
+            {summary ? ` 共 ${summary.keywords} 个关键词，花费 ${summary.spend === null ? "—" : usd(Number(summary.spend))}，扣广告后为负 ${Number(summary.lossCount) + Number(summary.suspectedLossCount)} 个。` : ""}
           </span>
         </div>
         <div className="api-table-scroll">
@@ -340,9 +367,9 @@ export function KeywordPerformanceTab() {
                   </small>
                 </span>
                 <b>{usd(row.maxBid)}</b>
-                <b>{row.clicks}</b>
+                <b>{num(row.clicks)}</b>
                 <b>{usd(row.spend)}</b>
-                <b>{row.orders}</b>
+                <b>{num(row.orders)}</b>
                 <strong>{row.wscRoas === null ? "—" : `${row.wscRoas.toFixed(2)}×`}</strong>
                 <ContributionCell value={row.contribution} basis={row.contributionBasis} loss={row.loss} suspected={row.suspectedLoss} />
                 <span>
@@ -384,7 +411,7 @@ export function RankTab() {
       <section className="card ad-manager-card rank-card">
         <div className="listing-grain-note">
           <b>统计口径：商品在所属类目内按销量的排名</b>
-          <span>仅 WSP 商品广告有数据；位置按 排名÷类目商品数 划分（前 20% 领先、后 40% 落后），类目商品数缺失时不分档。</span>
+          <span>仅 WSP 商品广告有数据；位置按 排名÷类目商品数 划分（前 20% 领先、后 40% 落后），类目商品数缺失时不分档。“建议”列尚未用真实报表样本验证，仅供参考，不据此投放。</span>
         </div>
         <div className="api-table-scroll">
           <div className="api-table rank-table">
@@ -397,7 +424,7 @@ export function RankTab() {
               <span>广告花费</span>
               <span>TACOS</span>
               <span>扣广告后贡献</span>
-              <span>建议（仅供参考）</span>
+              <span>建议（待验证）</span>
             </div>
             {rows.map((row) => (
               <article className="api-row" key={row.sku}>
@@ -415,7 +442,10 @@ export function RankTab() {
                 <b className={row.tacos === null ? "neutral" : row.tacos <= 0.1 ? "good" : "bad"}>{pct(row.tacos)}</b>
                 <ContributionCell value={row.contribution} basis={row.contributionBasis} loss={row.loss} suspected={row.suspectedLoss} />
                 <span>
-                  <em className={row.advice.code === "REDUCE" ? "bad" : row.advice.code === "INVEST" ? "good" : "neutral"}>{row.advice.label}</em>
+                  <em className="neutral">
+                    {row.advice.validated === true ? "" : "待验证 · "}
+                    {row.advice.label}
+                  </em>
                 </span>
               </article>
             ))}

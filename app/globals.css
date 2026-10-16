@@ -677,6 +677,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .tacos-bar i.ok{background:var(--green)}
 .tacos-bar i.over{background:var(--red)}
 .tacos-bar u{position:absolute;top:-4px;width:2px;height:18px;background:var(--ink);text-decoration:none}
+.tacos-provisional{font-style:normal;font-weight:700;font-size:12px;line-height:1.5;color:var(--ink);border:1px solid var(--ink);border-radius:6px;padding:4px 8px;justify-self:start}
 .tacos-alerts{padding:14px 24px;display:grid;gap:8px}
 .tacos-alerts>b{font-size:13px}
 .tacos-alerts p{margin:0;display:grid;grid-template-columns:130px minmax(0,1fr) 90px minmax(0,220px);align-items:center;gap:12px;font-size:12px}

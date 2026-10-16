@@ -35,3 +35,14 @@ ADS_EXTENDED_REPORTS_ENABLED=true ADS_EXTENDED_BACKFILL_CONFIRM=yes \
 1. 把 `ADS_EXTENDED_REPORTS_ENABLED` 设回 `false`（或删除），重启应用容器：06:00 同步不再请求这两个报表，页面只读已有数据。
 2. 需要清数据时：`DELETE FROM ad_report_rows WHERE report_type IN ('KEYWORD_PRODUCT_REPORT','PRODUCT_RANK_REPORT')` 以及对应的 `ad_report_days`；不会影响 CAMPAIGN_REPORT / LISTING_REPORT。
 3. 代码回滚：回到上一个 `production` SHA 重新部署（本次无数据库迁移，无需反向迁移）。
+
+## 审计修复后的行为（第二轮）
+
+- 缺列一律为 `null`（显示“—”），不当 0；没有订单列时不判断“零订单”（建议为“未知”）；页面提示列出缺失的列。
+- 归因列同时有 click_through 与 view_through（14 天）时，明确选用 view_through（与现有 Campaign/Listing 口径一致）并在“列名匹配提示”里写明；仍有歧义则取 null。`rank_percentile` 不会被当成排名。
+- 最近 14 天内（归因未成熟）“有花费无销售”只标“观察”，不判亏损；TACOS 面板的提醒带“观察/亏损”状态。
+- 广告花费覆盖不是 FULL 时，TACOS 只给“暂估”，不提示“可不设预算上限”。
+- 排名页“建议”列标“待验证”（`RANK_ADVICE_VALIDATED=false`），用真实样本核对后再改为 true；加投建议要求 Listing TACOS 已知且在 10% 线内。
+- `refresh=1` 同时校验 `Origin` 与 `Sec-Fetch-Site`（仅放行 same-origin / none / 无该头的内部同步）。`/api/ads/analysis` 行为未改。
+- 报表轮询每 3 秒一次、最多 60 次（约 3 分钟）；超时后报表 id 记入 `sync_state`（键 `ads-extended:pending:<类型>:<起>:<止>`，24 小时有效），下次同步同一窗口时续取而不重复创建。限制：每日窗口随日期平移，窗口变化后上一份未完成报表不会被续取（只会多留一份孤儿报表，不写数据）。
+- 每个日期的“删除旧数据 + 写入新数据”在同一个事务里（`db.batch` = BEGIN…COMMIT，失败整日回滚）；多日窗口中途失败时，已完成的日期保持新数据、其余日期保持旧数据。

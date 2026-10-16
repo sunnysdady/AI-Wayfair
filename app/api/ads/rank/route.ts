@@ -1,6 +1,6 @@
 import { cachedAdSpend } from "../../../../lib/wayfair-ads";
 import { buildExtendedView } from "@/lib/ads-keyword-rank-service.mjs";
-import { sameOrigin } from "@/lib/http-origin.mjs";
+import { refreshAllowed } from "@/lib/ads-refresh-guard.mjs";
 import { getRuntimeBindings } from "@/lib/runtime-bindings.mjs";
 
 export const dynamic = "force-dynamic";
@@ -11,8 +11,8 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const refresh = url.searchParams.get("refresh") === "1";
-    // A refresh triggers outbound Wayfair calls: cross-origin browser callers are refused (internal sync sends no Origin).
-    if (refresh && !sameOrigin(request)) {
+    // A refresh triggers outbound Wayfair calls: cross-origin / cross-site (Origin or Sec-Fetch-Site) browser callers are refused (internal sync sends no Origin).
+    if (refresh && !refreshAllowed(request)) {
       return Response.json({ error: "刷新请求来源无效" }, { status: 403 });
     }
     const data = await buildExtendedView({
