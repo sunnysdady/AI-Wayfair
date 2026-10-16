@@ -118,3 +118,8 @@ test("surfaces failed reports and never hangs forever", async () => {
     { reportType: "PRODUCT_RANK_REPORT", start: "2026-10-01", end: "2026-10-01" },
   ), /仍在生成/);
 });
+
+test("loader-injected columns are not reported as unmapped report columns", () => {
+  const row = normalizeKeywordRow({ __report_date: "2026-10-06", keyword: "desk", mystery: "1" });
+  assert.deepEqual(row.unmapped, ["mystery"]);
+});
