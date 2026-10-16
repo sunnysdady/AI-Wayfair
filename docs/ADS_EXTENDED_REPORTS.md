@@ -46,3 +46,10 @@ ADS_EXTENDED_REPORTS_ENABLED=true ADS_EXTENDED_BACKFILL_CONFIRM=yes \
 - `refresh=1` 同时校验 `Origin` 与 `Sec-Fetch-Site`（仅放行 same-origin / none / 无该头的内部同步）。`/api/ads/analysis` 行为未改。
 - 报表轮询每 3 秒一次、最多 60 次（约 3 分钟）；超时后报表 id 记入 `sync_state`（键 `ads-extended:pending:<类型>:<起>:<止>`，24 小时有效），下次同步同一窗口时续取而不重复创建。限制：每日窗口随日期平移，窗口变化后上一份未完成报表不会被续取（只会多留一份孤儿报表，不写数据）。
 - 每个日期的“删除旧数据 + 写入新数据”在同一个事务里（`db.batch` = BEGIN…COMMIT，失败整日回滚）；多日窗口中途失败时，已完成的日期保持新数据、其余日期保持旧数据。
+
+## 真实列名（只读探测结果，2026-10-08 起窗口）
+
+- KEYWORD_PRODUCT_REPORT：`keyword_value`（关键词文本）、`keyword_id`（稳定 id，用作行唯一键与聚合键）、`keyword_default_bid`（关键词默认出价，页面“Bid”列显示它）、`keyword_match_type`、`listing`（SKU）、`Class Name`，以及与现有报表同名的 `attributed_*_window_view_through_*_Day_14`、`spend_USD`、`clicks`、`impressions`。
+- PRODUCT_RANK_REPORT 只有 `Date, Listing, Campaign Listing Status, Class Name, Class Rank`：没有销量、花费、品类规模，所以“位置”恒为“未知”，只展示排名与变化；“建议”仍标待验证（`RANK_ADVICE_VALIDATED=false`）。
+- 同日同关键词出现多行时会合计，并在页面提示“N 行重复”供核对。
+- 测试夹具：`tests/fixtures/ads-real-samples.json`（已脱敏的真实样例行）。

@@ -58,6 +58,7 @@ type KeywordRow = {
   campaignName: string;
   sku: string;
   productName: string;
+  keywordId?: string;
   keyword: string;
   matchType: string;
   maxBid: number | null;
@@ -356,7 +357,7 @@ export function KeywordPerformanceTab() {
               <span>建议（仅供参考）</span>
             </div>
             {rows.map((row) => (
-              <article className="api-row" key={`${row.campaignId}:${row.sku}:${row.keyword}:${row.matchType}`}>
+              <article className="api-row" key={`${row.campaignId}:${row.sku}:${row.keywordId || row.keyword}:${row.matchType}`}>
                 <span>
                   <b>{row.keyword || "—"}</b>
                   <small>{row.matchType || "—"}</small>
