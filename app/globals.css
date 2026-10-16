@@ -662,3 +662,28 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 }
 .app-shell .content-shell main h2 { font-weight: 700; }
 .app-shell .content-shell main h3 { font-weight: 650; }
+
+/* 广告增长：关键词表现 / 排名 / TACOS 守护（沿用现有 card、api-table、good/bad 令牌） */
+.kw-table .api-row{min-width:1280px;grid-template-columns:200px 240px 80px 70px 90px 70px 100px 150px 260px}
+.rank-table .api-row{min-width:1280px;grid-template-columns:240px 160px 100px 100px 80px 100px 80px 150px 260px}
+.kw-card .api-row>span:nth-child(2) b,.rank-card .api-row>span:first-child b{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.35}
+.tacos-guard{margin:0 0 18px}
+.tacos-guard-body{padding:18px 24px;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:28px;border-bottom:1px solid var(--line)}
+.tacos-meter,.tacos-contribution{display:grid;gap:6px;align-content:start}
+.tacos-meter strong,.tacos-contribution strong{font-size:30px;letter-spacing:-.03em}
+.tacos-meter span,.tacos-contribution span,.tacos-meter small,.tacos-contribution small{color:var(--muted);font-size:12px;line-height:1.5}
+.tacos-bar{position:relative;height:10px;border-radius:6px;background:#ece7ee;overflow:visible}
+.tacos-bar i{display:block;height:100%;border-radius:6px}
+.tacos-bar i.ok{background:var(--green)}
+.tacos-bar i.over{background:var(--red)}
+.tacos-bar u{position:absolute;top:-4px;width:2px;height:18px;background:var(--ink);text-decoration:none}
+.tacos-alerts{padding:14px 24px;display:grid;gap:8px}
+.tacos-alerts>b{font-size:13px}
+.tacos-alerts p{margin:0;display:grid;grid-template-columns:130px minmax(0,1fr) 90px minmax(0,220px);align-items:center;gap:12px;font-size:12px}
+.tacos-alerts em{font-style:normal;font-weight:700}
+.tacos-alerts small{color:var(--muted)}
+.tacos-notes{padding:0 24px 16px;color:var(--muted);font-size:12px;line-height:1.6}
+.tacos-notes summary{cursor:pointer;padding:6px 0}
+@media(max-width:900px){.tacos-guard-body{grid-template-columns:1fr}.tacos-alerts p{grid-template-columns:1fr 1fr}}
+.period-bar label.kw-check{display:flex;flex:none;align-items:center;gap:6px;font-size:12px}
+.period-bar label.kw-check input{width:16px;height:16px;padding:0;accent-color:var(--purple)}

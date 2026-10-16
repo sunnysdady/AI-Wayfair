@@ -24,6 +24,7 @@ import {
 } from "./august-execution-policy.mjs";
 import { augustSalesPlanForListing } from "./august-sales-plan.mjs";
 import { lingxingDate, lingxingDayStart } from "./lingxing-business-time.mjs";
+import { buildTacosGuard, loadSalesContext } from "./ads-tacos-guard.mjs";
 
 const TOKEN_URL = "https://sso.auth.wayfair.com/oauth/token";
 const API_BASE = "https://api.wayfair.io/advertising/v1";
@@ -1018,8 +1019,19 @@ export async function getAdvertisingAnalysis(env: AdvertisingEnv, start: string,
   const preliminary = buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals, skuCosts, catalogEvidence);
   await syncWeeklyReviews(env.DB, preliminary);
   const weeklyMemory = await loadWeeklyMemory(env.DB);
+  // Sunny's TACOS ≤10% rule + loss flags (advisory; never changes bids or budgets).
+  let tacosGuard: unknown = null;
+  if (env.DB) {
+    try {
+      const [sales, adSpend] = await Promise.all([loadSalesContext(env.DB, start, end), cachedAdSpend(env.DB, start, end)]);
+      tacosGuard = buildTacosGuard({ range: { start, end }, adSpend, sales, listingRows: listing.rows, costByPart: skuCosts });
+    } catch (error) {
+      tacosGuard = { error: error instanceof Error ? error.message : "TACOS 计算失败" };
+    }
+  }
   const analysis = {
     ...buildAnalysis(campaign.rows, listing.rows, start, end, decisionStart, decisionEnd, inventory, goals, skuCosts, catalogEvidence, weeklyMemory),
+    tacosGuard,
     reports: { campaign: campaign.reportId, listing: listing.reportId },
     cache: { hit: campaign.source === "POSTGRESQL_DATABASE" && listing.source === "POSTGRESQL_DATABASE", layer: campaign.source === "POSTGRESQL_DATABASE" && listing.source === "POSTGRESQL_DATABASE" ? "POSTGRESQL_REPORT_ROWS" : "ADVERTISING_API" },
   };

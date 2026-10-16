@@ -28,6 +28,12 @@ import {
   navigationStateFromSearch,
 } from "../lib/app-navigation.mjs";
 import FulfillmentWorkspace from "./fulfillment/workspace";
+import {
+  KeywordPerformanceTab,
+  RankTab,
+  TacosGuardPanel,
+  type TacosGuardData,
+} from "./AdsKeywordRank";
 import { PLAN_PROGRESS_CACHE_KEY } from "../lib/plan-progress-view.mjs";
 import { formatLingxingDateTime, lingxingDate, shiftLingxingDate } from "../lib/lingxing-business-time.mjs";
 import legacyOperatingDataSource from "../data/dmom-operating-2026-06.json";
@@ -42,7 +48,7 @@ type View =
   | "fulfillment"
   | "sources"
   | "help";
-type AdsTab = "manager" | "listings" | "ai" | "manual" | "review";
+type AdsTab = "manager" | "listings" | "ai" | "manual" | "review" | "keywords" | "rank";
 type DailyTab = "operating" | "email";
 type PlanningTab = "plan" | "august" | "september" | "review" | "history";
 type ProductTab = "inventory" | "catalog" | "launch" | "performance";
@@ -77,6 +83,8 @@ const SUB_NAV: Partial<Record<View, { id: SubView; label: string }[]>> = {
   ads: [
     { id: "manager", label: "广告管理器" },
     { id: "listings", label: "父体 SKU 广告表现" },
+    { id: "keywords", label: "关键词表现" },
+    { id: "rank", label: "排名" },
     { id: "ai", label: "AI 优化" },
     { id: "manual", label: "手动优化 To-Do" },
     { id: "review", label: "优化记录与复盘" },
@@ -685,6 +693,7 @@ type AdAnalysis = {
   campaigns: AdCampaign[];
   listings: AdListing[];
   parentListings?: AdListing[];
+  tacosGuard?: TacosGuardData | null;
   liveSafetyFindings?: AdListing[];
   zombieFindings: ZombieCampaignFinding[];
   zombieAudit: {
@@ -6411,12 +6420,18 @@ function Ads({
   const sortListing = (field: string) =>
     setListingSort((value) => nextSort(value, field) as SortState);
   const headerRange =
-    tab === "review" ? null : tab === "ai" ? data?.decisionRange : requested;
+    tab === "keywords" || tab === "rank"
+      ? null
+      : tab === "review" ? null : tab === "ai" ? data?.decisionRange : requested;
   const pageTitle =
     tab === "manager"
       ? "广告管理器"
       : tab === "listings"
         ? "父体 SKU 广告表现"
+        : tab === "keywords"
+          ? "关键词表现"
+          : tab === "rank"
+            ? "排名"
         : tab === "manual"
           ? "手动优化 To-Do"
           : tab === "review"
@@ -6427,6 +6442,8 @@ function Ads({
       ? `${data?.campaigns.length || 0} 个 Campaign`
       : tab === "listings"
         ? `${data?.listings.length || 0} 个父体 SKU`
+        : tab === "keywords" || tab === "rank"
+          ? "只读建议"
         : tab === "manual"
           ? `${resolvedZombieCount} / ${zombieFindings.length} 诊断已完成 · ${manualDone.length} / ${MANUAL_AD_TASK_COUNT} 已闭环 · ${manualOpenCount} 可验收`
           : tab === "review"
@@ -6505,14 +6522,17 @@ function Ads({
           </span>
         </section>
       )}
-      {error && tab !== "review" && (
+      {error && tab !== "review" && tab !== "keywords" && tab !== "rank" && (
         <div className="inline-error">
           {error}；系统未展示任何静态替代建议。
         </div>
       )}
       {tab === "review" && <AdReviewDashboard />}
+      {tab === "keywords" && <KeywordPerformanceTab />}
+      {tab === "rank" && <RankTab />}
       {tab === "manager" && (
         <>
+          <TacosGuardPanel guard={loading ? null : data?.tacosGuard} />
           <section className="stat-grid six ad-manager-kpis">
             {[
               [

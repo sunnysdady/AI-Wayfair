@@ -9,6 +9,7 @@ import {
 import { lingxingDate } from "@/lib/lingxing-business-time.mjs";
 import { syncFulfillmentOrders } from "@/lib/fulfillment-api-sync.mjs";
 import { runScheduledInventory } from "@/lib/scheduled-inventory-sync.mjs";
+import { extendedReportsEnabled } from "@/lib/ads-extended-sync.mjs";
 
 export const maxDuration = 800;
 export const dynamic = "force-dynamic";
@@ -189,6 +190,7 @@ async function runSync(
         ? () => syncOutlookDaily({ env, db, now, lookbackDays: outlookLookbackDays })
         : undefined,
       mode: manualFull ? "manual-full" : undefined,
+      extendedAds: extendedReportsEnabled(env),
       catalogPageBudget: boundedInteger(
         manualFull
           ? env.CATALOG_MANUAL_SYNC_PAGE_BUDGET
