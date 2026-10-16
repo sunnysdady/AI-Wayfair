@@ -170,3 +170,14 @@ test("discontinued parts are neither pushed nor reported as unmapped", () => {
   assert.deepEqual(result.rows.map((row) => row.item.supplierPartNumber), ["NEW"]);
   assert.deepEqual(result.unmappedActiveParts, []);
 });
+
+test("summarizes missing warehouses per Lingxing SKU and flags SKUs missing everywhere", async () => {
+  const { summarizeMissingBySku } = await import("../lib/inventory-plan.mjs");
+  const result = summarizeMissingBySku([
+    { lingxingSku: "SKU-X", warehouse: "WH-A", reason: "r" },
+    { lingxingSku: "SKU-X", warehouse: "WH-B", reason: "r" },
+    { lingxingSku: "SKU-Y", warehouse: "WH-A", reason: "r" },
+    { lingxingSku: "", warehouse: "WH-A", reason: "商品未映射领星 SKU" },
+  ], 2);
+  assert.deepEqual(result.map((r) => [r.lingxingSku, r.missingWarehouses, r.allMissing]), [["SKU-X", 2, true], ["SKU-Y", 1, false]]);
+});
