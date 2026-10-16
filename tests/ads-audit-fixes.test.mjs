@@ -311,3 +311,47 @@ test("8. a failure inside a day rolls that whole day back (old data survives int
   await assert.rejects(saveExtendedReport(db, "KEYWORD_PRODUCT_REPORT", "2026-10-01", "2026-10-01", rows), /simulated/);
   assert.deepEqual(db.rows.map((row) => row.key), ["old"]);
 });
+
+// ---- empty report must not wipe stored data
+const KW_ROW = { Date: "2026-10-01", campaign_id: "1", listing: "L1", keyword: "desk", keyword_match_type: "EXACT", spend_USD: "5" };
+
+test("empty report over a window that already has rows: nothing deleted, no day marked synced, warning returned", async () => {
+  const db = createFakeAdDb();
+  await saveExtendedReport(db, "KEYWORD_PRODUCT_REPORT", "2026-10-01", "2026-10-02", [KW_ROW], "2026-10-02T00:00:00Z");
+  const before = JSON.stringify([db.rows, [...db.days]]);
+  const batchesBefore = db.batches.length;
+  const result = await saveExtendedReport(db, "KEYWORD_PRODUCT_REPORT", "2026-10-01", "2026-10-02", [], "2026-10-03T00:00:00Z");
+  assert.equal(result.preserved, true);
+  assert.match(result.warning, /已有 1 行存量数据/);
+  assert.equal(JSON.stringify([db.rows, [...db.days]]), before, "rows and synced-day markers untouched");
+  assert.equal(db.batches.length, batchesBefore, "no transaction was even started");
+});
+
+test("empty report over a window with no stored rows still records real zero days", async () => {
+  const db = createFakeAdDb();
+  const result = await saveExtendedReport(db, "KEYWORD_PRODUCT_REPORT", "2026-10-01", "2026-10-02", [], "2026-10-03T00:00:00Z");
+  assert.equal(result.preserved, undefined);
+  assert.equal(db.days.size, 2);
+});
+
+test("rows stored under another report type do not block an empty report", async () => {
+  const db = createFakeAdDb();
+  await saveExtendedReport(db, "PRODUCT_RANK_REPORT", "2026-10-01", "2026-10-01", [{ Date: "2026-10-01", listing: "L1", rank: "3" }]);
+  const result = await saveExtendedReport(db, "KEYWORD_PRODUCT_REPORT", "2026-10-01", "2026-10-01", []);
+  assert.equal(result.preserved, undefined);
+});
+
+test("sync reports an empty download over stored data as a warning and keeps the data", async () => {
+  const db = createFakeAdDb();
+  await saveExtendedReport(db, "KEYWORD_PRODUCT_REPORT", "2026-10-01", "2026-10-01", [KW_ROW], "2026-10-02T00:00:00Z");
+  const api = async (path, init = {}) => (init.method === "POST" ? { id: "r" } : { status: "COMPLETED", url: "https://f/k.csv" });
+  const [result] = await syncExtendedReports({
+    db, env: ON, start: "2026-10-01", end: "2026-10-01", types: ["KEYWORD_PRODUCT_REPORT"], api,
+    fetchImpl: async () => new Response("Date,keyword\n"), wait: async () => {}, now: "2026-10-03T00:00:00Z",
+  });
+  assert.equal(result.status, "warning");
+  assert.match(result.warning, /未覆盖/);
+  assert.equal(db.rows.length, 1);
+  assert.equal(db.days.get("KEYWORD_PRODUCT_REPORT|2026-10-01"), "2026-10-02T00:00:00Z", "refreshed_at not advanced");
+  assert.equal(db.state.size, 0, "pending marker cleared");
+});

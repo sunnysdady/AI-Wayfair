@@ -45,7 +45,7 @@ type ExtendedView<Row> = {
   range: { start: string; end: string };
   tacos: { line: number; account: TacosAccount; alerts: LossAlert[]; notes: string[]; mature?: boolean } | null;
   coverage: { expectedDays: number; syncedDays: number; missingDays: string[]; lastRefreshedAt: string | null };
-  sync: { status: string; error?: string; rows?: number } | null;
+  sync: { status: string; error?: string; warning?: string; rows?: number } | null;
   hints: string[];
   rows: Row[];
   summary: Record<string, number | boolean | string | null>;
@@ -297,6 +297,7 @@ function StatusLines({ data, error }: { data: ExtendedView<unknown> | null; erro
     <>
       {error && <div className="inline-error">{error}</div>}
       {data?.sync?.status === "failed" && <div className="inline-error">刷新失败：{data.sync.error}</div>}
+      {data?.sync?.status === "warning" && <div className="inline-error">刷新警告：{data.sync.warning || data.sync.error}</div>}
       {data?.hints.map((hint) => (
         <div className="listing-grain-note" key={hint}>
           <span>{hint}</span>

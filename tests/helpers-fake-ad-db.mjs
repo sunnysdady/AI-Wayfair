@@ -35,6 +35,10 @@ export function createFakeAdDb({ extra = {}, failInsertAt = null } = {}) {
       const [type, start, end] = args;
       return { results: [...days].filter(([key]) => key.startsWith(`${type}|`)).map(([key, refreshed]) => ({ report_date: key.split("|")[1], refreshed_at: refreshed })).filter((row) => row.report_date >= start && row.report_date <= end) };
     }
+    if (/^SELECT COUNT\(\*\) AS n FROM ad_report_rows/i.test(sql)) {
+      const [type, start, end] = args;
+      return { results: [{ n: rows.filter((row) => row.type === type && row.date >= start && row.date <= end).length }] };
+    }
     if (/^INSERT INTO sync_state/i.test(sql)) { state.set(args[0], { value: args[1], updated: args[2] }); return { results: [] }; }
     if (/^SELECT value FROM sync_state/i.test(sql)) { const hit = state.get(args[0]); return { results: hit ? [{ value: hit.value }] : [] }; }
     if (/^DELETE FROM sync_state/i.test(sql)) { state.delete(args[0]); return { results: [] }; }
